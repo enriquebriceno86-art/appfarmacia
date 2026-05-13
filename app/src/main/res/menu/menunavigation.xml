@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_home"
+        android:icon="@drawable/homeicon"
+        android:title="Inicio" />
+
+    <item
+        android:id="@+id/nav_cajaventas"
+        android:icon="@drawable/pos"
+        android:title="Caja" />
+
+    <item
+        android:id="@+id/nav_pedidos"
+        android:visible="false"
+        android:icon="@drawable/iconpedidonavigation"
+        android:title="Pedidos" />
+
+    <item
+        android:id="@+id/nav_productos"
+        android:icon="@drawable/inventory_2icon"
+        android:title="Inventario" />
+
+    <item
+        android:id="@+id/nav_reportes"
+        android:icon="@drawable/reportesicon"
+        android:title="Reportes" />
+
+    <item
+        android:id="@+id/nav_perfil"
+        android:icon="@drawable/iconpersona"
+        android:title="Perfil" />
+</menu>

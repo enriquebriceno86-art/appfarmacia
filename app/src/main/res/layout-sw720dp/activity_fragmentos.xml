@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".ActivityFragmentos.ActivityFragmentos">
+
+    <!-- Sidebar lateral (rail) tablet con brand header + nav + footer "tu informacion segura" -->
+    <LinearLayout
+        android:id="@+id/sidebarTablet"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:background="#0B2F2A"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+
+
+
+
+        <!-- Nav items -->
+        <com.google.android.material.navigationrail.NavigationRailView
+            android:id="@+id/navigationRail"
+            android:layout_width="96dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#071F1C"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            app:elevation="0dp"
+            app:itemIconTint="@color/selector_nav_icons"
+            app:itemTextColor="@color/selector_nav_icons"
+            app:itemPaddingTop="16dp"
+            app:itemPaddingBottom="16dp"
+            app:indicatorColor="@color/brand_green"
+            app:itemActiveIndicatorStyle="@style/NavRailActiveIndicator"
+            app:itemRippleColor="@android:color/transparent"
+            app:itemTextAppearanceActive="@style/NavRailTextActive"
+            app:itemTextAppearanceInactive="@style/NavRailTextInactive"
+            app:labelVisibilityMode="labeled"
+            app:menuGravity="top"
+            app:menu="@menu/menunavigation" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/dividerSidebarTablet"
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:background="@color/divider"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/sidebarTablet"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/fragmentocontainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/dividerSidebarTablet"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/systemBarBottomScrim"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#071F1C"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutBloqueoConfigTienda"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6F6F8FB"
+        android:clickable="true"
+        android:elevation="80dp"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="12dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeColor="@color/border_blue"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="100dp">
+
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/imagenconfigurartienda" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:text="Configura tu tienda"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:fontFamily="@font/inter_medium"
+                    android:text="Para continuar, primero completa los datos generales de la tienda."
+                    android:textAlignment="center"
+                    android:textColor="@color/text_secondary_indigo"
+                    android:textSize="15sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAbrirDatosTienda"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:text="Ir a Datos de la Tienda"
+                    android:textAllCaps="false"
+                    android:fontFamily="@font/inter_semibold"
+                    android:padding="24dp"
+                    app:backgroundTint="@color/brand_green_soft"
+                    app:cornerRadius="30dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutBloqueoSinConexion"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_bloqueo_error_gradient"
+        android:clickable="true"
+        android:elevation="95dp"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBloqueoSinConexion"
+            android:layout_width="480dp"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="60dp">
+
+                <FrameLayout
+                    android:layout_width="140dp"
+                    android:layout_height="140dp">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_estado_vacio_circulo"
+                        android:alpha="0.1"
+                        android:backgroundTint="@color/state_error"/>
+
+                    <ImageView
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/internet"
+                        app:tint="@color/state_error" />
+                </FrameLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Conexión interrumpida"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="28sp"
+                    android:letterSpacing="-0.02"/>
+
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:gravity="center"
+                    android:lineSpacingExtra="6dp"
+                    android:text="No detectamos una señal activa. Revisa tu Wi-Fi o datos para seguir operando."
+                    android:textAlignment="center"
+                    android:textColor="@color/text_secondary_slate"
+                    android:textSize="17sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnReintentarConexion"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:layout_marginTop="40dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Reintentar ahora"
+                    android:textAllCaps="false"
+                    android:textSize="18sp"
+                    app:backgroundTint="@color/text_primary_pure"
+                    app:cornerRadius="24dp"
+                    app:elevation="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutBloqueoTiendaCerrada"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6F6F8FB"
+        android:clickable="true"
+        android:elevation="85dp"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="12dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeColor="@color/border_blue"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="84dp">
+
+                <ImageView
+                    android:layout_width="124dp"
+                    android:layout_height="124dp"
+                    android:src="@drawable/tiendacerrada" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:text="Tienda cerrada"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="26sp" />
+
+                <TextView
+                    android:id="@+id/tvMensajeBloqueoTiendaCerrada"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:gravity="center"
+                    android:lineSpacingExtra="2dp"
+                    android:text="La tienda esta cerrada por el horario de hoy."
+                    android:textAlignment="center"
+                    android:textColor="@color/text_secondary_indigo"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvProximaAperturaTiendaCerrada"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:gravity="center"
+                    android:text="Proxima apertura: --"
+                    android:textAlignment="center"
+                    android:textColor="@color/brand_green_emphasis"
+                    android:textSize="15sp"
+                    android:visibility="gone" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnIrHorariosTiendaCerrada"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:paddingHorizontal="26dp"
+                    android:paddingVertical="12dp"
+                    android:text="Ir a horarios"
+                    android:textAllCaps="false"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/black"
+                    app:cornerRadius="30dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutBloqueoUsuarioInactivo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6F6F8FB"
+        android:clickable="true"
+        android:elevation="90dp"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="80dp"
+            android:layout_marginEnd="80dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="12dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeColor="@color/border_blue"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="84dp">
+
+                <ImageView
+                    android:layout_width="124dp"
+                    android:layout_height="124dp"
+                    android:src="@drawable/accesobloqueado" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:text="Acceso desactivado"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="26sp" />
+
+                <TextView
+                    android:id="@+id/tvMensajeBloqueoUsuarioInactivo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:gravity="center"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Tu acceso fue desactivado. Debes volver al login para continuar."
+                    android:textAlignment="center"
+                    android:textColor="@color/text_secondary_indigo"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnIrLoginUsuarioInactivo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:fontFamily="@font/inter_semibold"
+                    android:paddingHorizontal="26dp"
+                    android:paddingVertical="12dp"
+                    android:text="Ir al login"
+                    android:textAllCaps="false"
+                    app:backgroundTint="@color/black"
+                    app:cornerRadius="30dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:name=".AppFarmadon"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppFarmadon"
+        android:windowSoftInputMode="adjustResize">
+        <activity
+            android:name=".ActivitysCaja.DetalleVentaActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysCaja.CajasCajerasListaActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysCaja.CajaDetalleCajeraActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysPerfilItem.activity_detalle_reporte"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysPerfilItem.ListaReportesCaja"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysInicio.AlertasActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysInicio.AnalisisMovimientos"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysPerfilItem.TiposPagoActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysPerfilItem.DatosdelaTienda"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysPerfilItem.HorariosActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysPedidosTienda.ActivitysDetallesPedidos"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivityInventario.EditarProductodelInventario"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivityInventario.HistorialMovimientosInventarioActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysCaja.ActivityHistorialVentasCaja"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivitysCaja.ActivitySeleccionarProductoSustitucion"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivityInventario.CrearProducto"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysUsuarios.UserActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
+        <activity
+            android:name=".ActivityFragmentos.ActivityFragmentos"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="true"
+            android:theme="@style/Theme.App.Splash"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <meta-data
+            android:name="CLOUDINARY_URL"
+            android:value="cloudinary://dluvatyh7" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
+</manifest>

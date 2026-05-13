@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/white"
+    android:orientation="vertical"
+    android:paddingStart="20dp"
+    android:paddingTop="20dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="20dp">
+
+    <View
+        android:layout_width="44dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="#D7DAE0" />
+
+    <TextView
+        android:id="@+id/tvTituloCambiarPresentacionCaja"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Corrige este producto"
+        android:fontFamily="@font/inter_semibold"
+        android:textColor="@color/text_primary_pure"
+        android:textSize="16dp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvMensajeCambiarPresentacionCaja"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/inter_regular"
+        android:text="Esta presentación ya no alcanza con el stock actual. Te mostramos opciones que sí se pueden vender."
+        android:textColor="#5F6368"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:id="@+id/layoutOpcionesCambiarPresentacionCaja"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:orientation="vertical" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCerrarCambiarPresentacionCaja"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="8dp"
+        android:text="Cancelar"
+        android:fontFamily="@font/inter_regular"
+        android:textAllCaps="false"
+        android:textColor="@color/text_primary_pure"
+        app:rippleColor="#14000000" />
+
+</LinearLayout>

@@ -1,0 +1,2826 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5FBF9">
+
+    <!-- ================= PANEL: CATALOGO ================= -->
+
+    <!-- Banner Desincronizacion de Tiempo -->
+    <LinearLayout
+        android:id="@+id/bannerDesincronizacionTiempo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="#FFF3E0"
+        android:elevation="9dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_medium"
+            android:text="&#x26A0;  Reloj desincronizado. Corrigelo en Ajustes para poder cobrar."
+            android:textColor="#E65100"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardSplashPresenciaCaja"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="22dp"
+        android:layout_marginTop="14dp"
+        android:alpha="0"
+        android:elevation="18dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#0F172A"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/bannerDesincronizacionTiempo"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="16dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSplashPresenciaIcono"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                app:cardBackgroundColor="#1D4ED8"
+                app:cardCornerRadius="23dp"
+                app:cardElevation="0dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Presencia en caja"
+                    android:src="@drawable/ic_info"
+                    app:tint="@android:color/white" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSplashPresenciaBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="#1E293B"
+                    app:cardCornerRadius="11dp"
+                    app:cardElevation="0dp">
+
+                    <TextView
+                        android:id="@+id/tvSplashPresenciaBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp"
+                        android:text="PRESENCIA EN VIVO"
+                        android:textAllCaps="true"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:fontFamily="@font/inter_bold" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/tvSplashPresenciaTitulo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Luis entro a tu caja"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvSplashPresenciaDetalle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:text="Ahora ambos ven la misma caja en tiempo real."
+                    android:textColor="#D7E3F4"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:id="@+id/layoutEncabezadoSuperiorTablet"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:elevation="8dp"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:background="@color/white"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- CARD DE SUPERVISION (si esta activa) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardAvisoSupervision"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_weight="1"
+            android:visibility="gone"
+            app:cardBackgroundColor="#FFF3CD"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            tools:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_info"
+                    app:tint="@color/state_warning_dark" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvMensajeSupervision"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Supervisi&#xF3;n operativa activa"
+                        android:textColor="@color/state_warning_dark"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/inter_medium" />
+
+                    <TextView
+                        android:id="@+id/tvNombreCajaSupervisada"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Est&#xE1;s operando la caja de Maria."
+                        android:textColor="@color/state_warning_dark"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAccionControlSupervision"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="6dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="Tomar control"
+                    android:textAllCaps="false"
+                    android:textColor="@color/state_warning_dark"
+                    android:textSize="12sp"
+                    android:visibility="gone"
+                    app:backgroundTint="@android:color/transparent"
+                    app:cornerRadius="20dp"
+                    app:rippleColor="#22000000"
+                    app:strokeColor="@color/state_warning_dark"
+                    app:strokeWidth="1dp"
+                    tools:visibility="visible" />
+
+                <ImageButton
+                    android:id="@+id/btnCerrarSupervision"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/close_24"
+                    app:tint="@color/state_warning_dark" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <FrameLayout
+            android:id="@+id/overlayControlAsistidoCaja"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="#6B0F172A"
+            android:clickable="true"
+            android:elevation="14dp"
+            android:focusable="true"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardControlAsistidoCaja"
+                android:layout_width="560dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="28dp"
+                    android:paddingTop="28dp"
+                    android:paddingBottom="24dp">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        app:cardBackgroundColor="#EAF2FF"
+                        app:cardCornerRadius="30dp"
+                        app:cardElevation="0dp">
+
+                        <ImageView
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Caja en solo lectura"
+                            android:src="@drawable/ic_info"
+                            app:tint="#184A8C" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <TextView
+                        android:id="@+id/tvBadgeControlAsistidoCaja"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:background="#EAF2FF"
+                        android:paddingStart="12dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="5dp"
+                        android:text="SOLO VISTA"
+                        android:textAllCaps="true"
+                        android:textColor="#184A8C"
+                        android:textSize="10sp"
+                        android:fontFamily="@font/inter_bold" />
+
+                    <TextView
+                        android:id="@+id/tvTituloControlAsistidoCaja"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center"
+                        android:text="Luis esta asistiendo esta caja"
+                        android:textColor="@color/text_primary_pure"
+                        android:textSize="20sp"
+                        android:fontFamily="@font/inter_bold" />
+
+                    <TextView
+                        android:id="@+id/tvDetalleControlAsistidoCaja"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center"
+                        android:text="Tu pantalla queda en modo visual para evitar cobros o cambios cruzados mientras la otra persona edita."
+                        android:textColor="@color/text_secondary_gray"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/inter_medium" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </FrameLayout>
+
+        <!-- CABECERA OPERATIVA (siempre visible) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.12"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+               >
+
+                <!-- CHIP DE ESTADO + USUARIO -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/tvEstadoCajaTablet"
+                        style="@style/Widget.MaterialComponents.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checkable="false"
+                        android:text="Turno abierto"
+                        app:chipBackgroundColor="#E6F7EC"
+                        app:chipStrokeColor="@color/brand_green_soft"
+                         />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="adminTmp"
+                        android:textColor="#4B5563"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/inter_medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:visibility="gone"
+                        android:textColor="#7A869A"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- BOTONES DE ACCION -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- Boton Resumen -->
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:minWidth="0dp"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="Resumen"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary_dark"
+                        android:textSize="13sp"
+                        app:cornerRadius="20dp"
+                        app:iconGravity="textStart"
+                        app:iconPadding="6dp"
+                        app:iconTint="@color/text_primary_dark"
+                        app:strokeColor="#D1D5DB" />
+
+                    <!-- Boton Mas acciones con badge -->
+                    <FrameLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:minWidth="0dp"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:text="Acciones"
+                            android:textAllCaps="false"
+                            android:textColor="@color/text_primary_dark"
+                            android:textSize="13sp"
+                            app:cornerRadius="20dp"
+                            app:icon="@drawable/iconpuntos"
+                            app:iconGravity="textStart"
+                            app:iconPadding="6dp"
+                            app:iconTint="@color/text_primary_dark"
+                            app:strokeColor="#D1D5DB" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="-4dp"
+                            android:layout_marginEnd="-4dp"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="0"
+                            android:textColor="@android:color/white"
+                            android:textSize="10sp"
+                            android:fontFamily="@font/inter_bold"
+                            android:visibility="gone" />
+
+                    </FrameLayout>
+
+                    <!-- Boton Cerrar turno -->
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="0dp"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="Cerrar"
+                        android:textAllCaps="false"
+                        android:textColor="#D32F2F"
+                        android:textSize="13sp"
+                        app:cornerRadius="20dp"
+                        app:iconGravity="textStart"
+                        app:iconPadding="6dp"
+                        app:iconTint="#D32F2F"
+                        app:strokeColor="#F5C6CB" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.50" />
+
+    <!-- Guideline 50%: separa catalogo (izq) del carrito (centro) -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidePanelDerechoTablet"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.50" />
+
+    <!-- Guideline 75%: separa carrito de cobro -->
+    <androidx.constraintlayout.widget.Guideline
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.75" />
+
+    <!-- TabLayout oculto (volvimos a 3 paneles fijos) -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayoutPanelDerechoTablet"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/guidePanelDerechoTablet"
+        app:layout_constraintTop_toBottomOf="@id/layoutEncabezadoSuperiorTablet">
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Carrito" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cobro" />
+    </com.google.android.material.tabs.TabLayout>
+
+
+    <LinearLayout
+        android:id="@+id/layoutProductos"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_card_blanco_redondo"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/guidePanelDerechoTablet"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutEncabezadoSuperiorTablet">
+
+        <RelativeLayout
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Cat&#225;logo"
+                android:layout_centerVertical="true"
+                android:textColor="@color/text_primary_pure"
+            android:textSize="24sp" />
+
+            <ImageButton
+                android:id="@+id/btnMenuCaja"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="M&#225;s opciones"
+                android:src="@drawable/iconpuntos"
+                app:tint="@color/black" />
+
+        </RelativeLayout>
+
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/buscadorLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            app:boxBackgroundColor="@color/surface_white"
+            app:boxCornerRadiusBottomEnd="28dp"
+            app:boxCornerRadiusBottomStart="28dp"
+            app:boxCornerRadiusTopEnd="28dp"
+            app:boxCornerRadiusTopStart="28dp"
+            app:boxStrokeColor="@color/border_subtle"
+            android:layout_marginEnd="0dp"
+            app:boxStrokeWidth="1dp"
+            app:boxStrokeWidthFocused="1dp"
+            app:hintEnabled="false"
+            app:startIconDrawable="@drawable/searchicon"
+            app:startIconTint="@color/text_primary_pure">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/buscarProductos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_medium"
+                android:hint="Buscar producto para agregar a la venta"
+                android:inputType="textCapSentences"
+                android:textColor="@color/text_primary_pure"
+                android:textSize="15sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/tvAyudaCajaVacia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:fontFamily="@font/inter_regular"
+            android:lineSpacingExtra="2dp"
+            android:text="Tu caja est&#225; vac&#237;a. Busca un producto o retoma una venta en espera."
+            android:textColor="@color/text_secondary_gray"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:fontFamily="@font/inter_semibold"
+            android:text="Categor&#237;as"
+            android:visibility="gone"
+            android:textColor="@color/text_primary_pure"
+            android:textSize="16sp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerCategorias"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:clipToPadding="false"
+            android:orientation="horizontal" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerProductos"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="18dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
+            tools:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+            tools:spanCount="3" />
+
+        <View
+            android:id="@+id/btnFiltro"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="0.5dp"
+        android:layout_height="0dp"
+        android:background="#E8ECF1"
+        android:elevation="0dp"
+        app:layout_constraintBottom_toBottomOf="@id/layoutCaja"
+        app:layout_constraintEnd_toEndOf="@id/layoutProductos"
+        app:layout_constraintStart_toEndOf="@id/layoutProductos"
+        app:layout_constraintTop_toTopOf="@id/layoutProductos" />
+
+    <!-- ================= PANEL: CARRITO (CAJA) ================= -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutCaja"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_card_blanco_redondo"
+        android:padding="18dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
+        android:layout_marginEnd="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/guidePanelDerechoTablet"
+        app:layout_constraintTop_toBottomOf="@id/tabLayoutPanelDerechoTablet">
+
+        <LinearLayout
+            android:id="@+id/layoutStepperProductosTablet"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="0dp"
+            android:layout_marginBottom="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_chip_borde_redondo"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    app:backgroundTint="@color/brand_green_soft" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:text="Productos"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="26dp"
+                android:layout_height="1dp"
+                android:layout_marginHorizontal="10dp"
+                android:background="#D8DEE9" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_chip_borde_redondo"
+                    android:gravity="center"
+                    android:text="2"
+                    android:textColor="#5F6368"
+                    android:textSize="12sp"
+                    app:backgroundTint="#F1F3F4" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:text="Comprobante"
+                    android:textColor="#7A869A"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="26dp"
+                android:layout_height="1dp"
+                android:layout_marginHorizontal="10dp"
+                android:background="#D8DEE9" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_chip_borde_redondo"
+                    android:gravity="center"
+                    android:text="3"
+                    android:textColor="#5F6368"
+                    android:textSize="12sp"
+                    app:backgroundTint="#F1F3F4" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:text="Cobro"
+                    android:textColor="#7A869A"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutContextoProductosTablet"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="18dp"
+            android:orientation="vertical"
+            app:layout_constraintTop_toBottomOf="@id/layoutStepperProductosTablet"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Revisa productos, cantidades y total antes de continuar."
+                android:textColor="#7A869A"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/headerProductos"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/layoutContextoProductosTablet"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideNombreHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.25" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideCantidadHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.58" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guidePrecioHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintGuide_percent="0.74" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_medium"
+                android:letterSpacing="0.03"
+                android:text="Nombre"
+                android:gravity="center"
+                android:textColor="#7A869A"
+                android:textSize="11sp"
+                app:layout_constraintEnd_toStartOf="@id/guideNombreHeader"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_medium"
+                android:gravity="center"
+                android:letterSpacing="0.03"
+                android:text="Cant."
+                android:textColor="#7A869A"
+                android:textSize="11sp"
+                app:layout_constraintEnd_toStartOf="@id/guideCantidadHeader"
+                app:layout_constraintStart_toStartOf="@id/guideNombreHeader"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_medium"
+                android:gravity="center"
+                android:letterSpacing="0.03"
+                android:text="Precio u/d"
+                android:textColor="#7A869A"
+                android:textSize="11sp"
+                app:layout_constraintEnd_toStartOf="@id/guidePrecioHeader"
+                app:layout_constraintStart_toStartOf="@id/guideCantidadHeader"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_medium"
+                android:gravity="center"
+                android:letterSpacing="0.03"
+                android:text="Total"
+
+                android:textColor="#7A869A"
+                android:textSize="11sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="@id/guidePrecioHeader"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="@color/border_subtle"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/headerProductos"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView2"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            app:layout_constraintTop_toBottomOf="@id/layoutContextoProductosTablet"
+            app:layout_constraintBottom_toTopOf="@id/layoutFooterCajaTablet"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <LinearLayout
+            android:id="@+id/layoutEstadoVacioCaja"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingStart="36dp"
+            android:paddingEnd="36dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/layoutContextoProductosTablet"
+            app:layout_constraintBottom_toTopOf="@id/layoutFooterCajaTablet"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <FrameLayout
+                android:layout_width="152dp"
+                android:layout_height="152dp">
+
+                <View
+                    android:layout_width="152dp"
+                    android:layout_height="152dp"
+                    android:background="@drawable/bg_estado_vacio_circulo" />
+
+                <ImageView
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/iconcaja"
+                    app:tint="@color/brand_green" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvEstadoVacioCajaTitulo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:fontFamily="@font/inter_bold"
+                android:text="Inicia tu primera venta del dia"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp" />
+
+            <TextView
+                android:id="@+id/tvEstadoVacioCajaDetalle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/inter_regular"
+                android:gravity="center"
+                android:lineSpacingExtra="2dp"
+                android:text="Empieza buscando un producto a la izquierda. Cuando lo agregues, aterrizara aqui al instante."
+                android:textColor="@color/text_secondary_slate"
+                android:textSize="15sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutFooterCajaTablet"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardResumenCaja"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="0dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="6dp">
+
+                <TextView
+                    android:id="@+id/tvCarritoBadgeResumen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pill_green_soft"
+                    android:fontFamily="@font/inter_semibold"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="0 productos"
+                    android:textColor="@color/brand_green_emphasis"
+                    android:textSize="12sp" />
+
+                <!-- Resumen turno (oculto, requerido por ViewBinding) -->
+                <TextView
+                    android:id="@+id/tvResumenTurnoRapido"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone"
+                    android:text="Turno: S/ 0.00 &#183; 0 ventas" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:visibility="gone"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/labelBruto"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Subtotal"
+                            android:textColor="@color/text_secondary_gray"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/textbruto"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textColor="@color/text_secondary_strong"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:visibility="gone"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/labelSubtotal"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Descuento"
+                            android:textColor="@color/text_secondary_gray"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/textsubtotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textColor="#626262"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/inter_medium"
+                            android:text="Total"
+                            android:textColor="#475467"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/texttotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="Bs 0.00"
+                            android:textColor="@color/text_primary"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@color/divider_alt" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/btnNecesitoFactura"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:fontFamily="@font/inter_medium"
+                        android:minHeight="48dp"
+                        android:gravity="center_vertical"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:switchPadding="12dp"
+                        android:text="&#xBF;Necesita factura con datos?"
+                        android:textColor="#000000"
+                        android:textSize="14sp"
+                        app:thumbTint="@color/switch_thumb_factura"
+                        app:trackTint="@color/switch_track_factura" />
+                </LinearLayout>
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:visibility="gone"
+                android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPausarVenta"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:fontFamily="@font/inter_regular"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Pausar venta"
+                android:textAllCaps="false"
+                android:textColor="#5F6368"
+                android:textSize="14sp"
+                app:cornerRadius="23dp"
+                app:strokeColor="#E1E6ED" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVentasEnEspera"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:fontFamily="@font/inter_regular"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Ver en espera"
+                android:textAllCaps="false"
+                android:textColor="#5F6368"
+                android:textSize="14sp"
+                app:cornerRadius="23dp"
+                app:strokeColor="#E1E6ED" />
+            </LinearLayout>
+
+            <!-- Se usa un unico switch btnNecesitoFactura en movil y tablet -->
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDatosClienteInline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/surface_white"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#E2E8F0"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvDatosClienteInlineTitulo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/inter_medium"
+                        android:letterSpacing="0.04"
+                        android:text="DATOS DEL CLIENTE"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical">
+
+                        <!-- Solo DNI / RUC. Detectamos boleta (8 dig) o factura (11 dig) por la longitud
+                             y autocargamos nombre / razon social desde la base de clientes. -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutDocumentoClienteInline"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="DNI / RUC"
+                            app:boxBackgroundColor="@android:color/white"
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusTopStart="16dp"
+                            app:boxStrokeColor="@color/brand_green"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1.5dp"
+                            app:endIconDrawable="@drawable/searchicon"
+                            app:endIconMode="custom"
+                            app:endIconTint="@color/brand_green"
+                            app:hintTextColor="@color/brand_green">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etDocumentoClienteInline"
+                                android:layout_width="match_parent"
+                                android:layout_height="54dp"
+                                android:fontFamily="@font/inter_medium"
+                                android:inputType="number"
+                                android:paddingStart="6dp"
+                                android:paddingEnd="6dp"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_marginTop="6dp"
+                            android:fontFamily="@font/inter_regular"
+                            android:text="8 d&#xED;gitos = boleta &#xB7; 11 d&#xED;gitos = factura"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="12sp" />
+
+                        <!-- Chip de cliente encontrado (se muestra al autocompletar) -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardClienteEncontradoInline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:visibility="gone"
+                            app:cardBackgroundColor="@color/brand_green_50"
+                            app:cardCornerRadius="14dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/brand_green_200"
+                            app:strokeWidth="1dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingStart="14dp"
+                                android:paddingTop="10dp"
+                                android:paddingEnd="14dp"
+                                android:paddingBottom="10dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:text="&#x2713;"
+                                    android:textColor="#047857"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvClienteEncontradoInline"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:layout_weight="1"
+                                    android:ellipsize="end"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:maxLines="2"
+                                    android:text="Cliente"
+                                    android:textColor="#065F46"
+                                    android:textSize="13sp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- Vistas ocultas: el autocompletado las rellena pero el usuario no las edita.
+                             Se mantienen para compatibilidad con el codigo existente. -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:visibility="gone"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:orientation="horizontal">
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnBoletaInline"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:text="Boleta"
+                                    android:textAllCaps="false" />
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnFacturaInline"
+                                    android:layout_width="0dp"
+                                    android:layout_height="match_parent"
+                                    android:layout_weight="1"
+                                    android:text="Factura"
+                                    android:textAllCaps="false" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutNombreClienteInline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etNombreClienteInline"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textPersonName|textCapWords" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutRazonSocialInline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etRazonSocialInline"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textCapWords" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutCorreoInline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etCorreoClienteInline"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textEmailAddress" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttoncobrar"
+                android:layout_width="match_parent"
+                android:layout_height="62dp"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_medium"
+                android:text="Cobrar"
+                android:textAllCaps="false"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/brand_green"
+                app:cornerRadius="30dp"
+                app:elevation="0dp" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <View
+        android:layout_width="0.5dp"
+        android:layout_height="0dp"
+        android:background="#E8ECF1"
+        android:elevation="0dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/layoutCaja"
+        app:layout_constraintEnd_toStartOf="@id/layoutComprobante"
+        app:layout_constraintStart_toEndOf="@id/layoutCaja"
+        app:layout_constraintTop_toTopOf="@id/layoutCaja" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutCobroPanel"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_card_blanco_redondo"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="12dp"
+        android:padding="18dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/guidePanelDerechoTablet"
+        app:layout_constraintTop_toBottomOf="@id/tabLayoutPanelDerechoTablet">
+
+        <LinearLayout
+            android:id="@+id/layoutPasoCobroMetodo"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            android:paddingStart="10dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVolverPasoCobroMetodo"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="Volver"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_secondary_slate"
+                    app:icon="@drawable/baseline_arrow_back_24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="6dp"
+                    app:iconTint="@color/text_secondary_slate"
+                    app:rippleColor="#11000000" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="end"
+                    android:text=""
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:fontFamily="@font/inter_medium"
+                android:letterSpacing="0.08"
+                android:text="TOTAL A COBRAR"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvTotalPasoCobroMetodo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_bold"
+                android:text="Bs 0.00"
+                android:textColor="@color/brand_green"
+                android:textSize="30sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="&#xBF;C&#xF3;mo te paga el cliente?"
+                android:textColor="@color/text_secondary_slate"
+                android:textSize="14sp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerPasoCobroMetodo"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="18dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
+                android:paddingBottom="12dp"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+        </LinearLayout>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/layoutPasoCobroDetalle"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:id="@+id/headerPasoCobroDetalle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingTop="8dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVolverPasoCobroDetalle"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="Volver"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_secondary_slate"
+                    app:icon="@drawable/baseline_arrow_back_24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="6dp"
+                    app:iconTint="@color/text_secondary_slate"
+                    app:rippleColor="#11000000" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="end"
+                    android:text=""
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/contenedorPasoCobroDetalle"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="12dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/headerPasoCobroDetalle" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ================= PANEL: PAGO / CLIENTE (COMPROBANTE) ================= -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutComprobante"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_card_blanco_redondo"
+        android:padding="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
+        android:layout_marginEnd="12dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/guidePanelDerechoTablet"
+        app:layout_constraintTop_toBottomOf="@id/tabLayoutPanelDerechoTablet">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:fillViewport="true"
+            android:scrollbars="none"
+            app:layout_constraintBottom_toTopOf="@id/layoutAccionesComprobanteFijas"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="28dp"
+                android:paddingTop="24dp"
+                android:paddingEnd="28dp"
+                android:paddingBottom="20dp">
+
+                <!-- HERO: titulo + total grande -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:letterSpacing="-0.02"
+                            android:text="Comprobante"
+                            android:textColor="@color/text_primary"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:fontFamily="@font/inter_regular"
+                            android:text="Solo unos datos y listo"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_chip_borde_redondo"
+                        android:backgroundTint="@color/brand_green_50"
+                        android:gravity="center_vertical"
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_medium"
+                            android:text="Total"
+                            android:textColor="#047857"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.08"
+                            android:textAllCaps="true" />
+
+                        <TextView
+                            android:id="@+id/tvResumenCobroTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="Bs 0.00"
+                            android:textColor="#047857"
+                            android:textSize="18sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- TIPO DE COMPROBANTE -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:text="Tipo de comprobante"
+                    android:textColor="@color/text_secondary_slate"
+                    android:textSize="13sp"
+                    android:letterSpacing="0.02" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    app:cardBackgroundColor="#F1F5F9"
+                    app:cardCornerRadius="28dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="5dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBoleta"
+                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/inter_medium"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="Boleta"
+                            android:textAllCaps="false"
+                            android:textSize="14sp"
+                            app:cornerRadius="24dp"
+                            app:strokeWidth="0dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnFactura"
+                            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="46dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/inter_medium"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="Factura"
+                            android:textAllCaps="false"
+                            android:textSize="14sp"
+                            app:cornerRadius="24dp"
+                            app:strokeWidth="0dp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- DATOS DEL CLIENTE -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:fontFamily="@font/inter_medium"
+                    android:text="Datos del cliente"
+                    android:textColor="@color/text_secondary_slate"
+                    android:textSize="13sp"
+                    android:letterSpacing="0.02" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutDocumentoCliente"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="DNI / RUC"
+                    app:boxBackgroundColor="@color/white"
+                    app:boxCornerRadiusBottomEnd="18dp"
+                    app:boxCornerRadiusBottomStart="18dp"
+                    app:boxCornerRadiusTopEnd="18dp"
+                    app:boxCornerRadiusTopStart="18dp"
+                    app:boxStrokeColor="@color/brand_green"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:endIconDrawable="@drawable/searchicon"
+                    app:endIconMode="custom"
+                    app:endIconTint="@color/brand_green"
+                    app:hintTextColor="@color/brand_green">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDocumentoCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:fontFamily="@font/inter_medium"
+                        android:inputType="number"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginTop="6dp"
+                    android:drawablePadding="6dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:text="Lo buscamos y autocompletamos los datos."
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutNombreCliente"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:hint="Nombre completo"
+                    app:boxBackgroundColor="@color/white"
+                    app:boxCornerRadiusBottomEnd="18dp"
+                    app:boxCornerRadiusBottomStart="18dp"
+                    app:boxCornerRadiusTopEnd="18dp"
+                    app:boxCornerRadiusTopStart="18dp"
+                    app:boxStrokeColor="@color/brand_green"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:hintTextColor="@color/brand_green">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNombreCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:fontFamily="@font/inter_medium"
+                        android:inputType="textPersonName|textCapWords"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutRazonSocial"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:hint="Raz&#xF3;n social"
+                    android:visibility="gone"
+                    app:boxBackgroundColor="@color/white"
+                    app:boxCornerRadiusBottomEnd="18dp"
+                    app:boxCornerRadiusBottomStart="18dp"
+                    app:boxCornerRadiusTopEnd="18dp"
+                    app:boxCornerRadiusTopStart="18dp"
+                    app:boxStrokeColor="@color/brand_green"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:hintTextColor="@color/brand_green">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etRazonSocial"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:fontFamily="@font/inter_medium"
+                        android:inputType="textCapWords"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputLayoutCorreo"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:hint="Correo (opcional)"
+                    app:boxBackgroundColor="@color/white"
+                    app:boxCornerRadiusBottomEnd="18dp"
+                    app:boxCornerRadiusBottomStart="18dp"
+                    app:boxCornerRadiusTopEnd="18dp"
+                    app:boxCornerRadiusTopStart="18dp"
+                    app:boxStrokeColor="@color/brand_green"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="1.5dp"
+                    app:hintTextColor="@color/brand_green">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etCorreoCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:fontFamily="@font/inter_medium"
+                        android:inputType="textEmailAddress"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <LinearLayout
+            android:id="@+id/layoutAccionesComprobanteFijas"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:elevation="6dp"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="18dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginBottom="14dp"
+                android:background="#EEF2F6" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEmitirComprobante"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:fontFamily="@font/inter_medium"
+                android:text="Continuar a cobro"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                app:backgroundTint="@color/brand_green"
+                app:cornerRadius="29dp"
+                app:icon="@drawable/baseline_arrow_back_24"
+                app:iconGravity="end"
+                app:iconPadding="10dp"
+                app:iconTint="@color/white"
+                app:rippleColor="#33FFFFFF" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancelarVenta"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_medium"
+                android:text="Cancelar"
+                android:textAllCaps="false"
+                android:textColor="@color/text_tertiary"
+                android:textSize="14sp"
+                app:rippleColor="#11000000" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutVentaExito"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC0F172A"
+        android:elevation="10dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="12dp"
+            app:cardBackgroundColor="@color/white"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:padding="24dp"
+                android:orientation="vertical"
+                >
+
+                <ImageView
+                    android:id="@+id/imgVentaExitosa"
+                    android:layout_width="200dp"
+                    android:layout_height="200dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ventaexitosa"
+                     />
+
+                <TextView
+                    android:id="@+id/tvTituloAperturaTablet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Venta finalizada"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="28sp" />
+
+
+
+
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Overlay de Bloqueo por otro usuario (Tablet) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutBloqueoCobro"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:elevation="20dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        >
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="380dp"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="40dp">
+
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:src="@drawable/accesobloqueado"
+                     />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="@string/caja_bloqueada"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="26sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/mensaje_caja_bloqueada"
+                    android:textAlignment="center"
+                    android:textColor="#666666"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="24dp"
+                    android:text="Volver"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="16sp"
+                    android:visibility="gone"
+                    app:cornerRadius="28dp"
+                    app:strokeColor="@color/border_subtle"
+                    tools:visibility="visible" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutAperturaCaja"
+        android:layout_width="0dp"
+        app:layout_constraintWidth_percent="0.7"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_overlay_apertura_gradient"
+        android:elevation="95dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        tools:visibility="gone">
+
+        <!-- Efecto de luz decorativo de fondo -->
+        <View
+            android:layout_width="500dp"
+            android:layout_height="500dp"
+            android:alpha="0.5"
+            android:background="@drawable/bg_estado_vacio_circulo"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/brand_green_soft" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardContenedorAperturaTablet"
+            android:layout_width="500dp"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="48dp"
+            app:cardElevation="20dp"
+            app:strokeColor="#E2E8F0"
+            app:strokeWidth="2dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="54dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    app:cardBackgroundColor="#F0FDF4"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="8dp"
+                        android:fontFamily="@font/inter_bold"
+                        android:text="INICIO DE OPERACIONES"
+                        android:textColor="#166534"
+                        android:textSize="12sp"
+                        android:letterSpacing="0.08" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    app:cardBackgroundColor="#F1F5F9"
+                    app:cardCornerRadius="30dp"
+                    app:cardElevation="6dp"
+                    app:cardMaxElevation="10dp"
+                    app:strokeColor="#FFFFFF"
+                    app:strokeWidth="4dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:padding="22dp"
+                        android:src="@drawable/ic_pos_terminal"
+                        app:tint="@color/brand_green_soft"
+                        android:scaleType="centerInside" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Apertura de Caja"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="32sp"
+                    android:letterSpacing="-0.03" />
+
+                <TextView
+                    android:id="@+id/tvMensajeAperturaTablet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:text="Configura el saldo inicial para comenzar la jornada de ventas."
+                    android:textAlignment="center"
+                    android:textColor="#64748B"
+                    android:textSize="16sp"
+                    android:lineSpacingExtra="4dp" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="36dp"
+                    app:cardBackgroundColor="#F8FAFC"
+                    app:cardCornerRadius="28dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#E2E8F0"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="32dp"
+                        android:paddingTop="28dp"
+                        android:paddingBottom="32dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_semibold"
+                            android:text="Efectivo f&#xED;sico en gaveta"
+                            android:textColor="#475569"
+                            android:textSize="15sp" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            app:boxBackgroundColor="@android:color/white"
+                            app:boxCornerRadiusBottomEnd="24dp"
+                            app:boxCornerRadiusBottomStart="24dp"
+                            app:boxCornerRadiusTopEnd="24dp"
+                            app:boxCornerRadiusTopStart="24dp"
+                            app:boxStrokeColor="@color/brand_green_soft"
+                            app:boxStrokeWidth="2dp"
+                            app:boxStrokeWidthFocused="3dp"
+                            app:hintEnabled="false"
+                            app:prefixText="Bs "
+                            app:prefixTextColor="@color/text_primary_pure"
+                            app:prefixTextAppearance="@style/TextAppearance.MaterialComponents.Headline6">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etMontoAperturaTablet"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:hint="0.00"
+                                android:inputType="numberDecimal"
+                                android:fontFamily="@font/inter_bold"
+                                android:paddingVertical="24dp"
+                                android:selectAllOnFocus="true"
+                                android:textColor="@color/text_primary_pure"
+                                android:textSize="38sp" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardSugerenciaAperturaTablet"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:layout_marginTop="20dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:visibility="gone"
+                            app:cardBackgroundColor="#F0F7FF"
+                            app:cardCornerRadius="20dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="#BFDBFE"
+                            app:strokeWidth="1.5dp"
+                            app:rippleColor="#331D4ED8">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingHorizontal="20dp"
+                                android:paddingVertical="12dp">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:src="@drawable/baseline_sync_24"
+                                    app:tint="#1D4ED8" />
+
+                                <TextView
+                                    android:id="@+id/tvSugerenciaAperturaTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="10dp"
+                                    android:fontFamily="@font/inter_bold"
+                                    android:text="¿Usar saldo anterior? (Bs 0.00)"
+                                    android:textColor="#1D4ED8"
+                                    android:textSize="14sp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnConfirmarAperturaTablet"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:layout_marginTop="36dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Abrir Turno Ahora"
+                    android:textAllCaps="false"
+                    android:textSize="20sp"
+                    android:letterSpacing="0.02"
+                    app:backgroundTint="@color/brand_green_soft"
+                    app:cornerRadius="36dp"
+                    app:elevation="6dp"
+                    app:icon="@drawable/outline_arrow_rigth"
+                    app:iconGravity="textEnd"
+                    app:iconPadding="16dp"
+                    app:iconSize="24dp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutCierreCajaTablet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B3F1F5F9"
+        android:elevation="40dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        tools:visibility="gone">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#40000000"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintWidth_percent="0.7"
+            android:layout_marginVertical="24dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="10dp"
+            app:strokeColor="@color/border_blue"
+            app:strokeWidth="1dp"
+            android:layout_marginHorizontal="64dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="34dp">
+
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/scrollCierreCajaTablet"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:fillViewport="true"
+                    android:overScrollMode="ifContentScrolls">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="18dp"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="Cierre de Turno"
+                            android:textColor="@color/text_primary_pure"
+                            android:textSize="26sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Resumen de ingresos por m&#xE9;todo de pago"
+                            android:textColor="@color/text_secondary_blue"
+                            android:textSize="14sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="24dp"
+                            android:background="@color/surface_subtle_blue"
+                            android:padding="18dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="DETALLE DEL TURNO"
+                                android:textSize="11sp"
+                                android:fontFamily="@font/inter_bold"
+                                android:textColor="@color/text_secondary_blue"
+                                android:letterSpacing="0.05"
+                                android:layout_marginBottom="12dp"/>
+
+                            <!-- Nueva fila para mostrar la APERTURA DE CAJA -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginBottom="8dp">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_weight="1"
+                                    android:layout_height="wrap_content"
+                                    android:text="Apertura de caja"
+                                    android:textColor="@color/text_secondary_blue"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvAperturaCierreTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="S/ 0.00"
+                                    android:textColor="@color/text_primary_pure"
+                                    android:textSize="14sp"
+                                    android:fontFamily="@font/inter_medium" />
+                            </LinearLayout>
+
+                            <!-- RecyclerView que mostrara solo los metodos de pago (ventas) -->
+                            <androidx.recyclerview.widget.RecyclerView
+                                android:id="@+id/rvDetalleMetodosCierreTablet"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:nestedScrollingEnabled="false"
+                                tools:listitem="@layout/item_resumen_pago_cierre" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/border_blue"
+                                android:layout_marginVertical="14dp"/>
+
+                            <RelativeLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Total Esperado:"
+                                    android:fontFamily="@font/inter_bold"
+                                    android:textColor="@color/text_primary_pure"
+                                    android:textSize="16sp"/>
+                                <TextView
+                                    android:id="@+id/tvTotalGeneralEsperadoTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_alignParentEnd="true"
+                                    android:fontFamily="@font/inter_bold"
+                                    android:text="S/ 0.00"
+                                    android:textColor="@color/brand_green_emphasis"
+                                    android:textSize="22sp"/>
+                            </RelativeLayout>
+                        </LinearLayout>
+
+                        <!-- Resto del layout igual (campo efectivo fisico, cuadre, observacion, botones) -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="24dp"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="Efectivo f&#xED;sico contado en caja"
+                            android:textColor="@color/text_primary_pure" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:boxBackgroundColor="@android:color/white"
+                            app:boxCornerRadiusBottomEnd="18dp"
+                            app:boxCornerRadiusBottomStart="18dp"
+                            app:boxCornerRadiusTopEnd="18dp"
+                            app:boxCornerRadiusTopStart="18dp"
+                            app:boxStrokeColor="#DCE6DF"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp"
+                            app:hintEnabled="false"
+                            app:prefixText="S/ "
+                            app:prefixTextColor="@color/text_primary_pure">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etEfectivoRealTablet"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:hint="0.00"
+                                android:inputType="numberDecimal"
+                                android:paddingVertical="18dp"
+                                android:textSize="26sp"
+                                android:fontFamily="@font/inter_bold"
+                                android:textColor="@color/text_primary_pure"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Cuadre en vivo -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:background="#F9FAFB"
+                            android:orientation="vertical"
+                            android:padding="12dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Esperado en caja"
+                                    android:textColor="@color/text_secondary_gray"
+                                    android:textSize="13sp" />
+                                <TextView
+                                    android:id="@+id/tvEsperadoInlineCierreTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="S/ 0.00"
+                                    android:textColor="@color/text_secondary_strong"
+                                    android:textSize="13sp"
+                                    android:fontFamily="@font/inter_medium" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:layout_marginTop="4dp"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Contado f&#xED;sicamente"
+                                    android:textColor="@color/text_secondary_gray"
+                                    android:textSize="13sp" />
+                                <TextView
+                                    android:id="@+id/tvIngresadoInlineCierreTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="S/ 0.00"
+                                    android:textColor="@color/text_secondary_strong"
+                                    android:textSize="13sp"
+                                    android:fontFamily="@font/inter_medium" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="8dp"
+                                android:layout_marginBottom="8dp"
+                                android:background="@color/border_neutral" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:id="@+id/tvDiferenciaCierreTablet"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Diferencia: S/ 0.00"
+                                    android:textColor="@color/text_secondary_blue"
+                                    android:textSize="13sp"
+                                    android:fontFamily="@font/inter_bold" />
+                                <TextView
+                                    android:id="@+id/tvCuadreBadgeCierreTablet"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:paddingStart="10dp"
+                                    android:paddingTop="3dp"
+                                    android:paddingEnd="10dp"
+                                    android:paddingBottom="3dp"
+                                    android:text="Cuadrado"
+                                    android:textColor="@color/brand_green_success"
+                                    android:textSize="11sp"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:background="@drawable/bg_chip_lote_vigente" />
+                            </LinearLayout>
+
+                        </LinearLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/inputLayoutObservacionCierreTablet"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            app:boxBackgroundColor="@android:color/white"
+                            app:boxCornerRadiusBottomEnd="18dp"
+                            app:boxCornerRadiusBottomStart="18dp"
+                            app:boxCornerRadiusTopEnd="18dp"
+                            app:boxCornerRadiusTopStart="18dp"
+                            app:boxStrokeColor="#E3EAF0"
+                            app:boxStrokeWidth="1dp"
+                            app:boxStrokeWidthFocused="1dp">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etObservacionCierreTablet"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/inter_medium"
+                                android:hint="Motivo u observaci&#xF3;n del descuadre"
+                                android:inputType="textMultiLine"
+                                android:maxLines="4"
+                                android:minLines="3"
+                                android:textColor="@color/text_primary_pure"
+                                android:textSize="15sp"/>
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="18dp" />
+
+                    </LinearLayout>
+                </androidx.core.widget.NestedScrollView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFinalizarTurnoTablet"
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="18dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Cerrar Turno y Guardar Reporte"
+                    android:textAllCaps="false"
+                    android:textSize="18sp"
+                    app:backgroundTint="@color/brand_green_soft"
+                    app:cornerRadius="28dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelarCierreTablet"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Seguir Vendiendo"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_secondary_blue" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutSkeletonCajaInicial"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/surface_subtle"
+        android:clickable="true"
+        android:elevation="55dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="18dp"
+            android:paddingEnd="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="220dp"
+                    android:layout_height="48dp"
+                    android:background="#EEF3F8" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <View
+                    android:layout_width="320dp"
+                    android:layout_height="40dp"
+                    android:background="#EEF3F8" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="horizontal"
+                android:weightSum="2.12">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        app:cardBackgroundColor="#EEF3F8"
+                        app:cardCornerRadius="28dp"
+                        app:cardElevation="0dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="horizontal">
+
+                        <View
+                            android:layout_width="84dp"
+                            android:layout_height="34dp"
+                            android:background="#EEF3F8" />
+
+                        <View
+                            android:layout_width="110dp"
+                            android:layout_height="34dp"
+                            android:layout_marginStart="12dp"
+                            android:background="#EEF3F8" />
+                    </LinearLayout>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp"
+                        android:layout_marginTop="18dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/border_subtle"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
+
+                <Space
+                    android:layout_width="20dp"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.12">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="280dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/border_subtle"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center_horizontal"
+                            android:orientation="vertical"
+                            android:padding="24dp">
+
+                            <View
+                                android:layout_width="180dp"
+                                android:layout_height="18dp"
+                                android:background="#E6ECF4" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="18dp"
+                                android:background="#F0F2F6" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="116dp"
+                                android:layout_marginTop="24dp"
+                                android:background="#F7F9FC" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="154dp"
+                        android:layout_marginTop="16dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/border_subtle"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center_horizontal"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <View
+                                android:layout_width="140dp"
+                                android:layout_height="18dp"
+                                android:background="#E6ECF4" />
+
+                            <ProgressBar
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginTop="24dp"
+                                android:indeterminateTint="@color/brand_green_soft" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutLoadingOverlayCaja"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CCF6F8FB"
+        android:clickable="true"
+        android:elevation="60dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="420dp"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="30dp"
+            app:cardElevation="10dp"
+            app:strokeColor="@color/border_blue"
+            app:strokeWidth="1dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingHorizontal="28dp"
+                android:paddingTop="32dp"
+                android:paddingBottom="28dp">
+
+                <ProgressBar
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:indeterminateTint="@color/brand_green_soft" />
+
+                <TextView
+                    android:id="@+id/tvTituloLoadingCaja"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:fontFamily="@font/inter_bold"
+                    android:text="Procesando"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:id="@+id/tvMensajeLoadingCaja"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="Esto puede tardar unos segundos."
+                    android:textAlignment="center"
+                    android:textColor="@color/text_secondary_indigo"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+

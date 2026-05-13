@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <!-- Indicador de color (barra lateral) -->
+    <View
+        android:id="@+id/barraUrgencia"
+        android:layout_width="4dp"
+        android:layout_height="52dp"
+        android:background="@color/state_error"
+        android:layout_marginEnd="10dp" />
+
+    <!-- Info del lote -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvNombreProductoAlerta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_medium"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="Paracetamol 500mg"
+            android:textColor="@color/text_primary_almost"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvNumeroLoteAlerta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lote L001"
+                android:textColor="@color/text_secondary_gray"
+                android:textSize="12sp" />
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="3dp"
+                android:layout_marginHorizontal="6dp"
+                android:background="#D1D5DB" />
+
+            <TextView
+                android:id="@+id/tvVencimientoAlerta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Vence 01/26"
+                android:textColor="@color/text_secondary_gray"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Badge de estado -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardEstadoAlerta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:cardBackgroundColor="#FEE2E2"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp">
+
+        <TextView
+            android:id="@+id/tvEstadoAlerta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp"
+            android:text="VENCIDO"
+            android:textColor="@color/state_error"
+            android:textSize="11sp"
+            android:fontFamily="@font/inter_medium" />
+
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="16dp"
+    android:background="@color/white"
+    android:paddingBottom="16dp">
+
+    <View
+        android:layout_width="42dp"
+        android:layout_height="5dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_handle_bottomsheet" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter_semibold"
+                android:text="Movimientos del inventario"
+                android:textColor="@color/text_primary_almost"
+                />
+
+            <TextView
+                android:id="@+id/tvSubtituloMovimientosDialog"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFamily="@font/inter_regular"
+                android:text="Los movimientos aparecerán aquí automáticamente"
+                android:textColor="#7B8188"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#E8F6EF"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/tvResumenMovimientosDialog"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="10dp"
+                android:paddingTop="7dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="7dp"
+                android:text="Sin actividad"
+                android:fontFamily="@font/inter_regular"
+                android:textColor="@color/brand_green_dark"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleLine="true"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <!-- Acción primaria -->
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipHoyDialog"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:checked="true"
+                app:chipCornerRadius="30dp"
+                android:text="Hoy"
+                android:textSize="13sp" />
+
+            <!-- Acciones secundarias: outline tenue -->
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipFechaDialog"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="📅 Fecha"
+                android:textColor="@color/text_secondary_gray"
+                android:textSize="13sp"
+                app:chipBackgroundColor="@android:color/transparent"
+                app:chipCornerRadius="30dp"
+                app:chipStrokeColor="#D0D5DB"
+                app:chipStrokeWidth="1dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipRangoDialog"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="📆 Rango"
+                android:textColor="@color/text_secondary_gray"
+                android:textSize="13sp"
+                app:chipBackgroundColor="@android:color/transparent"
+                app:chipCornerRadius="30dp"
+                app:chipStrokeColor="#D0D5DB"
+                app:chipStrokeWidth="1dp" />
+
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
+    <!-- Alerta stock bajo (feature 4) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardAlertaStockBajoDialog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#FFF3CD"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp">
+
+        <TextView
+            android:id="@+id/tvAlertaStockBajoDialog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:text="⚠️ 0 productos con stock bajo"
+            android:textColor="@color/state_warning_dark"
+            android:textSize="13sp" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Buscador en movimientos (feature 1) -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        app:cardBackgroundColor="#F5F6F8"
+        app:cardCornerRadius="30dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:boxBackgroundColor="@android:color/transparent"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
+            app:endIconMode="clear_text"
+            app:hintEnabled="false"
+            app:startIconDrawable="@drawable/searchicon"
+            app:startIconTint="@color/text_disabled">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editBuscarMovimientosDialog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:gravity="center_vertical"
+                android:hint="Buscar en movimientos..."
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:padding="8dp"
+                android:textColor="@color/text_primary_almost"
+                android:textColorHint="@color/text_disabled"
+                android:textSize="10sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewMovimientosDialog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="24dp"
+        android:clipToPadding="true"
+        android:layout_marginTop="10dp"
+        tools:listitem="@layout/item_movimiento_inventario" />
+
+    <TextView
+        android:id="@+id/tvMovimientosVacioDialog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:gravity="center"
+        android:text="Aún no hay movimientos de inventario.\nAparecerán aquí automáticamente."
+        android:textColor="#7B8188"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+</LinearLayout>

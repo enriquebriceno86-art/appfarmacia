@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="24dp"
+    android:background="@color/white"
+    android:paddingEnd="24dp"
+    android:paddingBottom="18dp">
+
+    <FrameLayout
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:visibility="gone"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_icon_note">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_receipt"
+            android:visibility="gone"
+            app:tint="#1D4ED8" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvTituloNotaVentaEspera"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Pausar venta"
+        android:textColor="@color/text_primary_pure"
+        android:fontFamily="@font/inter_semibold" />
+
+    <TextView
+        android:id="@+id/tvMensajeNotaVentaEspera"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:lineSpacingExtra="2dp"
+        android:fontFamily="@font/inter_regular"
+        android:text="Agrega una nota rapida para identificar mejor esta venta en espera."
+        android:textColor="#4B5563"
+        android:textSize="12sp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:hint="Nombre o nota rapida (opcional)"
+        app:boxCornerRadiusTopStart="18dp"
+        app:boxCornerRadiusTopEnd="18dp"
+        app:boxCornerRadiusBottomStart="18dp"
+        app:boxCornerRadiusBottomEnd="18dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputNotaVentaEspera"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textSize="12dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:layout_gravity="end"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelarNotaVentaEspera"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancelar"
+            app:strokeWidth="0.5dp"
+            app:cornerRadius="30dp"
+            android:layout_marginEnd="16dp"
+            app:strokeColor="@color/black"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary_pure" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnGuardarNotaVentaEspera"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:minWidth="0dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:text="Guardar"
+            android:textSize="12dp"
+            android:fontFamily="@font/inter_regular"
+            android:textStyle="bold"
+            android:layout_gravity="end"
+            android:textAllCaps="false"
+            android:textColor="@color/surface_white"
+            app:backgroundTint="@color/text_primary_pure"
+            app:cornerRadius="30dp" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Unidad base (stock):
+      - Lista fija para evitar escritura libre y confusiones.
+      - Se filtra en runtime segun "Como se controla el stock":
+          Por unidades -> todo excepto g/mL
+          Por peso     -> solo g
+          Por volumen  -> solo mL
+    -->
+    <string-array name="unidad_base_opciones">
+        <item>Unidad</item>
+        <item>Tableta</item>
+        <item>Capsula</item>
+        <item>Ampolla</item>
+        <item>Vial</item>
+        <item>Frasco</item>
+        <item>Sobre</item>
+        <item>Bolsa</item>
+        <item>Botella</item>
+        <item>Tubo</item>
+        <item>Jeringa</item>
+        <item>Par</item>
+        <item>g</item>
+        <item>mL</item>
+    </string-array>
+
+</resources>
+

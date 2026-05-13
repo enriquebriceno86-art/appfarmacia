@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/white"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="22dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        app:cardBackgroundColor="#E7F8F3"
+        app:cardCornerRadius="999dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#B7E7D7"
+        app:strokeWidth="1dp">
+
+        <TextView
+            android:id="@+id/tvBadgeSalirSupervision"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_medium"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="7dp"
+            android:text="SUPERVISION ACTIVA"
+            android:textAllCaps="true"
+            android:textColor="#0B5D4B"
+            android:textSize="11sp" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/tvTituloSalirSupervision"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:fontFamily="@font/inter_medium"
+        android:gravity="center"
+        android:lineSpacingExtra="2dp"
+        android:text="Si cambias de pantalla, dejaras esta caja"
+        android:textColor="@color/text_primary_pure"
+        android:textSize="21sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvDetalleSalirSupervision"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/inter_regular"
+        android:gravity="center"
+        android:lineSpacingExtra="3dp"
+        android:text="Antes de salir liberaremos esta supervision para no dejar bloqueada a la cajera."
+        android:textColor="#4B5563"
+        android:textSize="14sp" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="#F8FAFC"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E2E8F0"
+        app:strokeWidth="1dp">
+
+        <TextView
+            android:id="@+id/tvNotaSalirSupervision"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_regular"
+            android:gravity="center"
+            android:lineSpacingExtra="2dp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="14dp"
+            android:text="Tambien cerraremos cobro, paneles y overlays para no arrastrarlos a otra pantalla."
+            android:textColor="#334155"
+            android:textSize="13sp" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/tvErrorSalirSupervision"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:fontFamily="@font/inter_medium"
+        android:gravity="center"
+        android:lineSpacingExtra="2dp"
+        android:textColor="#B42318"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSeguirSupervision"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:fontFamily="@font/inter_medium"
+            android:text="Seguir aqui"
+            android:textAllCaps="false"
+            android:textColor="#0F172A"
+            app:strokeColor="#CBD5E1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSalirSupervision"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:fontFamily="@font/inter_medium"
+            android:text="Salir y liberar"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            app:backgroundTint="#0B5D4B" />
+    </LinearLayout>
+
+</LinearLayout>

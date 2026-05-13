@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="2dp"
+    android:paddingEnd="2dp">
+
+    <!-- Línea superior -->
+    <View
+        android:id="@+id/viewLineaSuperior"
+        android:layout_width="2dp"
+        android:layout_height="30dp"
+        android:background="#D9DDE7"
+        app:layout_constraintBottom_toTopOf="@id/viewPunto"
+        app:layout_constraintStart_toStartOf="@id/viewPunto"
+        app:layout_constraintEnd_toEndOf="@id/viewPunto"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Punto -->
+    <View
+        android:id="@+id/viewPunto"
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:background="@drawable/bg_punto_timeline"
+        android:layout_marginTop="24dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/cardMovimiento" />
+
+    <!-- Línea inferior -->
+    <View
+        android:id="@+id/viewLineaInferior"
+        android:layout_width="2dp"
+        android:layout_height="0dp"
+        android:background="#D9DDE7"
+        app:layout_constraintTop_toBottomOf="@id/viewPunto"
+        app:layout_constraintBottom_toBottomOf="@id/cardMovimiento"
+        app:layout_constraintStart_toStartOf="@id/viewPunto"
+        app:layout_constraintEnd_toEndOf="@id/viewPunto" />
+
+    <!-- Card principal -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardMovimiento"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+         android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp"
+        app:cardBackgroundColor="@color/surface_white"
+        app:cardCornerRadius="22dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E8EAF1"
+        app:strokeWidth="1dp"
+        app:layout_constraintStart_toEndOf="@id/viewPunto"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="8dp"
+            android:paddingTop="18dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="18dp">
+
+            <!-- Icono -->
+            <FrameLayout
+                android:id="@+id/containerIcono"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_icono_movimiento"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <ImageView
+                    android:id="@+id/ivTipoMovimiento"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/baseline_access_time_24"
+                    app:tint="@android:color/white" />
+            </FrameLayout>
+
+            <!-- Monto -->
+            <TextView
+                android:id="@+id/tvMontoMovimiento"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_monto_movimiento"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="8dp"
+                android:text="S/ 72.00"
+                android:textColor="#234A8C"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintTop_toTopOf="@id/tvTituloMovimiento"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:ignore="HardcodedText" />
+
+            <!-- Título -->
+            <TextView
+                android:id="@+id/tvTituloMovimiento"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="12dp"
+                android:text="Venta registrada"
+                android:textColor="#202531"
+                android:textStyle="bold"
+                app:layout_constraintStart_toEndOf="@id/containerIcono"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/tvMontoMovimiento"
+                tools:ignore="HardcodedText" />
+
+            <!-- Hora -->
+            <TextView
+                android:id="@+id/tvHoraMovimiento"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="12dp"
+                android:text="11:36 AM,"
+                android:textColor="#4B5563"
+                app:layout_constraintStart_toEndOf="@id/containerIcono"
+                app:layout_constraintTop_toBottomOf="@id/tvTituloMovimiento"
+                app:layout_constraintEnd_toStartOf="@id/tvMontoMovimiento"
+                tools:ignore="HardcodedText" />
+
+            <!-- Fecha -->
+            <TextView
+                android:id="@+id/tvFechaMovimiento"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="12dp"
+                android:text="23 abril 2024"
+                android:textColor="#4B5563"
+                app:layout_constraintStart_toEndOf="@id/containerIcono"
+                app:layout_constraintTop_toBottomOf="@id/tvHoraMovimiento"
+                app:layout_constraintEnd_toStartOf="@id/tvMontoMovimiento"
+                app:layout_constraintBottom_toBottomOf="parent"
+                tools:ignore="HardcodedText" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

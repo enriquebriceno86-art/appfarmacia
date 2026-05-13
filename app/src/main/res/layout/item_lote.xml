@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardContenidoLote"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="@color/surface_white"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E7EAEE"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <!-- Barra de estado de color a la izquierda -->
+            <View
+                android:id="@+id/barraEstadoLote"
+                android:layout_width="5dp"
+                android:layout_height="match_parent"
+                android:background="@color/text_disabled" />
+
+            <!-- Contenido -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp">
+
+                <!-- Fila 1: número de lote + estado -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvNumeroLote"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/inter_medium"
+                        android:text="L001"
+                        android:textColor="@color/text_primary_almost"
+                        android:textSize="14sp" />
+
+                    <!-- Badge de estado: VENCIDO / Xd / Vigente -->
+                    <TextView
+                        android:id="@+id/tvEstadoLote"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_chip_lote_vencimiento"
+                        android:paddingStart="8dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="3dp"
+                        android:text="Vigente"
+                        android:textColor="@color/brand_green_success"
+                        android:textSize="11sp"
+                        android:fontFamily="@font/inter_medium" />
+
+                </LinearLayout>
+
+                <!-- Fila 2: vencimiento + cantidad -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvVencimientoLote"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="4dp"
+                        android:text="Vence 01/26"
+                        android:textColor="@color/text_secondary_gray"
+                        android:textSize="12sp" />
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="4dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_dot_separator" />
+
+                    <TextView
+                        android:id="@+id/tvCantidadLote"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="100 unidades"
+                        android:textColor="@color/text_secondary_strong"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/inter_medium" />
+
+                    <TextView
+                        android:id="@+id/tvFechaLote"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="13/04/26"
+                        android:textColor="@color/text_disabled"
+                        android:textSize="11sp" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvCostoLote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Este lote aun no tiene costo registrado"
+                    android:textColor="@color/text_secondary_gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvBloqueoLote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Bloqueado para venta"
+                    android:textColor="#B91C1C"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvConsumoLote"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_chip_borde_redondo"
+                    android:backgroundTint="#EFF6FF"
+                    android:paddingStart="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="3dp"
+                    android:text="Toca para consumir desde este lote"
+                    android:textColor="#2563EB"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnHistorialLote"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:contentDescription="Ver historial"
+            app:icon="@drawable/baseline_access_time_24"
+            app:iconSize="17dp"
+            app:iconTint="#5D636B" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEditarLote"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:contentDescription="Editar lote"
+            app:icon="@drawable/outline_edit_24"
+            app:iconSize="17dp"
+            app:iconTint="#5D636B" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnToggleBloqueoLote"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:contentDescription="Bloquear o desbloquear lote"
+            app:icon="@drawable/ic_lock"
+            app:iconSize="17dp"
+            app:iconTint="#B91C1C" />
+
+    </LinearLayout>
+
+</LinearLayout>

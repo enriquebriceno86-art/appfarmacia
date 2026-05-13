@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    app:cardBackgroundColor="@android:color/white"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="0dp"
+    app:strokeColor="#E9EDF2"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvNombreProductoPedidoDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#17212B"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="1x Panadol" />
+
+        <TextView
+            android:id="@+id/tvPresentacionProductoPedidoDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#475467"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:text="Presentación: 1 caja (20 unid.)" />
+
+        <TextView
+            android:id="@+id/tvVencimientoProductoPedidoDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:text="Vence: 12/12/2026" />
+
+        <TextView
+            android:id="@+id/tvRecetaProductoPedidoDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#C2410C"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="Receta adjunta" />
+
+        <ImageView
+            android:id="@+id/ivRecetaProductoPedidoDetalle"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:layout_marginTop="10dp"
+            android:adjustViewBounds="true"
+            android:background="#F5F7FA"
+            android:contentDescription="Receta médica adjunta"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            tools:visibility="visible" />
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

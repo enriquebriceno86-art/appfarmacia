@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "250661580360",
+    "firebase_url": "https://brixotecnology-default-rtdb.firebaseio.com",
+    "project_id": "brixotecnology",
+    "storage_bucket": "brixotecnology.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:250661580360:android:28f1d2cbb1fe7e3441327d",
+        "android_client_info": {
+          "package_name": "com.app.administradorfarmadon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiPFQXYv98JF4osWDYnlHlBFr3shRJH6I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

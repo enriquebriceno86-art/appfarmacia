@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"data class ProductoCaja\\\\|class ProductoCaja\" /c/Users/braya/AndroidStudioProjects/AdministradorFarmadon/app/src/main/java/com/app/administradorfarmadon/ActivitysCaja/*.kt)",
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(find /c/Users/braya/AndroidStudioProjects/AdministradorFarmadon/app/src/main/res/layout* -type f -name \"*caja*\" -o -name \"*Caja*\")",
+      "Bash(find \"/c/Users/braya/AndroidStudioProjects/AdministradorFarmadon/app/src/main/java\" -name \"*.kt\" -exec grep -l \"stockminimo\" {} \\\\;)",
+      "Bash(./gradlew :app:assembleDebug)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\braya\\\\.claude\\\\projects\\\\C--Users-braya-AndroidStudioProjects-AdministradorFarmadon\\\\48a37af1-f951-46b7-b51d-8cdb0076a43a.jsonl' | Select-Object -Last 200 | Out-String\")",
+      "Bash(dir \"C:\\\\Users\\\\braya\\\\AndroidStudioProjects\\\\AdministradorFarmadon\\\\app\\\\src\\\\main\\\\res\\\\drawable\\\\ic_receipt*\")",
+      "Bash(dir \"C:\\\\Users\\\\braya\\\\AndroidStudioProjects\\\\AdministradorFarmadon\\\\app\\\\src\\\\main\\\\res\\\\drawable\\\\ic_chevron*\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\braya\\\\AndroidStudioProjects\\\\AdministradorFarmadon\\\\app\\\\src\\\\main\\\\java\\\\com\\\\app\\\\administradorfarmadon\\\\ActivitysCaja\\\\ActivityListaProductosCaja.kt\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\braya\\\\AndroidStudioProjects\\\\AdministradorFarmadon\\\\app\\\\src\\\\main\\\\java\\\\com\\\\app\\\\administradorfarmadon\\\\ActivitysCaja\\\\ReciclerCajas\\\\AdapterReciclerListaProductosCaja.kt\" -Force)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(./gradlew assembleDebug --stacktrace)",
+      "PowerShell($content = Get-Content -Raw -Encoding UTF8 'C:\\\\Users\\\\braya\\\\AndroidStudioProjects\\\\AdministradorFarmadon\\\\app\\\\src\\\\main\\\\java\\\\com\\\\app\\\\administradorfarmadon\\\\ActivityInventario\\\\EditarProductodelInventario.kt'; $patterns = [regex]::Matches\\($content, '[À-ÿ][ -ÿ]'\\) | ForEach-Object { $_.Value } | Sort-Object -Unique; $patterns | ForEach-Object { \"$_  ->  \" + \\([System.Text.Encoding]::UTF8.GetString\\([System.Text.Encoding]::GetEncoding\\('iso-8859-1'\\).GetBytes\\($_\\)\\)\\) })",
+      "Bash(python build/_fix_mojibake.py app/src/main/java/com/app/administradorfarmadon/ActivityInventario/EditarProductodelInventario.kt)",
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(./gradlew compileDebugKotlin --rerun-tasks)",
+      "Bash(./gradlew clean *)",
+      "PowerShell(.\\\\gradlew.bat :app:compileDebugKotlin --console=plain --quiet)",
+      "PowerShell($path = \"app\\\\src\\\\main\\\\java\\\\com\\\\app\\\\administradorfarmadon\\\\ActivityFragmentos\\\\Fragmentos\\\\FragmentoCaja.kt\"; $content = [System.IO.File]::ReadAllText\\($path\\); $patterns = @\\(\"Ã¡\",\"Ã©\",\"Ã­\",\"Ã³\",\"Ãº\",\"Ã±\",\"Ã'\",\"Ã‘\",\"Ã�\",\"Â¿\",\"Â¡\",\"Â·\",\"Â°\",\"Â\"\\); foreach\\($p in $patterns\\){ $count = \\([regex]::Matches\\($content, [regex]::Escape\\($p\\)\\)\\).Count; if\\($count -gt 0\\){ \"$count`t$p\" } })",
+      "Bash(awk '/private fun mostrarBottomSheetAgregarProductoTablet/,/^    private fun [a-zA-Z]/' app/src/main/java/com/app/administradorfarmadon/ActivityFragmentos/Fragmentos/FragmentoCaja.kt)",
+      "Bash(awk -F: '$1>=12345 && $1<=12900')",
+      "Bash(grep -rho '#[0-9A-Fa-f]\\\\{6,8\\\\}' app/src/main/res/layout app/src/main/res/layout-sw720dp)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin -q)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin --rerun-tasks)"
+    ]
+  }
+}

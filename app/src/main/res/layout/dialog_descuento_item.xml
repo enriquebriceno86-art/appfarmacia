@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Título -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Descuento por ítem"
+        android:fontFamily="@font/inter_semibold"
+        android:textColor="@color/text_primary_pure"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Nombre del producto -->
+    <TextView
+        android:id="@+id/tvNombreDescuento"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Producto"
+        android:textSize="13sp"
+        android:textColor="#666666"
+        android:layout_marginBottom="20dp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- Selector de tipo -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp"
+        android:weightSum="2">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTipoPct"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="Porcentaje (%)"
+            android:textSize="10sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTipoMonto"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="Monto"
+            android:textSize="10sp" />
+
+    </LinearLayout>
+
+    <!-- Input valor -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Ej: 10 (para 10%)"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="12dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etValorDescuento"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:textSize="12dp"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Preview subtotal -->
+    <TextView
+        android:id="@+id/tvPreviewDescuento"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Subtotal: —"
+        android:textSize="13sp"
+        android:textColor="@color/brand_green_success"
+        android:fontFamily="@font/inter_medium"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Botones de acción -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQuitarDescuento"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:fontFamily="@font/inter_regular"
+            android:textColor="@color/black"
+            app:strokeWidth="0.5dp"
+            android:textSize="13dp"
+            android:text="Quitar descuento" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAplicarDescuento"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="13dp"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/black"
+            android:layout_marginStart="8dp"
+            android:text="Aplicar" />
+
+    </LinearLayout>
+
+</LinearLayout>

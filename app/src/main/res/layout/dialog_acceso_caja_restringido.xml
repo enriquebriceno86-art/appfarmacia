@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/white"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="20dp">
+
+    <ImageView
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:layout_marginBottom="16dp"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null"
+        android:src="@drawable/accesobloqueado" />
+
+    <TextView
+        android:id="@+id/tvTituloAccesoCaja"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/inter_medium"
+        android:text="Acceso restringido"
+        android:textColor="@color/text_primary_pure"
+        />
+
+    <TextView
+        android:id="@+id/tvMensajeAccesoCaja"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:lineSpacingExtra="2dp"
+        android:text="Tu rol de supervisor no tiene acceso a cajas de rango administrador."
+        android:textColor="#5F6368"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/tvBotonEntendidoAccesoCaja"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center"
+        android:paddingVertical="12dp"
+        android:text="Entendido"
+        android:fontFamily="@font/inter_regular"
+        android:textColor="@color/text_primary_pure"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

@@ -1,0 +1,1962 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".ActivityInventario.EditarProductodelInventario">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/materialToolbar3"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="#F4F7F6"
+        app:elevation="0dp"
+        android:minHeight="?attr/actionBarSize"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:menu="@menu/menu_editar_producto"
+        app:navigationIcon="@drawable/baseline_arrow_back_24"
+        app:title=""
+        app:titleCentered="true"
+        app:titleTextColor="@color/black" />
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/constraintcontainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:paddingStart="24dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="120dp"
+        app:layout_constraintTop_toBottomOf="@id/materialToolbar3"
+        app:layout_constraintBottom_toTopOf="@+id/cardResumenFijo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- SECCIÓN IMAGEN -->
+            <!-- RESUMEN RAPIDO (Stock / Minimo / Estado) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_gravity="center"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvResumenStock"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/inter_medium"
+                            android:maxLines="1"
+                            android:text="Vendible: 0"
+                            android:textColor="@color/text_primary_pure"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_marginEnd="10dp"
+                            android:text="|"
+                            android:textColor="#9AA4B2"
+                            android:textSize="18sp"
+                            android:fontFamily="@font/inter_medium" />
+
+                        <TextView
+                            android:id="@+id/tvResumenMinimo"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/inter_medium"
+                            android:maxLines="1"
+                            android:text="Fisico: 0"
+                            android:textColor="@color/text_primary_pure"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="start"
+                        android:visibility="gone"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipResumenEstadoStock"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Disponible"
+                            android:textSize="12sp"
+                            android:maxLength="0"
+                            android:visibility="gone"
+                            android:fontFamily="@font/inter_medium"
+                            app:chipCornerRadius="12dp"
+                            app:chipMinHeight="28dp"
+                            android:background="@color/white"
+                            app:chipStrokeWidth="0dp"
+                            app:ensureMinTouchTargetSize="false" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="26dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#E3ECE8"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:id="@+id/onclickimagen"
+                            android:layout_width="102dp"
+                            android:layout_height="102dp"
+                            android:background="#F6F8FA"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/imagevieW"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:padding="10dp"
+                                android:scaleType="fitCenter" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone"
+                                tools:visibility="gone" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvHeroProductName"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/inter_bold"
+                                android:text="Tablet"
+                                android:textColor="@color/text_primary"
+                                android:textSize="23sp"
+                                tools:text="Tablet" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvHeroCategory"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="14sp"
+                                    tools:text="Analgésico" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginHorizontal="8dp"
+                                    android:text="•"
+                                    android:textColor="@color/text_tertiary_muted"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvHeroEstado"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/brand_green_pressed"
+                                    android:textSize="14sp"
+                                    tools:text="Activo" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="16dp"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvHeroVendible"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:background="@drawable/bg_pill_green_soft"
+                                    android:drawableStart="@null"
+                                    android:drawablePadding="0dp"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="10dp"
+                                    android:paddingVertical="10dp"
+                                    android:textColor="#166534"
+                                    android:maxLines="1"
+                                    android:textSize="12sp"
+                                    tools:text="Vendible: 10" />
+
+                                <TextView
+                                    android:id="@+id/tvHeroFisico"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="10dp"
+                                    android:background="@drawable/bg_pill_green_soft"
+                                    android:drawableStart="@null"
+                                    android:drawablePadding="0dp"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="10dp"
+                                    android:paddingVertical="10dp"
+                                    android:textColor="#166534"
+                                    android:maxLines="1"
+                                    android:textSize="12sp"
+                                    tools:text="Físico: 10" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginTop="16dp"
+                                android:background="@color/border_neutral" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="14dp"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvHeroVence"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="14sp"
+                                    tools:text="Vence: 07/26" />
+
+                                <TextView
+                                    android:id="@+id/tvHeroStockMinimo"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="end"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="14sp"
+                                    tools:text="Stock mín: 1 caja" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:id="@+id/tvTituloAccionesRapidas"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:fontFamily="@font/inter_bold"
+                android:text="Acciones rápidas"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp" />
+
+            <LinearLayout
+                android:id="@+id/layoutQuickActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="26dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickIngresarStock"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Ingresar\nstock"
+                    android:textAlignment="center"
+                    android:textAllCaps="false"
+                    android:textColor="@color/brand_green_pressed"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_action_stock_in"
+                    app:iconGravity="top"
+                    app:iconPadding="6dp"
+                    app:iconTint="@color/brand_green_pressed"
+                    app:strokeColor="#D6EBDD" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickEgresoStock"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="10dp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Registrar\nsalida"
+                    android:textAlignment="center"
+                    android:textAllCaps="false"
+                    android:textColor="@color/brand_green_pressed"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_action_stock_out"
+                    app:iconGravity="top"
+                    app:iconPadding="6dp"
+                    app:iconTint="@color/brand_green_pressed"
+                    app:strokeColor="#D6EBDD" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickAjustarStock"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Ajustar\nstock"
+                    android:textAlignment="center"
+                    android:textAllCaps="false"
+                    android:textColor="@color/brand_green_pressed"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_action_stock_adjust"
+                    app:iconGravity="top"
+                    app:iconPadding="6dp"
+                    app:iconTint="@color/brand_green_pressed"
+                    app:strokeColor="#D6EBDD" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:fontFamily="@font/inter_bold"
+                android:text="Detalles del producto"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp" />
+
+            <!-- INFORMACIÓN GENERAL — header del accordion (igual estilo que las otras secciones) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#DCE8E2"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="18dp"
+                    android:paddingVertical="18dp">
+
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="14dp"
+                        android:background="@drawable/bg_circle_green_soft">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_section_info_general"
+                            app:tint="@color/brand_green_pressed" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="@string/informacion_general"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/tvInfoGeneralSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:maxLines="2"
+                            android:textColor="#64748B"
+                            android:textSize="14sp"
+                            tools:text="Nombre, categoría y configuración" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="12dp"
+                        android:minWidth="0dp"
+                        android:text="Editar"
+                        android:textAllCaps="false"
+                        android:textColor="#2FA772"
+                        android:visibility="gone"
+                        app:cornerRadius="22dp"
+                        app:strokeColor="#C7E9D8" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="10dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_secondary_gray" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- INFORMACIÓN GENERAL — contenido del accordion (se muestra al expandir) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#E7EEEA"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <!-- Sub-tarjeta plana con Nombre + Categoría -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/surface_white"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/divider"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <!-- Field: Nombre del producto -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:paddingStart="16dp"
+                                android:paddingTop="12dp"
+                                android:paddingEnd="16dp"
+                                android:paddingBottom="6dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:letterSpacing="0.06"
+                                    android:text="NOMBRE DEL PRODUCTO"
+                                    android:textAllCaps="true"
+                                    android:textColor="#1D9E75"
+                                    android:textSize="11sp" />
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    android:id="@+id/tilNombre"
+                                    style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    app:boxBackgroundColor="@android:color/transparent"
+                                    app:boxStrokeWidth="0dp"
+                                    app:boxStrokeWidthFocused="0dp"
+                                    app:hintEnabled="false">
+
+                                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                                        android:id="@+id/editTextNombre"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:background="@android:color/transparent"
+                                        android:fontFamily="@font/inter_medium"
+                                        android:hint="Escribe para buscar..."
+                                        android:inputType="textCapSentences"
+                                        android:minHeight="40dp"
+                                        android:paddingStart="0dp"
+                                        android:paddingEnd="0dp"
+                                        android:textColor="@color/text_primary"
+                                        android:textColorHint="@color/text_tertiary_muted"
+                                        android:textSize="15sp" />
+                                </com.google.android.material.textfield.TextInputLayout>
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="0.5dp"
+                                android:background="@color/divider" />
+
+                            <!-- Field: Categoría -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:paddingStart="16dp"
+                                android:paddingTop="12dp"
+                                android:paddingEnd="16dp"
+                                android:paddingBottom="6dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:letterSpacing="0.06"
+                                    android:text="CATEGORÍA"
+                                    android:textAllCaps="true"
+                                    android:textColor="#1D9E75"
+                                    android:textSize="11sp" />
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    android:id="@+id/tilCategoria"
+                                    style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    app:boxBackgroundColor="@android:color/transparent"
+                                    app:boxStrokeWidth="0dp"
+                                    app:boxStrokeWidthFocused="0dp"
+                                    app:endIconTint="@color/text_disabled"
+                                    app:hintEnabled="false">
+
+                                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                                        android:id="@+id/editTextCategoria"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:background="@android:color/transparent"
+                                        android:fontFamily="@font/inter_medium"
+                                        android:hint="Selecciona categoría"
+                                        android:minHeight="40dp"
+                                        android:paddingStart="0dp"
+                                        android:paddingEnd="0dp"
+                                        android:textColor="@color/text_primary"
+                                        android:textColorHint="@color/text_tertiary_muted"
+                                        android:textSize="15sp" />
+                                </com.google.android.material.textfield.TextInputLayout>
+                            </LinearLayout>
+
+                            <com.google.android.material.chip.ChipGroup
+                                android:id="@+id/chipGroupCategoriaSugerencias"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="14dp"
+                                android:layout_marginEnd="14dp"
+                                android:layout_marginBottom="12dp"
+                                android:visibility="gone"
+                                app:chipSpacingHorizontal="8dp"
+                                app:chipSpacingVertical="8dp"
+                                tools:visibility="visible" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Tarjeta toggle: Requiere receta -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardToggleReceta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        app:cardBackgroundColor="@color/surface_white"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/divider"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:minHeight="64dp"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/iconToggleReceta"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                app:cardBackgroundColor="#F1F4F7"
+                                app:cardCornerRadius="10dp"
+                                app:cardElevation="0dp">
+
+                                <ImageView
+                                    android:id="@+id/imgToggleReceta"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:contentDescription="@null"
+                                    android:padding="9dp"
+                                    android:src="@drawable/ic_section_info_general"
+                                    app:tint="@color/text_secondary" />
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvNombreToggleReceta"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:text="@string/requiere_receta_medica"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvHintReceta"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Al vender, se solicitará la receta"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/swichtreceta"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Tarjeta toggle: Producto activo -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardToggleActivo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        app:cardBackgroundColor="#EAF3DE"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#9FE1CB"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:minHeight="64dp"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="12dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/iconToggleActivo"
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                app:cardBackgroundColor="#C0DD97"
+                                app:cardCornerRadius="10dp"
+                                app:cardElevation="0dp">
+
+                                <ImageView
+                                    android:id="@+id/imgToggleActivo"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:contentDescription="@null"
+                                    android:padding="9dp"
+                                    android:src="@drawable/ic_section_info_general"
+                                    app:tint="#27500A" />
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvNombreToggleActivo"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_medium"
+                                    android:text="@string/producto_activo"
+                                    android:textColor="#0F6E56"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/tvHintActivo"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="Visible y disponible en caja"
+                                    android:textColor="#3B6D11"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switchestadodelproducto"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- INVENTARIO -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#DCE8E2"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:minHeight="66dp"
+                    android:paddingHorizontal="18dp"
+                    android:paddingVertical="18dp">
+
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="14dp"
+                        android:background="@drawable/bg_circle_green_soft">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_section_inventory_management"
+                            app:tint="@color/brand_green_pressed" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="@string/gestion_inventario"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/tvInventarioSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:maxLines="2"
+                            android:textColor="#64748B"
+                            android:textSize="14sp"
+                            tools:text="Unidad: Unidad&#10;Stock: 10 • Mínimo: 1" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="12dp"
+                        android:minWidth="0dp"
+                        android:text="Editar"
+                        android:textAllCaps="false"
+                        android:textColor="#2FA772"
+                        app:cornerRadius="22dp"
+                        app:strokeColor="#C7E9D8" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="10dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_secondary_gray" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="#E4E7EC">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="22dp"
+                    android:paddingTop="26dp"
+                    android:paddingEnd="22dp"
+                    android:paddingBottom="22dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:layout_marginBottom="20dp"
+                        android:background="@drawable/bg_inventory_summary"
+                        android:gravity="center_vertical"
+                        android:minHeight="76dp"
+                        android:orientation="horizontal"
+                        android:padding="14dp">
+
+                        <ImageView
+                            android:layout_width="34dp"
+                            android:layout_height="34dp"
+                            android:layout_marginEnd="14dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_section_inventory_management"
+                            app:tint="#0F8B4C" />
+
+                        <TextView
+                            android:id="@+id/tvResumenInventario"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:lineSpacingExtra="4dp"
+                            android:textColor="#596276"
+                            android:textSize="15sp"
+                            android:visibility="visible"
+                            tools:text="Base: Unidad   ·   Método: Total unidades&#10;Stock: 0 Unidad   ·   Min: 0 Unidad" />
+                    </LinearLayout>
+
+                    <!-- COMO SE CONTROLA EL STOCK — oculto en edición, el método no cambia -->
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/toggleControlStock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        app:singleSelection="true"
+                        app:selectionRequired="true">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnControlStockUnidades"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:text="@string/control_stock_unidades"
+                            android:textAllCaps="false" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnControlStockPeso"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:text="@string/control_stock_peso"
+                            android:textAllCaps="false" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnControlStockVolumen"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:text="@string/control_stock_volumen"
+                            android:textAllCaps="false" />
+
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                    <TextView
+                        android:id="@+id/tvAyudaControlStock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:text="@string/control_stock_ayuda_unidades"
+                        android:textSize="15sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="24dp"
+                        android:background="#E4E7EC" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilUnidadBase"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/unidad_medida_base"
+                        android:visibility="gone"
+                        app:helperText="@string/ayuda_unidad_base"
+                        app:helperTextTextColor="#0F8B4C">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/editTextUnidadBase"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="none"
+                            android:minHeight="58dp"
+                            android:textColor="#202124"
+                            android:textSize="16sp"
+                            android:cursorVisible="false"
+                            android:padding="16dp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/tvExplicacionUnidadBase"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:text="@string/explicacion_unidad_base" />
+
+                    <TextView
+                        android:id="@+id/tvAvisoTipoBaseInmutable"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        tools:text="aviso tipo base" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:text="@string/metodo_registro" />
+
+                    <RadioGroup
+                        android:id="@+id/radioGroupTipoIngreso"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:layout_marginBottom="0dp">
+
+                        <RadioButton
+                            android:id="@+id/radioPorUnidades"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:text="@string/avisar_por_unidad_base"
+                            android:checked="true"
+                            android:buttonTint="@color/selector_inventory_radio_tint"
+                            android:fontFamily="@font/inter_regular"
+                            android:gravity="center_vertical"
+                            android:paddingStart="22dp"
+                            android:textColor="#202124"
+                            android:textSize="15sp"/>
+
+                        <RadioButton
+                            android:id="@+id/radioPorPaquetes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="52dp"
+                            android:text="@string/avisar_por_presentacion_principal"
+                            android:buttonTint="@color/selector_inventory_radio_tint"
+                            android:fontFamily="@font/inter_regular"
+                            android:gravity="center_vertical"
+                            android:paddingStart="22dp"
+                            android:textColor="#202124"
+                            android:textSize="15sp"/>
+                    </RadioGroup>
+
+                    <LinearLayout
+                        android:id="@+id/layoutPorUnidades"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:visibility="gone"
+                            android:hint="@string/stock_actual"
+                            app:boxCornerRadiusBottomStart="12dp"
+                            app:boxCornerRadiusBottomEnd="12dp"
+                            app:boxCornerRadiusTopStart="12dp"
+                            app:boxCornerRadiusTopEnd="12dp"
+                            app:boxStrokeColor="#6F7177">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/editTextCantidad"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="58dp"
+                                android:textSize="16sp"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:hint="@string/stock_minimo_unidad_base_hint"
+                            app:boxCornerRadiusBottomStart="12dp"
+                            app:boxCornerRadiusBottomEnd="12dp"
+                            app:boxCornerRadiusTopStart="12dp"
+                            app:boxCornerRadiusTopEnd="12dp"
+                            app:boxStrokeColor="#6F7177">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/editTextStock"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="58dp"
+                                android:textSize="16sp"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutPorPaquetes"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:hint="@string/cajas"
+                                app:boxCornerRadiusBottomStart="12dp"
+                                app:boxCornerRadiusBottomEnd="12dp"
+                                app:boxCornerRadiusTopStart="12dp"
+                                app:boxCornerRadiusTopEnd="12dp"
+                                app:boxStrokeColor="#6F7177">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/editCantidadPresentacion"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:minHeight="58dp"
+                                    android:textSize="16sp"
+                                    android:inputType="number" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:hint="@string/und_caja"
+                                app:boxCornerRadiusBottomStart="12dp"
+                                app:boxCornerRadiusBottomEnd="12dp"
+                                app:boxCornerRadiusTopStart="12dp"
+                                app:boxCornerRadiusTopEnd="12dp"
+                                app:boxStrokeColor="#6F7177">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/editUnidadesPorCaja"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:minHeight="58dp"
+                                    android:textSize="16sp"
+                                    android:inputType="number" />
+                            </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/textStockCalculado"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="@string/stock_total_0"
+                            android:textColor="@color/verdebotones"
+                            android:fontFamily="@font/inter_medium"
+                            android:textSize="18sp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:hint="@string/stock_minimo_presentacion_principal_hint"
+                            app:boxCornerRadiusBottomStart="12dp"
+                            app:boxCornerRadiusBottomEnd="12dp"
+                            app:boxCornerRadiusTopStart="12dp"
+                            app:boxCornerRadiusTopEnd="12dp"
+                            app:boxStrokeColor="#6F7177">
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/editTextStockPresentacion"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="58dp"
+                                android:textSize="16sp"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/textCantidadyStock"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAjustarStock"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="16dp"
+                        android:text="Ajustar stock"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary_almost"
+                        app:cornerRadius="24dp"
+                        app:icon="@drawable/baseline_sync_24"
+                        app:iconPadding="8dp"
+                        android:textSize="16sp"
+                        app:iconTint="@color/text_primary_almost"
+                        app:strokeColor="#D8DEE4" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIngresarStock"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="10dp"
+                        android:text="Ingresar stock"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary_almost"
+                        app:cornerRadius="24dp"
+                        android:textSize="16sp"
+                        app:icon="@drawable/baseline_add_24"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/text_primary_almost"
+                        app:strokeColor="#D8DEE4" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEgresoStock"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="10dp"
+                        android:text="Registrar salida"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary_almost"
+                        app:cornerRadius="24dp"
+                        android:textSize="16sp"
+                        app:icon="@drawable/baseline_remove_24"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/text_primary_almost"
+                        app:strokeColor="#D8DEE4" />
+
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- COSTOS -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#DCE8E2"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="18dp"
+                    android:paddingVertical="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/costo_base_referencial_titulo"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:textColor="@color/black" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_arrow_drop_down"
+                        android:tint="@color/text_secondary_gray" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#F0F0F0"
+                app:strokeWidth="1.5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/costo_base_referencial_hint"
+                        app:helperText="@string/ayuda_costo_base_referencial"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusTopStart="12dp"
+                        app:prefixText="$">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTextCompra"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="10dp"
+                            android:inputType="numberDecimal"
+                            android:padding="16dp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PRESENTACIONES -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_neutral"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:minHeight="82dp"
+                    android:paddingHorizontal="24dp"
+                    android:paddingVertical="16dp">
+
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="14dp"
+                        android:background="@drawable/bg_circle_green_soft">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_section_presentations"
+                            app:tint="@color/brand_green_pressed" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_medium"
+                            android:text="@string/presentaciones_bloque_titulo"
+                            android:textColor="@color/text_primary_pure"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:id="@+id/tvPresentacionesSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:maxLines="2"
+                            android:textColor="#64748B"
+                            android:textSize="14sp"
+                            tools:text="Caja, blíster, pack" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="12dp"
+                        android:minWidth="0dp"
+                        android:text="Editar"
+                        android:textAllCaps="false"
+                        android:textColor="#2FA772"
+                        app:cornerRadius="22dp"
+                        app:strokeColor="#C7E9D8" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="10dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_secondary_gray" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#F0F0F0"
+                app:strokeWidth="1.5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <!-- Switch oculto (compat) — se mantiene activado siempre -->
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchPresentaciones"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutPresentaciones"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:layout_width="54dp"
+                                android:layout_height="54dp"
+                                app:cardBackgroundColor="#EAF6EF"
+                                app:cardCornerRadius="18dp"
+                                app:cardElevation="0dp">
+
+                                <ImageView
+                                    android:id="@+id/imgProductoPresentaciones"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:contentDescription="@null"
+                                    android:padding="13dp"
+                                    android:src="@drawable/ic_section_presentations"
+                                    app:tint="@color/brand_green_pressed" />
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="14dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvNombreProductoPresentaciones"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/inter_bold"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="24sp"
+                                    tools:text="Ibuprofeno" />
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Gestiona presentaciones y precios de venta"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="14sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Sección: Principal de venta -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="26dp"
+                            android:fontFamily="@font/inter_medium"
+                            android:text="Principal de venta"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardPrincipalDeVenta"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:cardBackgroundColor="#EEF8F1"
+                            app:cardCornerRadius="14dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/brand_green_dark"
+                            app:strokeWidth="1.5dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingStart="14dp"
+                                android:paddingTop="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingBottom="14dp">
+
+                                <com.google.android.material.card.MaterialCardView
+                                    android:layout_width="46dp"
+                                    android:layout_height="46dp"
+                                    app:cardBackgroundColor="#D7EFDD"
+                                    app:cardCornerRadius="12dp"
+                                    app:cardElevation="0dp">
+
+                                    <ImageView
+                                        android:id="@+id/imgPrincipalDeVenta"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:contentDescription="@null"
+                                        android:padding="10dp"
+                                        android:src="@drawable/ic_section_presentations"
+                                        app:tint="@color/brand_green_dark" />
+                                </com.google.android.material.card.MaterialCardView>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="center_vertical"
+                                        android:orientation="horizontal">
+
+                                        <TextView
+                                            android:id="@+id/tvNombrePrincipalDeVenta"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="@font/inter_medium"
+                                            android:textColor="@color/text_primary"
+                                            android:textSize="18sp"
+                                            android:textStyle="bold"
+                                            tools:text="Caja" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="10dp"
+                                            android:background="@drawable/bg_pill_green_soft"
+                                            android:fontFamily="@font/inter_medium"
+                                            android:paddingStart="10dp"
+                                            android:paddingTop="3dp"
+                                            android:paddingEnd="10dp"
+                                            android:paddingBottom="3dp"
+                                            android:text="Principal"
+                                            android:textColor="@color/brand_green_dark"
+                                            android:textSize="11sp" />
+                                    </LinearLayout>
+
+                                    <TextView
+                                        android:id="@+id/tvEquivalenciaPrincipalDeVenta"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:textColor="#475467"
+                                        android:textSize="13sp"
+                                        tools:text="1 caja = 5 blíster = 50 unidades" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- COMPAT: dropdown oculto que sigue manejando la elección de principal -->
+                        <TextView
+                            android:id="@+id/tvAyudaSeleccionPrincipal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="14dp"
+                            android:text="Selecciona con el radio cuál será la presentación principal de venta."
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilPresentacionPrincipal"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone">
+
+                            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                                android:id="@+id/editTextPresentacionPrincipal"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="none" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <TextView
+                            android:id="@+id/textPresentacionPrincipal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/presentacion_principal_venta"
+                            android:visibility="gone" />
+
+                        <!-- Sección: Presentaciones activas -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="24dp"
+                            android:fontFamily="@font/inter_medium"
+                            android:text="Presentaciones activas"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:id="@+id/contenedorPresentaciones"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="vertical" />
+
+                        <!-- Botón "+ Agregar presentación" con borde discontinuo -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAgregarPresentacion"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:layout_marginTop="4dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="Agregar presentación"
+                            android:textAllCaps="false"
+                            android:textColor="@color/brand_green_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="14dp"
+                            app:icon="@drawable/baseline_add_24"
+                            app:iconGravity="textStart"
+                            app:iconPadding="6dp"
+                            app:iconSize="20dp"
+                            app:iconTint="@color/brand_green_dark"
+                            app:strokeColor="@color/brand_green_dark"
+                            app:strokeWidth="1dp" />
+
+                        <!-- Pista informativa -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="14dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_marginEnd="8dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_info"
+                                app:tint="@color/text_tertiary_muted" />
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Los cambios de equivalencia afectan el stock vendible"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- OTROS DETALLES -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#DCE8E2"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="18dp"
+                    android:paddingVertical="16dp">
+
+                    <FrameLayout
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="14dp"
+                        android:background="@drawable/bg_circle_green_soft">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_section_other_details"
+                            app:tint="@color/brand_green_pressed" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/inter_bold"
+                            android:text="@string/otros_detalles"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/tvOtrosDetallesSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:maxLines="2"
+                            android:textColor="#64748B"
+                            android:textSize="14sp"
+                            tools:text="Vence: 07/26 • Receta: No&#10;Activo: Sí" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="12dp"
+                        android:minWidth="0dp"
+                        android:text="Editar"
+                        android:textAllCaps="false"
+                        android:textColor="#2FA772"
+                        app:cornerRadius="22dp"
+                        app:strokeColor="#C7E9D8" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="10dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/text_secondary_gray" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#F0F0F0"
+                app:strokeWidth="1.5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/layoutVencimientoGeneral"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/vencimiento_hint"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusTopStart="12dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTextVencimiento"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="10dp"
+                            android:inputType="number"
+                            android:maxLength="5"
+                            android:padding="16dp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/textEstadoVencimiento"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="6dp"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvAyudaVencimientoPorLotes"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="El vencimiento ahora se gestiona por lotes. Revísalo en Gestionar lotes."
+                        android:textColor="@color/text_secondary_gray"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <!-- Gestionar lotes del producto -->
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:text="Ver y gestionar lotes"
+                        android:textAllCaps="false"
+                        android:textColor="#4F46E5"
+                        app:cornerRadius="12dp"
+                        android:textSize="10dp"
+                        app:icon="@drawable/outline_edit_24"
+                        app:iconGravity="textStart"
+                        app:iconSize="18dp"
+                        app:iconTint="#4F46E5"
+                        app:strokeColor="#C7D2FE"
+                        app:strokeWidth="1dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardResumenFijo"
+        android:layout_width="0dp"
+        android:visibility="gone"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="12dp"
+        app:cardBackgroundColor="#F7F8FA"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E7EAEE"
+        app:strokeWidth="1dp"
+        app:layout_constraintBottom_toTopOf="@id/layoutBotonesInferiores"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/tvResumenInventarioFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="14dp"
+            android:textColor="@color/text_secondary_gray"
+            android:textSize="12sp"
+            tools:text="Base: unidad | Metodo: por unidades&#10;Stock: 0 unidades | Min: 0 unidades" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- BOTONES INFERIORES LITE -->
+    <LinearLayout
+        android:id="@+id/layoutBotonesInferiores"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:orientation="horizontal"
+        android:padding="20dp"
+        android:background="#F4F7F6"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/materialButtonborrar"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="58dp"
+            android:layout_weight="0"
+            android:visibility="gone"
+            android:text="@string/borrar"
+            android:textSize="15sp"
+            android:textColor="#EF4444"
+            app:backgroundTint="#FEF2F2"
+            app:cornerRadius="29dp"
+            android:fontFamily="@font/inter_medium"
+            android:textAllCaps="false"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/materialButton3"
+            android:layout_width="0dp"
+            android:layout_height="58dp"
+            android:layout_weight="1"
+            android:text="@string/guardar_cambios"
+            android:textColor="@android:color/white"
+            app:backgroundTint="@color/verdebotones"
+            app:cornerRadius="29dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:fontFamily="@font/inter_medium"/>
+    </LinearLayout>
+
+    <!-- OVERLAYS -->
+    <FrameLayout
+        android:id="@+id/layoutCargando"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/surface_white"
+        android:visibility="visible"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:id="@+id/cardCarga"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="24dp">
+
+            <ImageView
+                android:id="@+id/ivIosLoader"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:src="@drawable/ic_ios_loader"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/tvTituloCargando"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:fontFamily="@font/inter_medium"
+                android:text="Cargando producto"
+                android:textColor="@color/text_primary_pure"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvMensajeCargando"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:text="Un momento..."
+                android:textAlignment="center"
+                android:textColor="@color/text_secondary_gray"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardProductoCatalogo"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    android:minHeight="170dp"
+    app:cardBackgroundColor="@android:color/white"
+    app:cardCornerRadius="15dp"
+
+    android:translationZ="0dp"
+    android:stateListAnimator="@null"
+    app:strokeColor="#E6EBF2"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="8dp"
+       >
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/imgProductoCatalogo"
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:layout_gravity="center_horizontal"
+            android:adjustViewBounds="false"
+            android:background="@color/surface_white"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/iconpastillas"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CircleImage" />
+
+        <TextView
+            android:id="@+id/tvNombreProductoCatalogo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/inter_medium"
+            android:minLines="2"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="Paracetamol" />
+
+        <TextView
+            android:id="@+id/tvPresentacionProductoCatalogo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/text_secondary"
+            android:textSize="10sp"
+            tools:text="Caja x10" />
+
+        <TextView
+            android:id="@+id/tvEstadoProductoCatalogo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="#FDECEC"
+            android:fontFamily="@font/inter_medium"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:text="Producto agotado"
+            android:textColor="#C94747"
+            android:textSize="10sp"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/tvPrecioProductoCatalogo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="@font/inter_medium"
+            android:textColor="@color/brand_green"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="Bs 25.00" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

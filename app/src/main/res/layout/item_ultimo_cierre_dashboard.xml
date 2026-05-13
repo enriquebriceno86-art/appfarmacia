@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootUltimoCierre"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingVertical="10dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        app:cardBackgroundColor="#F2F4F7"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="0dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/pos"
+            app:tint="@color/text_secondary_alt" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/tvNombreCajaCierreItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/inter_medium"
+        android:maxLines="1"
+        android:text="Caja"
+        android:textColor="@color/text_primary_navy"
+        android:textSize="14sp"
+        tools:text="Caja principal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="6dp"
+        android:fontFamily="@font/inter_regular"
+        android:text="·"
+        android:textColor="@color/text_tertiary_alt"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/tvHoraCierreItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/inter_regular"
+        android:text="--:--"
+        android:textColor="@color/text_secondary_alt"
+        android:textSize="13sp"
+        tools:text="3:20 p. m." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="6dp"
+        android:fontFamily="@font/inter_regular"
+        android:text="·"
+        android:textColor="@color/text_tertiary_alt"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="end|center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_regular"
+            android:text="Diferencia"
+            android:textColor="@color/text_secondary_alt"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvDiferenciaCierreItem"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/inter_medium"
+            android:text="Bs 0.00"
+            android:textColor="@color/text_primary_navy"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="Bs 0.00" />
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="4dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_chevron_right"
+            app:tint="@color/text_tertiary_alt" />
+    </LinearLayout>
+</LinearLayout>
