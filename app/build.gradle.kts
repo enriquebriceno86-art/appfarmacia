@@ -6,23 +6,17 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-// Lee GEMINI_API_KEY desde local.properties (no commiteado).
-// Si no está, queda en blanco y el feature de sugerencia se deshabilita
-// silenciosamente en runtime.
-val geminiApiKey: String = run {
-    val props = Properties()
-    val file = rootProject.file("local.properties")
-    if (file.exists()) props.load(file.inputStream())
-    (props.getProperty("GEMINI_API_KEY") ?: "").trim()
-}
+// Lee las API Keys desde local.properties (no commiteado).
+val props = Properties()
+val file = rootProject.file("local.properties")
+if (file.exists()) props.load(file.inputStream())
+
+val geminiApiKey: String = (props.getProperty("GEMINI_API_KEY") ?: "").trim()
+val deepseekApiKey: String = (props.getProperty("DEEPSEEK_API_KEY") ?: "").trim()
 
 android {
     namespace = "com.app.administradorfarmadon"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36 // Simplificado para evitar el error de release(36)
 
     defaultConfig {
         applicationId = "com.app.administradorfarmadon"
@@ -34,6 +28,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+        buildConfigField("String", "DEEPSEEK_API_KEY", "\"$deepseekApiKey\"")
     }
 
     buildTypes {
@@ -60,6 +55,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.animation)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Importa el BoM primero (esto es obligatorio)
     implementation(platform(libs.firebase.bom))
@@ -76,6 +72,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
@@ -90,16 +88,30 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation(libs.firebase.auth.ktx)
 
+    // Scanner y Cámara
+    implementation(libs.barcode.scanning)
+    implementation(libs.text.recognition)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
     // Otras librerías
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("com.hbb20:ccp:2.7.3")
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("androidx.gridlayout:gridlayout:1.1.0")
     implementation("androidx.palette:palette:1.0.0")
+    implementation("org.jsoup:jsoup:1.18.1")
 
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+
+
+
+
+
 }

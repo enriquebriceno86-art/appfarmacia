@@ -77,14 +77,32 @@ object InventarioSummaryRules {
 
     fun construirEstadoVacio(
         isEmpty: Boolean,
-        hayFiltrosActivos: Boolean
+        hayFiltrosActivos: Boolean,
+        query: String = ""
     ): InventarioEstadoVacioState {
         return if (isEmpty && hayFiltrosActivos) {
+            val q = query.lowercase().trim()
+            val descripcion = if (q.length >= 2) {
+                // Sugerencias inteligentes basadas en el query (V4.9: Sincronizadas con ClinicalDictionary)
+                val sugerenciasDinamicas = com.app.administradorfarmadon.ActivityInventario.domain.ClinicalDictionary.findSuggestionsForQuery(q)
+                
+                val sugerenciaTexto = if (sugerenciasDinamicas.isNotEmpty()) {
+                    val items = sugerenciasDinamicas.filter { !it.contains(q) }.take(3)
+                    if (items.isNotEmpty()) "Prueba con: ${items.joinToString(", ")}."
+                    else "Prueba con términos más generales."
+                } else {
+                    "Prueba con sinónimos o términos más generales."
+                }
+                
+                "No encontramos resultados para \"$query\".\n$sugerenciaTexto"
+            } else {
+                "No encontramos productos con esos filtros."
+            }
             InventarioEstadoVacioState(
                 mostrarVacio = true,
                 mostrarLista = false,
                 titulo = "Sin resultados",
-                descripcion = "No encontramos productos con esos filtros.",
+                descripcion = descripcion,
                 mostrarBotonLimpiar = true
             )
         } else if (isEmpty) {
@@ -92,7 +110,7 @@ object InventarioSummaryRules {
                 mostrarVacio = true,
                 mostrarLista = false,
                 titulo = "Inventario vacío",
-                descripcion = "Aún no has agregado productos.",
+                descripcion = "Agrega tu primer producto para empezar a vender y controlar stock.",
                 mostrarBotonLimpiar = false
             )
         } else {

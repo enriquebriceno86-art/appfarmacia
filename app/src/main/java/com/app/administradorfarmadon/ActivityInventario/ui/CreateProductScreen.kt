@@ -4,30 +4,27 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.graphicsLayer
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState
+import com.app.administradorfarmadon.ActivityInventario.reference.ConfianzaIA
+import com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -36,7 +33,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -44,8 +40,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
@@ -56,12 +61,15 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -76,7 +84,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -100,6 +112,7 @@ import com.app.administradorfarmadon.ActivityInventario.reference.ProductReferen
 import com.app.administradorfarmadon.ActivityInventario.reference.ProductReferenceStatus
 import com.app.administradorfarmadon.ActivityInventario.reference.ProductReferenceUiState
 import com.app.administradorfarmadon.ActivityInventario.reference.toSummary
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.R
 import java.time.LocalDate
 import java.time.YearMonth
@@ -108,16 +121,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val CreateBackground = Color(0xFFF7F9FC)
-private val CreateBorder = Color(0xFFE5EAF0)
-private val CreateGreen = Color(0xFF15A05C)
-private val CreateGreenSoft = Color(0xFFF1FBF5)
-private val CreateOrangeSoft = Color(0xFFFFF5EB)
-private val CreateTextPrimary = Color(0xFF111827)
-private val CreateTextSecondary = Color(0xFF667085)
-private val CreateRed = Color(0xFFD92D20)
-private val CreateOrange = Color(0xFFE17B00)
-private val CreateBlue = Color(0xFF2E90FA)
+val CreateBackground = Color(0xFFF7F9FC)
+val CreateBorder = Color(0xFFE5EAF0)
+val CreateGreen = Color(0xFF15A05C)
+val CreateGreenSoft = Color(0xFFF1FBF5)
+val CreateOrangeSoft = Color(0xFFFFF5EB)
+val CreateTextPrimary = Color(0xFF111827)
+val CreateTextSecondary = Color(0xFF667085)
+val CreateRed = Color(0xFFD92D20)
+val CreateOrange = Color(0xFFE17B00)
+val CreateBlue = Color(0xFF2E90FA)
+val CreateBlueSoft = Color(0xFFEFF8FF)
 
 private enum class ExpirationStatusKind {
     VIGENTE,
@@ -135,10 +149,10 @@ private data class ExpirationStatus(
 )
 
 enum class CreateProductStep(val number: Int, val title: String, val subtitle: String) {
-    PRODUCTO(1, "Producto", "Define la informacion base del producto"),
-    LOTE_INICIAL(2, "Lote inicial", "Registra el lote con el que inicia el inventario"),
-    PRESENTACIONES(3, "Presentaciones y precios", "Configura equivalencias y precios de venta"),
-    RESUMEN(4, "Resumen del producto", "Confirma los datos antes de guardar")
+    PRODUCTO(1, "Producto", ""),
+    LOTE_INICIAL(2, "Registro del Lote", ""),
+    PRESENTACIONES(3, "Presentaciones de ventas", ""),
+    RESUMEN(4, "Resumen del producto", "")
 }
 
 enum class CreateProductControlType(
@@ -166,6 +180,15 @@ enum class CreateProductControlType(
         example = "Jarabes, alcohol, soluciones",
         baseUnitLabel = "mL"
     )
+}
+
+private fun TipoControlDetectado.toCreateProductControlTypeOrNull(): CreateProductControlType? {
+    return when (this) {
+        TipoControlDetectado.UNIDAD -> CreateProductControlType.UNIDAD
+        TipoControlDetectado.PESO -> CreateProductControlType.PESO
+        TipoControlDetectado.LIQUIDO -> CreateProductControlType.LIQUIDO
+        else -> null
+    }
 }
 
 enum class CreateProductStockEntryMode(
@@ -200,7 +223,18 @@ data class CreateProductPresentation(
     // Si fue propuesta por la IA. Se muestra un ✨ a su lado. Se vuelve false
     // en cuanto el usuario edita el nombre o la equivalencia, para indicar
     // que ya es de él (no de la IA).
-    val isAiSuggested: Boolean = false
+    val isAiSuggested: Boolean = false,
+    val marketPriceReference: Double? = null,
+    val marketConfidence: Int? = null,
+    val aiDescription: String? = null,
+    val isGeneric: Boolean = false,
+    val isBrand: Boolean = false
+)
+
+data class CategoryMarginRule(
+    val category: String = "",
+    val minMarginPercent: Double = 0.0,
+    val suggestedMarginPercent: Double = 0.0
 )
 
 @Immutable
@@ -234,10 +268,23 @@ data class SavedPresentation(
 data class CreateProductState(
     val currentStep: CreateProductStep = CreateProductStep.PRODUCTO,
     val name: String = "",
+    val barcode: String = "",
+    val isBarcodeManualMode: Boolean = false,
+    val isBarcodeScanning: Boolean = false,
+    val isLabelScanning: Boolean = false,
     val category: String = "",
     val controlType: CreateProductControlType? = null,
+    val typeSelectedManually: Boolean = false,
+    val categorySelectedFromAi: Boolean = false,
+    val categoryStatus: String? = null,
     val requiresPrescription: Boolean = false,
     val active: Boolean = true,
+    val pendingHighlight: Boolean = false,
+    val lastAppliedCorrection: String = "",
+    val dismissedCorrections: Set<String> = emptySet(),
+    val duplicateProductFound: MoldeProductos? = null,
+    val isValidatingNameRemote: Boolean = false,
+    val isAnalyzingKeywords: Boolean = false,
 
     val lotNumber: String = "",
     val expirationDate: String = "",
@@ -253,6 +300,8 @@ data class CreateProductState(
     val unitsPerBoxText: String = "",
     val packagesPerBoxText: String = "",
     val unitsPerPackageText: String = "",
+    val unitsPerItemText: String = "",
+    val stockEntryUnit: String = "",
 
     // Aviso de bajo inventario.
     val minimumStockText: String = "",
@@ -280,6 +329,7 @@ data class CreateProductState(
     val draftPresentationCustomUnit: String = "", // "g","kg","mL","L" o "" para UNIDAD
     // Presentaciones guardadas previamente por el usuario (cargadas desde DB)
     val savedPresentationOptions: List<SavedPresentation> = emptyList(),
+    val marginRules: List<CategoryMarginRule> = emptyList(),
     val errors: Map<String, String> = emptyMap(),
     val stockEntryConfigured: Boolean = false,
     val showStockEntryDialog: Boolean = false,
@@ -292,7 +342,7 @@ fun CreateProductScreen(
     state: CreateProductState,
     categoryOptions: List<String>,
     smartHint: SmartProductHint?,
-    existingLotNumbers: Set<String>,
+    existingLotNumbers: Set<String> = emptySet(),
     nextEnabled: Boolean,
     referenceState: ProductReferenceUiState,
     // Sugerencia de categoría con IA (Gemini).
@@ -321,7 +371,22 @@ fun CreateProductScreen(
     onOpenReference: () -> Unit,
     onDismissReference: () -> Unit,
     onConfirmReference: (ProductReference) -> Unit,
-    onSkipReference: () -> Unit
+    onSkipReference: () -> Unit = onDismissReference,
+    isCheckingLotRemote: Boolean = false,
+    isCheckingBarcodeRemote: Boolean = false,
+    lotConflictInfo: String? = null,
+    lotConflictColor: Color = Color.Transparent,
+    lotConflictSeverity: Int = 0,
+    onRequestBarcodeScan: () -> Unit = {},
+    onAsistManualName: (String) -> Unit = {},
+    onAsistManualCategory: (String) -> Unit = {},
+    onClearAsistManual: () -> Unit = {},
+    onDuplicateClicked: (MoldeProductos) -> Unit = {},
+    onApplyNameCorrection: (String, String) -> Unit = { _, _ -> },
+    onDismissNameCorrection: (String, String) -> Unit = { _, _ -> },
+    onSearchIA: (Boolean) -> Unit = {},
+    aiInventoryEnabled: Boolean = true,
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit = {}
 ) {
     // Fix: se eliminaron lecturas y cálculos que se descartaban sin asignarse.
     // Solo se conserva la detección real de teclado, que sí se usa abajo para
@@ -422,7 +487,17 @@ fun CreateProductScreen(
                                         categorySuggestionState = categorySuggestionState,
                                         onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                                         onSwitchToManualCategory = onSwitchToManualCategory,
-                                        onBackToAiCategory = onBackToAiCategory
+                                        onBackToAiCategory = onBackToAiCategory,
+                                        onAsistManualName = onAsistManualName,
+                                        onAsistManualCategory = onAsistManualCategory,
+                                        onClearAsistManual = onClearAsistManual,
+                                        onApplyNameCorrection = onApplyNameCorrection,
+                                        onDismissNameCorrection = onDismissNameCorrection,
+                                        onSearchIA = onSearchIA,
+                                        aiInventoryEnabled = aiInventoryEnabled,
+                                        onAddStockToExistingProduct = onAddStockToExistingProduct,
+                                        onRequestBarcodeScan = onRequestBarcodeScan,
+                                        isCheckingBarcodeRemote = isCheckingBarcodeRemote
                                     )
 
                                     CreateProductStep.LOTE_INICIAL -> InitialLotStep(
@@ -431,7 +506,10 @@ fun CreateProductScreen(
                                         onStateChange = onStateChange,
                                         labelScannerState = labelScannerState,
                                         onRequestLabelScan = onRequestLabelScan,
-                                        onConsumeLabelScan = onConsumeLabelScan
+                                        onConsumeLabelScan = onConsumeLabelScan,
+                                        isCheckingLotRemote = isCheckingLotRemote,
+                                        lotConflictInfo = lotConflictInfo,
+                                        lotConflictColor = lotConflictColor
                                     )
 
                                     CreateProductStep.PRESENTACIONES -> PresentationsPricesStep(
@@ -440,7 +518,8 @@ fun CreateProductScreen(
                                     )
 
                                     CreateProductStep.RESUMEN -> ProductSummaryStep(
-                                        state = state
+                                        state = state,
+                                        onStateChange = onStateChange
                                     )
                                 }
                             }
@@ -663,7 +742,10 @@ private fun CreateProductTabletSidebarLayout(
                             state = state,
                             onStateChange = onStateChange
                         )
-                        CreateProductStep.RESUMEN -> ProductSummaryStep(state = state)
+                        CreateProductStep.RESUMEN -> ProductSummaryStep(
+                            state = state,
+                            onStateChange = onStateChange
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -753,7 +835,7 @@ fun CreateProductStepHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -764,79 +846,73 @@ fun CreateProductStepHeader(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                .background(Color.White)
+                    .background(Color.White)
+                    .border(1.dp, CreateBorder, CircleShape)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.baseline_arrow_back_24),
                     contentDescription = "Atras",
-                    tint = CreateTextPrimary
+                    tint = CreateTextPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            // Fix: antes había dos `AnimatedContent` separados (uno para "Paso N
-            // de 4" y otro para el título/subtítulo) con la misma transición.
-            // Animaban de forma independiente y podían quedar fuera de fase.
-            // Ahora un solo `AnimatedContent` envuelve los tres elementos para
-            // que entren y salgan exactamente al mismo tiempo.
+            
             Spacer(modifier = Modifier.width(12.dp))
+
+            // Título animado al lado de la flecha
+            AnimatedContent(
+                targetState = step.title,
+                modifier = Modifier.weight(1f),
+                transitionSpec = {
+                    (fadeIn() + slideInVertically { it / 2 }).togetherWith(fadeOut() + slideOutVertically { -it / 2 })
+                },
+                label = "header_title_anim"
+            ) { title ->
+                Text(
+                    text = title,
+                    color = CreateTextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Indicador de pasos en la esquina (tipo badge)
+            Surface(
+                color = CreateGreenSoft,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.2f))
+            ) {
+                Text(
+                    text = "${step.number}/4",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    color = CreateGreen,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+        
+        // Subtítulo compacto debajo para mantener contexto
+        AnimatedContent(
+            targetState = step.subtitle,
+            modifier = Modifier.padding(start = 52.dp, top = 2.dp),
+            transitionSpec = { fadeIn().togetherWith(fadeOut()) },
+            label = "header_subtitle_anim"
+        ) { subtitle ->
             Text(
-                text = "Paso ${step.number} de 4",
-                color = CreateGreen,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
+                text = subtitle,
+                color = CreateTextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(modifier = Modifier.height(18.dp))
-        AnimatedContent(
-            targetState = step,
-            label = "create_product_header_block",
-            transitionSpec = {
-                if (targetState.number > initialState.number) {
-                    (
-                        slideInHorizontally { fullWidth -> fullWidth / 3 } +
-                            slideInVertically { it / 10 } +
-                            fadeIn()
-                        ).togetherWith(
-                        slideOutHorizontally { fullWidth -> -fullWidth / 5 } +
-                            fadeOut()
-                    )
-                } else {
-                    (
-                        slideInHorizontally { fullWidth -> -fullWidth / 3 } +
-                            slideInVertically { it / 10 } +
-                            fadeIn()
-                        ).togetherWith(
-                        slideOutHorizontally { fullWidth -> fullWidth / 5 } +
-                            fadeOut()
-                    )
-                }
-            }
-        ) { currentStep ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = currentStep.title,
-                    color = CreateTextPrimary,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = currentStep.subtitle,
-                    color = CreateTextSecondary,
-                    fontSize = 16.sp
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(18.dp))
-        LinearProgressIndicator(
-            progress = { step.number / 4f },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(999.dp)),
-            color = CreateGreen,
-            trackColor = CreateBorder
-        )
     }
 }
+
 @Composable
 fun ProductStepContent(
     modifier: Modifier = Modifier,
@@ -885,15 +961,31 @@ fun ProductBasicStep(
     state: CreateProductState,
     categoryOptions: List<String>,
     onStateChange: (CreateProductState) -> Unit,
-    // Sugerencia IA opcional. Defaults seguros para callers que no la usan.
+    isSearching: Boolean = false,
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState =
         com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
     onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit = {},
     onSwitchToManualCategory: () -> Unit = {},
-    onBackToAiCategory: () -> Unit = {}
+    onBackToAiCategory: () -> Unit = {},
+    onAsistManualName: (String) -> Unit = {},
+    onAsistManualCategory: (String) -> Unit = {},
+    onClearAsistManual: () -> Unit = {},
+    onDuplicateClicked: (MoldeProductos) -> Unit = {},
+    onApplyNameCorrection: (String, String) -> Unit = { _, _ -> },
+    onDismissNameCorrection: (String, String) -> Unit = { _, _ -> },
+    onSearchIA: (Boolean) -> Unit = {},
+    aiInventoryEnabled: Boolean = true,
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit = {},
+    onRequestBarcodeScan: () -> Unit = {},
+    isCheckingBarcodeRemote: Boolean = false
 ) {
     val nameRequester = remember { BringIntoViewRequester() }
     val categoryRequester = remember { BringIntoViewRequester() }
+    val requirementsRequester = remember { BringIntoViewRequester() }
+    
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
 
     val firstErrorKey = remember(state.errors) {
         when {
@@ -910,88 +1002,207 @@ fun ProductBasicStep(
         }
     }
 
-    // ELIMINA CUALQUIER LaunchedEffect(Unit) QUE FUERCE UNIDAD AQUÍ
+    val hasDuplicateProduct = state.duplicateProductFound != null
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        AppTextField(
-            modifier = Modifier.bringIntoViewRequester(nameRequester),
-            label = "Nombre del producto *",
-            value = state.name,
-            error = state.errors["name"],
-            placeholder = "Ej. Ibuprofeno 500mg",
-            onValueChange = {
-                onStateChange(state.copy(name = it, errors = state.errors - "name"))
-            }
-        )
+        // --- SECCIÓN: IDENTIFICACIÓN ---
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "IDENTIFICACIÓN DEL PRODUCTO",
+                color = CreateTextSecondary.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.2.sp
+            )
+            
+            BarcodeSection(
+                barcode = state.barcode,
+                isManualMode = state.isBarcodeManualMode,
+                isChecking = isCheckingBarcodeRemote,
+                error = state.errors["barcode"],
+                onStartScan = {
+                    onStateChange(state.copy(duplicateProductFound = null))
+                    onRequestBarcodeScan()
+                },
+                onManualMode = { onStateChange(state.copy(isBarcodeManualMode = true, duplicateProductFound = null)) },
+                onBarcodeChange = { 
+                    onStateChange(state.copy(barcode = it, duplicateProductFound = null, errors = state.errors - "barcode")) 
+                },
+                onConfirmManual = { 
+                    onStateChange(state.copy(isBarcodeManualMode = false))
+                },
+                onClear = { 
+                    onStateChange(state.copy(
+                        barcode = "", 
+                        isBarcodeManualMode = false, 
+                        duplicateProductFound = null, 
+                        errors = state.errors - "barcode"
+                    )) 
+                }
+            )
+        }
 
-        // La tarjeta IA (categoría + tipo de control) reemplaza visualmente
-        // ambas secciones cuando el flujo IA está activo. Cuando el usuario
-        // cambia a manual, esta misma función pinta el text field + selector.
-        CategoryAutocompleteField(
-            modifier = Modifier.bringIntoViewRequester(categoryRequester),
-            value = state.category,
-            options = categoryOptions,
-            error = state.errors["category"],
-            controlType = state.controlType,
-            controlTypeError = state.errors["controlType"],
-            suggestionState = categorySuggestionState,
-            onAcceptSuggestion = onAcceptCategorySuggestion,
-            onSwitchToManual = onSwitchToManualCategory,
-            onBackToAi = onBackToAiCategory,
-            onValueChange = {
-                onStateChange(state.copy(category = it, errors = state.errors - "category"))
-            },
-            onControlTypeChange = { controlType ->
-                onStateChange(
-                    state.copy(
-                        controlType = controlType,
-                        presentations = sugerirPresentacionesIniciales(controlType, ""),
-                        mainPresentationId = "",
-                        errors = state.errors - "controlType"
-                    )
+        AnimatedVisibility(visible = hasDuplicateProduct) {
+            state.duplicateProductFound?.let { producto ->
+                DuplicateProductCard(
+                    producto = producto,
+                    onAddStock = { onAddStockToExistingProduct(producto) }
                 )
             }
-        )
+        }
 
-        // Los switches "Requiere receta" y "Producto activo" SOLO aparecen
-        // cuando el usuario está en modo manual. Si la IA está activa,
-        // ambos datos ya quedan resueltos: la receta se mostró dentro de
-        // la tarjeta IA y "activo" se asume true por defecto. Mostrarlos
-        // también en modo IA generaría ruido visual sin acción real.
+        // --- SECCIÓN: DETALLES BASE ---
+        AnimatedVisibility(
+            visible = state.barcode.isNotBlank() && !hasDuplicateProduct,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "DETALLES DEL PRODUCTO",
+                    color = CreateTextSecondary.copy(alpha = 0.7f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.2.sp
+                )
+
+                AppTextField(
+                    modifier = Modifier.bringIntoViewRequester(nameRequester),
+                    label = "Nombre del producto *",
+                    value = state.name,
+                    error = state.errors["name"],
+                    placeholder = "Ej. Ibuprofeno 500mg",
+                    leadingIcon = Icons.Outlined.Inventory2,
+                    onValueChange = { input ->
+                        if (input.isBlank()) {
+                            onStateChange(state.copy(
+                                name = "",
+                                category = "",
+                                controlType = null,
+                                requiresPrescription = false,
+                                categorySelectedFromAi = false,
+                                duplicateProductFound = null,
+                                errors = state.errors - setOf("name", "category", "controlType")
+                            ))
+                            onClearAsistManual()
+                        } else {
+                            onStateChange(state.copy(
+                                name = input, 
+                                duplicateProductFound = null, 
+                                errors = state.errors - "name"
+                            ))
+                        }
+                        onSearchIA(false)
+                    }
+                )
+
+                if (state.name.isNotBlank()) {
+                    CategoryAutocompleteField(
+                        modifier = Modifier.bringIntoViewRequester(categoryRequester),
+                        value = state.category,
+                        options = categoryOptions,
+                        error = state.errors["category"],
+                        controlType = state.controlType,
+                        controlTypeError = state.errors["controlType"],
+                        suggestionState = categorySuggestionState,
+                        onAcceptSuggestion = onAcceptCategorySuggestion,
+                        onSwitchToManual = onSwitchToManualCategory,
+                        onBackToAi = onBackToAiCategory,
+                        onValueChange = {
+                            onStateChange(
+                                state.copy(
+                                    category = it,
+                                    errors = state.errors - "category",
+                                    categorySelectedFromAi = false
+                                )
+                            )
+                        },
+                        onCategorySelectedFromSuggestion = {
+                            onStateChange(
+                                state.copy(
+                                    category = it,
+                                    errors = state.errors - "category",
+                                    categorySelectedFromAi = true
+                                )
+                            )
+                            onClearAsistManual()
+                        },
+                        onControlTypeChange = { controlType ->
+                            // Acción premium: ocultar teclado, limpiar foco y bajar scroll
+                            keyboardController?.hide()
+                            focusManager.clearFocus(force = true)
+
+                            onStateChange(
+                                state.copy(
+                                    controlType = controlType,
+                                    typeSelectedManually = true,
+                                    presentations = sugerirPresentacionesIniciales(controlType, ""),
+                                    mainPresentationId = "",
+                                    errors = state.errors - "controlType"
+                                )
+                            )
+
+                            // Scroll suave hacia los requisitos
+                            scope.launch {
+                                delay(400) // Tiempo para que la sección aparezca
+                                requirementsRequester.bringIntoView()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        // --- SECCIÓN: CONFIGURACIÓN ---
         val mostrarCamposSecundarios =
-            categorySuggestionState.status == CategorySuggestionStatus.MANUAL ||
-            categorySuggestionState.status == CategorySuggestionStatus.FALLBACK_MANUAL
+            !hasDuplicateProduct &&
+            state.name.isNotBlank() &&
+            state.category.isNotBlank() &&
+            state.controlType != null
 
         AnimatedVisibility(
             visible = mostrarCamposSecundarios,
             enter = fadeIn() + slideInVertically { it / 6 },
             exit = fadeOut() + slideOutVertically { -it / 6 }
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                CompactSwitchRow(
-                    title = "Requiere receta médica",
-                    subtitle = "Solicita receta al momento de vender",
-                    checked = state.requiresPrescription,
-                    onCheckedChange = {
-                        onStateChange(state.copy(requiresPrescription = it))
-                    }
+            Column(
+                modifier = Modifier.bringIntoViewRequester(requirementsRequester),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "REQUISITOS",
+                    color = CreateTextSecondary.copy(alpha = 0.7f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.2.sp
                 )
+                
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    CompactSwitchRow(
+                        title = "Requiere receta médica",
+                        subtitle = "Solicita receta al momento de vender",
+                        checked = state.requiresPrescription,
+                        onCheckedChange = {
+                            onStateChange(state.copy(requiresPrescription = it))
+                        }
+                    )
+                }
 
-                CompactSwitchRow(
-                    title = "Producto activo",
-                    subtitle = "Queda habilitado para inventario y venta",
-                    checked = state.active,
-                    onCheckedChange = {
-                        onStateChange(state.copy(active = it))
-                    }
-                )
+                // Espacio extra para forzar un scroll más profundo (20% adicional)
+                // Esto eleva la sección de requisitos para que no quede pegada abajo.
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
+
     }
 }
 
@@ -1004,7 +1215,10 @@ fun InitialLotStep(
     labelScannerState: com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState =
         com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState(),
     onRequestLabelScan: () -> Unit = {},
-    onConsumeLabelScan: () -> Unit = {}
+    onConsumeLabelScan: () -> Unit = {},
+    isCheckingLotRemote: Boolean = false,
+    lotConflictInfo: String? = null,
+    lotConflictColor: Color = Color.Transparent
 ) {
     val lotRequester = remember { BringIntoViewRequester() }
     val expirationRequester = remember { BringIntoViewRequester() }
@@ -2852,8 +3066,7 @@ fun ProductSummaryStep(
                             border = BorderStroke(
                                 width = 1.dp, 
                                 color = if (isSelected) Color(0xFF2E5BFF) else Color(0xFFE5E7EB)
-                            ),
-                            elevation = if (isSelected) 2.dp else 0.dp
+                            )
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -3481,80 +3694,150 @@ private fun CleanReferenceInputCard(
 fun ProductTypeSelector(
     selected: CreateProductControlType?,
     error: String?,
+    suggestedType: CreateProductControlType? = null,
+    showSuggestionBadge: Boolean = false,
     onSelected: (CreateProductControlType) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CreateProductControlType.values().forEach { controlType ->
-            val selectedCurrent = selected == controlType
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelected(controlType) },
-                color = if (selectedCurrent) CreateGreenSoft else Color.White,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(
-                    width = if (selectedCurrent) 1.5.dp else 1.dp,
-                    color = if (selectedCurrent) CreateGreen else CreateBorder
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.Top
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Cuadrícula de 3 tarjetas modernas
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CreateProductControlType.values().forEach { controlType ->
+                val isSelected = selected == controlType
+                val isAiSuggested = showSuggestionBadge && suggestedType == controlType
+                
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(100.dp)
+                        .clickable { onSelected(controlType) },
+                    color = if (isSelected) CreateGreenSoft else Color.White,
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) CreateGreen else CreateBorder
+                    ),
+                    shadowElevation = if (isSelected) 4.dp else 0.dp
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(if (selectedCurrent) CreateGreen else Color(0xFFF2F4F7)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selectedCurrent) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_check_circle),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = when(controlType) {
+                                    CreateProductControlType.UNIDAD -> "\uD83D\uDC8A"
+                                    CreateProductControlType.PESO -> "⚖\uFE0F"
+                                    CreateProductControlType.LIQUIDO -> "\uD83E\uDDEA"
+                                },
+                                fontSize = 28.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = controlType.label,
+                                color = when {
+                                    isSelected -> CreateGreen
+                                    isAiSuggested -> CreateBlue
+                                    else -> CreateTextPrimary
+                                },
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 14.sp
                             )
                         }
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text(
-                            text = controlType.label,
-                            color = CreateTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = controlType.helper,
-                            color = CreateTextSecondary,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = controlType.example,
-                            color = CreateTextSecondary,
-                            fontSize = 13.sp
-                        )
+
+                        if (isAiSuggested) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 10.dp, y = 2.dp)
+                                    .rotate(35f)
+                                    .background(
+                                        color = if (isSelected) CreateGreen else CreateBlue,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "SUGERIDO",
+                                    color = Color.White,
+                                    fontSize = 7.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+
+        // Panel de información inteligente (aparece al seleccionar)
+        AnimatedVisibility(
+            visible = selected != null,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            selected?.let { type ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFF8F9FB),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(40.dp),
+                            shadowElevation = 1.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("💡", fontSize = 18.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = type.helper,
+                                color = CreateTextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Ejemplos: ${type.example}",
+                                color = CreateTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (!error.isNullOrBlank()) {
             Text(
                 text = error,
-                color = Color(0xFFB42318),
-                fontSize = 13.sp
+                color = CreateRed,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 4.dp)
             )
         }
     }
 }
 
 
-private fun sugerirPresentacionesIniciales(
+
+fun sugerirPresentacionesIniciales(
     controlType: CreateProductControlType?,
-    receivedPresentation: String
+    receivedPresentation: String = ""
 ): List<CreateProductPresentation> {
     val recibida = receivedPresentation.trim()
 
@@ -3973,35 +4256,40 @@ private fun CompactSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = CreateTextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    color = CreateTextSecondary,
-                    fontSize = 13.sp
-                )
-            }
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = CreateTextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                color = CreateTextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 16.sp
+            )
         }
+        Switch(
+            checked = checked, 
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = CreateGreen,
+                uncheckedThumbColor = CreateBorder,
+                uncheckedTrackColor = CreateBackground
+            )
+        )
     }
 }
+
 
 @Composable
 private fun ReferenceCard(title: String, value: String) {
@@ -4320,6 +4608,11 @@ private fun parseCommaList(raw: String): List<String> {
         .distinct()
 }
 
+private fun String.stripAccents(): String {
+    return java.text.Normalizer.normalize(this, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"), "")
+}
+
 @Composable
 private fun AppTextField(
     modifier: Modifier = Modifier,
@@ -4332,78 +4625,126 @@ private fun AppTextField(
     helperHighlighted: Boolean = false,
     placeholder: String = "",
     trailingLabel: String? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    leadingIcon: ImageVector? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    focusRequester: FocusRequester? = null,
+    onImeAction: (() -> Unit)? = null,
     onValueChange: (String) -> Unit
 ) {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val bringIntoViewScope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    val navigationBottom = WindowInsets.navigationBars.getBottom(density)
-    val keyboardVisible = imeBottom > navigationBottom
     var hasFocus by remember { mutableStateOf(false) }
 
-    LaunchedEffect(hasFocus, keyboardVisible, imeBottom) {
-        if (hasFocus) {
-            delay(if (keyboardVisible) 60 else 180)
-            bringIntoViewRequester.bringIntoView()
-        }
-    }
-
     Column(modifier = modifier) {
-        Text(
-            text = label,
-            color = CreateTextPrimary,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .bringIntoViewRequester(bringIntoViewRequester)
-                .onFocusChanged { focusState ->
-                    hasFocus = focusState.isFocused
-                },
-            singleLine = true,
-            placeholder = {
-                if (placeholder.isNotBlank()) {
-                    Text(
-                        text = placeholder,
-                        color = CreateTextSecondary
-                    )
-                }
-            },
-            trailingIcon = trailingLabel?.let {
-                {
-                    Text(
-                        text = it,
-                        color = CreateTextSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    bringIntoViewScope.launch {
-                        delay(60)
-                        bringIntoViewRequester.bringIntoView()
-                    }
+        if (label.isNotBlank()) {
+            Text(
+                text = label,
+                color = if (error != null) CreateRed else if (hasFocus) CreateGreen else CreateTextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                letterSpacing = 0.2.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(
+                width = if (hasFocus) 2.dp else 1.dp,
+                color = when {
+                    error != null -> CreateRed
+                    hasFocus -> CreateGreen
+                    else -> CreateBorder
                 }
             ),
-            isError = !error.isNullOrBlank(),
-            shape = RoundedCornerShape(18.dp)
-        )
+            shadowElevation = if (hasFocus) 3.dp else 0.dp
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onFocusChanged { hasFocus = it.isFocused },
+                singleLine = true,
+                leadingIcon = leadingIcon?.let {
+                    {
+                        Icon(
+                            imageVector = it,
+                            contentDescription = null,
+                            tint = if (hasFocus) CreateGreen else CreateTextSecondary.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
+                placeholder = {
+                    if (placeholder.isNotBlank()) {
+                        Text(
+                            text = placeholder,
+                            color = CreateTextSecondary.copy(alpha = 0.5f),
+                            fontSize = 15.sp
+                        )
+                    }
+                },
+                trailingIcon = if (trailingIcon != null || trailingLabel != null) {
+                    {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 12.dp)
+                        ) {
+                            trailingIcon?.invoke()
+                            if (trailingLabel != null) {
+                                Text(
+                                    text = trailingLabel,
+                                    color = CreateTextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                } else null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    errorBorderColor = Color.Transparent,
+                    cursorColor = CreateGreen,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        onImeAction?.invoke()
+                        bringIntoViewScope.launch {
+                            delay(60)
+                            bringIntoViewRequester.bringIntoView()
+                        }
+                    }
+                ),
+                isError = !error.isNullOrBlank(),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
+            )
+        }
+
         if (!error.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = error,
-                color = Color(0xFFB42318),
-                fontSize = 13.sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "⚠️", fontSize = 12.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = error,
+                    color = CreateRed,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         } else if (!helper.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
             if (!helperActionLabel.isNullOrBlank() && onHelperAction != null) {
@@ -4415,25 +4756,30 @@ private fun AppTextField(
                     Text(
                         text = helper,
                         color = if (helperHighlighted) CreateGreen else CreateTextSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = if (helperHighlighted) FontWeight.SemiBold else FontWeight.Normal,
+                        fontSize = 12.sp,
+                        fontWeight = if (helperHighlighted) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = onHelperAction) {
-                        Text(helperActionLabel)
+                    TextButton(
+                        onClick = onHelperAction,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text(helperActionLabel, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                     }
                 }
             } else {
                 Text(
                     text = helper,
                     color = if (helperHighlighted) CreateGreen else CreateTextSecondary,
-                    fontWeight = if (helperHighlighted) FontWeight.SemiBold else FontWeight.Normal,
-                    fontSize = 13.sp
+                    fontWeight = if (helperHighlighted) FontWeight.Bold else FontWeight.Normal,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
             }
         }
     }
 }
+
 
 /**
  * Botón "📷 Escanear etiqueta" + estados (idle/loading/result/error).
@@ -4860,162 +5206,86 @@ private fun CategoryAutocompleteField(
     suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
     onAcceptSuggestion: (CategorySuggestion) -> Unit = {},
     onSwitchToManual: () -> Unit = {},
-    onBackToAi: () -> Unit = {}
+    onBackToAi: () -> Unit = {},
+    onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange
 ) {
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
     val status = suggestionState.status
-
-    Column {
-        // El header "Categoría" solo se muestra cuando estamos en modo manual.
-        // En los estados de IA la tarjeta lleva su propio título y se siente
-        // como una sola unidad visual con el tipo de control.
-        val esManual = status == CategorySuggestionStatus.MANUAL ||
-            status == CategorySuggestionStatus.FALLBACK_MANUAL
-        if (esManual) {
-            Text(
-                text = "Categoría",
-                color = CreateTextPrimary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        AnimatedContent(
-            targetState = status,
-            label = "category_picker_state",
-            transitionSpec = {
-                (fadeIn() + slideInVertically { it / 8 })
-                    .togetherWith(fadeOut() + slideOutVertically { -it / 8 })
-            }
-        ) { currentStatus ->
-            when (currentStatus) {
-                // INITIAL: no se renderiza nada. La pantalla queda con
-                // solo el campo "Nombre del producto" hasta que el usuario
-                // empiece a escribir y dispare la detección por IA.
-                CategorySuggestionStatus.INITIAL -> Box(modifier = Modifier)
-
-                CategorySuggestionStatus.LOADING ->
-                    AiLoadingCard(productName = suggestionState.queryName)
-
-                CategorySuggestionStatus.READY,
-                CategorySuggestionStatus.ACCEPTED -> {
-                    val suggestion = suggestionState.suggestion
-                    if (suggestion != null) {
-                        AiResultCard(
-                            suggestion = suggestion,
-                            onSwitchToManual = onSwitchToManual,
-                            onAccept = onAcceptSuggestion
-                        )
-                    } else {
-                        // Estado defensivo: si por alguna razón llegamos a
-                        // READY/ACCEPTED sin sugerencia, no pintamos nada
-                        // para no inyectar una tarjeta vacía o confusa.
-                        Box(modifier = Modifier)
-                    }
-                }
-
-                CategorySuggestionStatus.MANUAL,
-                CategorySuggestionStatus.FALLBACK_MANUAL -> Column(
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    CategoryManualEntry(
-                        modifier = modifier,
-                        value = value,
-                        options = options,
-                        error = error,
-                        showBackToAi = suggestionState.suggestion != null &&
-                            currentStatus == CategorySuggestionStatus.MANUAL,
-                        onValueChange = onValueChange,
-                        onBackToAi = {
-                            focusManager.clearFocus(force = true)
-                            keyboardController?.hide()
-                            onBackToAi()
-                        }
-                    )
-                    // En modo manual reaparece el selector tradicional de tipo
-                    // de producto. La tarjeta IA se hace cargo cuando el flujo
-                    // IA está activo, por eso aquí solo se pinta en manual.
-                    CreateSectionCard(
-                        title = "Tipo de producto",
-                        subtitle = "¿Cómo se controla el inventario?"
-                    ) {
-                        ProductTypeSelector(
-                            selected = controlType,
-                            error = controlTypeError,
-                            onSelected = onControlTypeChange
-                        )
-                    }
-                }
-            }
-        }
+    val suggestedControlType = remember(suggestionState.sugerenciaTipoManual) {
+        suggestionState.sugerenciaTipoManual
+            ?.takeIf { it.confianza == ConfianzaIA.ALTA }
+            ?.tipo
+            ?.toCreateProductControlTypeOrNull()
     }
-}
 
-@Composable
-private fun AiLoadingCard(productName: String) {
-    val infiniteTransition = rememberInfiniteTransition(label = "ai_loading_shimmer")
-    val shimmer by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer_progress"
-    )
+    val isAiSearching = status == CategorySuggestionStatus.LOADING || 
+                        status == CategorySuggestionStatus.PRELIMINARY
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFF1FBF5),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.35f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 18.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "✨", fontSize = 22.sp)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Detectando categoría…",
-                    color = CreateGreen,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-            }
-            if (productName.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Analizando \"$productName\"",
-                    color = CreateTextSecondary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Box(
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (isAiSearching && value.isBlank()) {
+            // 1. CARGA SUTIL: Solo texto elegante mientras la IA trabaja
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color.White)
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(shimmer)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(CreateGreen.copy(alpha = 0.85f))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = CreateGreen
                 )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Buscando categoría adecuada...",
+                    color = CreateTextSecondary,
+                    fontSize = 13.sp,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            }
+        } else if (value.isNotBlank() || suggestionState.suggestion != null) {
+            // 2. CAMPO CATEGORÍA: Solo nace cuando hay resultado o el usuario escribe
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Categoría",
+                    color = CreateTextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+
+                CategoryManualEntry(
+                    modifier = modifier,
+                    value = value,
+                    options = options,
+                    error = error,
+                    showBackToAi = false,
+                    onValueChange = onValueChange,
+                    onCategorySelectedFromSuggestion = onCategorySelectedFromSuggestion,
+                    suggestionState = suggestionState,
+                    onBackToAi = onBackToAi
+                )
+
+                // Selector de tipo de producto
+                CreateSectionCard(
+                    title = "Tipo de producto",
+                    subtitle = "¿Cómo se controla el inventario?"
+                ) {
+                    ProductTypeSelector(
+                        selected = controlType,
+                        error = controlTypeError,
+                        suggestedType = suggestedControlType,
+                        showSuggestionBadge = suggestedControlType != null,
+                        onSelected = onControlTypeChange
+                    )
+                }
             }
         }
     }
 }
+
+
+
+
+
 
 @Composable
 private fun AiResultCard(
@@ -5326,19 +5596,52 @@ private fun CategoryManualEntry(
     error: String?,
     showBackToAi: Boolean,
     onValueChange: (String) -> Unit,
-    onBackToAi: () -> Unit
+    onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
+    onBackToAi: () -> Unit,
+    suggestionState: CategorySuggestionUiState = CategorySuggestionUiState()
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    var hasCategoryFocus by remember { mutableStateOf(false) }
+    
+    val suggestionsRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
 
-    val suggestions = remember(value, options) {
-        if (value.isBlank()) options.take(4)
-        else options.filter { it.contains(value, ignoreCase = true) }.take(4)
+    val suggestions = remember(value, hasCategoryFocus, options, suggestionState.asistenciaManualCategorias, suggestionState.suggestion) {
+        val normalizedValue = value.trim().stripAccents().lowercase()
+        
+        // Incorporar la sugerencia principal de la IA al principio de la lista
+        val mainAiResult = suggestionState.suggestion?.categoria
+        val aiOptions = (listOfNotNull(mainAiResult) + suggestionState.asistenciaManualCategorias)
+            .filter { it.isNotBlank() }
+            .distinctBy { it.trim().stripAccents().lowercase() }
+
+        if (!hasCategoryFocus) {
+            emptyList()
+        } else if (aiOptions.isNotEmpty()) {
+            aiOptions.filter {
+                val opt = it.trim().stripAccents().lowercase()
+                normalizedValue.isBlank() || opt.startsWith(normalizedValue)
+            }.take(6)
+        } else if (value.isBlank()) {
+            options.take(6)
+        } else {
+            options.filter { it.contains(value, ignoreCase = true) }.take(6)
+        }
+    }
+
+
+    // Auto-scroll para que el teclado no tape las sugerencias
+    LaunchedEffect(suggestions.isNotEmpty(), hasCategoryFocus) {
+        if (suggestions.isNotEmpty() && hasCategoryFocus) {
+            delay(400) // Un poquito más de delay para asegurar que el teclado terminó
+            suggestionsRequester.bringIntoView()
+        }
     }
 
     Column {
         AppTextField(
-            modifier = modifier,
+            modifier = modifier.onFocusChanged { hasCategoryFocus = it.isFocused },
             label = "",
             value = value,
             error = error,
@@ -5346,25 +5649,67 @@ private fun CategoryManualEntry(
             onValueChange = onValueChange
         )
 
-        if (suggestions.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                suggestions.forEach { option ->
-                    FilterChip(
-                        selected = option.equals(value, ignoreCase = true),
-                        onClick = {
-                            onValueChange(option)
-                            focusManager.clearFocus(force = true)
-                            keyboardController?.hide()
-                        },
-                        label = { Text(option) }
-                    )
+        // Sugerencias estilo YouTube integradas (nacen del editext)
+        AnimatedVisibility(
+            visible = suggestions.isNotEmpty() && hasCategoryFocus,
+            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+        ) {
+            Column(modifier = Modifier.bringIntoViewRequester(suggestionsRequester)) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    color = Color.White,
+                    shape = RoundedCornerShape(22.dp),
+                    shadowElevation = 4.dp,
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        suggestions.forEachIndexed { index, option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onCategorySelectedFromSuggestion(option)
+                                        hasCategoryFocus = false
+                                        focusManager.clearFocus(force = true)
+                                        keyboardController?.hide()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Label,
+                                    contentDescription = null,
+                                    tint = CreateTextSecondary.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = option,
+                                    color = CreateTextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            if (index < suggestions.size - 1) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(CreateBorder.copy(alpha = 0.5f))
+                                        .padding(horizontal = 16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
+                // Espacio extra para que el scroll baje un poco más y no quede pegado al teclado
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
+
 
         if (showBackToAi) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -5373,7 +5718,9 @@ private fun CategoryManualEntry(
             }
         }
     }
+
 }
+
 
 /** Modificador helper para escalar uniformemente con un Float. */
 private fun Modifier.graphicsScale(scale: Float): Modifier =
@@ -5566,7 +5913,96 @@ private fun parseCreateProductNumber(value: String): Double {
         ?: 0.0
 }
 
-private fun formatCreateProductNumber(value: Double): String {
+fun calculateTotalBaseStock(state: CreateProductState): Double {
+    val unitMultiplier = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") 1000.0 else 1.0
+    return when (state.stockEntryMode) {
+        null -> 0.0
+        CreateProductStockEntryMode.UNIDAD -> parseCreateProductNumber(state.receivedUnitsText) * unitMultiplier
+        CreateProductStockEntryMode.CAJA -> {
+            val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val perBox = parseCreateProductNumber(state.unitsPerBoxText)
+            val perItem = parseCreateProductNumber(state.unitsPerItemText)
+            val content = if (state.controlType == CreateProductControlType.UNIDAD || perItem <= 0.0) 1.0 else perItem * unitMultiplier
+            boxes * perBox * content
+        }
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+            val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val packages = parseCreateProductNumber(state.packagesPerBoxText)
+            val perPackage = parseCreateProductNumber(state.unitsPerPackageText)
+            val perItem = parseCreateProductNumber(state.unitsPerItemText)
+            val content = if (state.controlType == CreateProductControlType.UNIDAD || perItem <= 0.0) 1.0 else perItem * unitMultiplier
+            boxes * packages * perPackage * content
+        }
+    }
+}
+
+fun calculateBaseMinimumStock(state: CreateProductState): Double {
+    val units = state.minimumStockUnits.takeIf { it > 0 }?.toDouble()
+        ?: parseCreateProductNumber(state.minimumStockText)
+    return units.coerceAtLeast(0.0)
+}
+
+fun getPurchasePresentationName(mode: CreateProductStockEntryMode?): String {
+    return when (mode) {
+        CreateProductStockEntryMode.UNIDAD -> "Unidad"
+        CreateProductStockEntryMode.CAJA -> "Caja"
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja"
+        null -> "Unidad"
+    }
+}
+
+fun getPurchasePresentationName(
+    controlType: CreateProductControlType?,
+    mode: CreateProductStockEntryMode?
+): String {
+    return when (mode) {
+        CreateProductStockEntryMode.UNIDAD -> when (controlType) {
+            CreateProductControlType.LIQUIDO -> "Frasco"
+            CreateProductControlType.PESO -> "Empaque"
+            else -> "Unidad"
+        }
+        CreateProductStockEntryMode.CAJA -> "Caja"
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (controlType) {
+            CreateProductControlType.LIQUIDO -> "Frasco"
+            CreateProductControlType.PESO -> "Empaque"
+            else -> "Blister"
+        }
+        null -> getPurchasePresentationName(mode)
+    }
+}
+
+fun isStockEntryModeValidForControlType(
+    mode: CreateProductStockEntryMode?,
+    controlType: CreateProductControlType?
+): Boolean {
+    if (mode == null || controlType == null) return false
+    return true
+}
+
+fun isStockEntryModeValidForControlType(
+    controlType: CreateProductControlType?,
+    mode: CreateProductStockEntryMode?
+): Boolean = isStockEntryModeValidForControlType(mode, controlType)
+
+fun CreateProductState.resetStockEntryConfiguration(): CreateProductState {
+    return copy(
+        stockEntryMode = null,
+        receivedUnitsText = "",
+        boxesReceivedText = "",
+        unitsPerBoxText = "",
+        packagesPerBoxText = "",
+        unitsPerPackageText = "",
+        unitsPerItemText = "",
+        stockEntryUnit = "",
+        minimumStockText = "",
+        minimumStockUnits = 0,
+        purchaseCost = "",
+        stockEntryConfigured = false,
+        errors = errors - "stockEntryMode" - "purchaseCost" - "minimumStock"
+    )
+}
+
+fun formatCreateProductNumber(value: Double): String {
     return if (value % 1.0 == 0.0) {
         value.toInt().toString()
     } else {
@@ -5621,7 +6057,7 @@ private fun grupoSinonimoPresentacion(nombre: String): String? {
  *
  * Devuelve la nueva lista y el id de la presentación final ("principal").
  */
-private fun mergePresentacionEvitandoDuplicado(
+fun mergePresentacionEvitandoDuplicado(
     existentes: List<CreateProductPresentation>,
     nueva: CreateProductPresentation
 ): Pair<List<CreateProductPresentation>, String> {
@@ -6040,3 +6476,191 @@ private fun suggestUniqueLotNumber(
 
     return candidate
 }
+
+@Composable
+fun DuplicateProductCard(
+    producto: MoldeProductos,
+    onAddStock: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFFF7ED),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0xFFFFEDD5))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Inventory2,
+                    contentDescription = null,
+                    tint = Color(0xFFC2410C),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Producto ya registrado",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFFC2410C),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Hemos encontrado '${producto.nombre}' con este mismo código de barras.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF9A3412)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onAddStock,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Registrar ingreso de stock")
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun BarcodeSection(
+    barcode: String,
+    isManualMode: Boolean,
+    isChecking: Boolean,
+    error: String? = null,
+    onStartScan: () -> Unit,
+    onManualMode: () -> Unit,
+    onBarcodeChange: (String) -> Unit,
+    onConfirmManual: () -> Unit,
+    onClear: () -> Unit
+) {
+    val isConfirmed = barcode.isNotBlank() && !isManualMode
+
+    Surface(
+        color = if (isConfirmed) CreateBlueSoft.copy(alpha = 0.5f) else Color.White,
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = when {
+                isConfirmed && error != null -> CreateRed.copy(alpha = 0.5f)
+                isConfirmed -> CreateBlue.copy(alpha = 0.3f)
+                else -> CreateBorder
+            }
+        ),
+        shadowElevation = if (isConfirmed) 0.dp else 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (!isConfirmed) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = CreateBlueSoft,
+                            shape = CircleShape,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = CreateBlue,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Código de barras",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = CreateTextPrimary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    if (isChecking) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CreateBlue)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onStartScan,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CreateBlue),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Escanear código", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+
+
+                
+                if (!error.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = error,
+                        color = CreateRed,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = CreateBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = barcode,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = CreateBlue,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = onStartScan,
+                            contentPadding = PaddingValues(horizontal = 12.dp)
+                        ) {
+                            Text("Cambiar", color = CreateBlue, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(onClick = onClear) {
+                            Icon(Icons.Default.Close, contentDescription = "Borrar", tint = CreateRed.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+

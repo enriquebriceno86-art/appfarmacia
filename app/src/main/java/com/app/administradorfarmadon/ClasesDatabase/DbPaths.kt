@@ -19,5 +19,23 @@ object DbPaths {
 
     const val MOVIMIENTOS_GENERAL = "$ROOT_MOVIMIENTOS/movimientos"
     const val MOVIMIENTOS_INVENTARIO = "$ROOT_MOVIMIENTOS/movimientosInventario"
-}
 
+    /**
+     * Nodo raíz para el inventario.
+     */
+    const val ROOT_INVENTARIO = "Inventario"
+    const val INVENTARIO_PRODUCTOS = "$ROOT_INVENTARIO/Productos"
+    const val INVENTARIO_CATEGORIAS = "$ROOT_INVENTARIO/CategoriasInventario"
+    const val INVENTARIO_NOMBRES = "$ROOT_INVENTARIO/NombresProductos"
+    const val INVENTARIO_NOMBRES_NORMALIZADOS = "$ROOT_INVENTARIO/NombresProductosNormalizados"
+    const val INVENTARIO_BUSQUEDA = "$ROOT_INVENTARIO/BusquedaProductos"
+    const val INVENTARIO_PRESENTACIONES = "$ROOT_INVENTARIO/Presentaciones"
+    const val INVENTARIO_PRODUCTO_PRESENTACIONES = "$ROOT_INVENTARIO/ProductoPresentaciones"
+    const val INVENTARIO_PRODUCTO_LOTES = "$ROOT_INVENTARIO/ProductoLotes"
+    
+    /**
+     * V17.46: Índice plano de lotes para búsqueda quirúrgica sin barridos.
+     * Estructura: Inventario/LotesPorNumero/{numeroLote}
+     */
+    const val INVENTARIO_LOTES_POR_NUMERO = "$ROOT_INVENTARIO/LotesPorNumero"
+}

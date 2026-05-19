@@ -151,11 +151,37 @@ fun ProductReference.toEntity(
 }
 
 fun normalizeProductName(name: String): String {
+    // 1. Normalización básica (minúsculas y espacios)
     val base = name.trim().lowercase()
         .replace(Regex("\\s+"), " ")
-    val normalized = Normalizer.normalize(base, Normalizer.Form.NFD)
+    
+    // 2. Separación semántica (V3.24): "amoxicilina500g" -> "amoxicilina 500 g"
+    // Inserta espacio entre letras y números, y entre números y letras
+    val separated = base
+        .replace(Regex("([a-z])([0-9])"), "$1 $2")
+        .replace(Regex("([0-9])([a-z])"), "$1 $2")
+        .replace(Regex("\\s+"), " ")
+
+    // 3. Quitar acentos y caracteres especiales
+    val normalized = Normalizer.normalize(separated, Normalizer.Form.NFD)
         .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
-    return normalized.replace("ñ", "n")
+    return normalized.replace("ñ", "n").trim()
+}
+
+/**
+ * Normalización específica para categorías (agrega manejo de plurales).
+ */
+fun normalizeCategoryName(category: String): String {
+    var n = normalizeProductName(category)
+    
+    // Simplificación básica de plurales en español (es -> e, s -> "")
+    if (n.endsWith("es") && n.length > 4) {
+        n = n.substring(0, n.length - 2)
+    } else if (n.endsWith("s") && n.length > 3 && !n.endsWith("is") && !n.endsWith("us")) {
+        n = n.substring(0, n.length - 1)
+    }
+    
+    return n
 }
 
 fun stripHtml(input: String): String {

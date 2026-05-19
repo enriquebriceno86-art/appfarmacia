@@ -34,6 +34,7 @@ class AdapterProductosInventariosRecycler(
 ) : RecyclerView.Adapter<AdapterProductosInventariosRecycler.ProductosViewHolder>() {
 
     private var ultimosResultadosBusqueda: List<SmartSearchEngine.SearchResult> = emptyList()
+    private var busquedaClinicaActiva: Boolean = false // V4.7: Flag para control de badges
 
     private companion object {
         const val ESTADO_DISPONIBLE = "Disponible"
@@ -60,23 +61,32 @@ class AdapterProductosInventariosRecycler(
         updateListWithResults(newList.map { SmartSearchEngine.SearchResult(it, SmartSearchEngine.MatchType.NONE) })
     }
 
-    fun updateListWithResults(results: List<SmartSearchEngine.SearchResult>) {
-        val newList = results.map { it.product }
+    fun updateListWithResults(results: List<SmartSearchEngine.SearchResult>, queryActiva: Boolean = false) {
         val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
-            override fun getOldListSize(): Int = listaFiltrada.size
-            override fun getNewListSize(): Int = newList.size
+            override fun getOldListSize(): Int = ultimosResultadosBusqueda.size
+            override fun getNewListSize(): Int = results.size
 
             override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                return listaFiltrada[oldItemPosition].indice == newList[newItemPosition].indice
+                return ultimosResultadosBusqueda[oldItemPosition].product.indice == 
+                       results[newItemPosition].product.indice
             }
 
             override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                return listaFiltrada[oldItemPosition] == newList[newItemPosition]
+                val old = ultimosResultadosBusqueda[oldItemPosition]
+                val new = results[newItemPosition]
+                
+                // V4.7: Comparamos el producto Y el estado de búsqueda para evitar "badges fantasma"
+                return old.product == new.product && 
+                       old.matchType == new.matchType && 
+                       old.matchedText == new.matchedText &&
+                       busquedaClinicaActiva == queryActiva
             }
         })
+        
         listaFiltrada.clear()
-        listaFiltrada.addAll(newList)
+        listaFiltrada.addAll(results.map { it.product })
         ultimosResultadosBusqueda = results
+        busquedaClinicaActiva = queryActiva
         diffResult.dispatchUpdatesTo(this)
     }
 
@@ -86,10 +96,12 @@ class AdapterProductosInventariosRecycler(
         val tvSintomaSugerido: TextView = view.findViewById(R.id.tvSintomaSugerido)
         val tvResumenInventario: TextView = view.findViewById(R.id.tvResumenInventario)
         val tvCantidad: TextView = view.findViewById(R.id.tvCantidad)
+        val tvDetalleStock: TextView? = view.findViewById(R.id.tvDetalleStock)
         val tvResumenMinimo: TextView = view.findViewById(R.id.tvResumenMinimo)
         val tvFecha: TextView = view.findViewById(R.id.tvFecha)
         val tvEstado: TextView = view.findViewById(R.id.tvEstado)
         val cardEstado: MaterialCardView = view.findViewById(R.id.cardEstado)
+        val cardSintomaBadge: MaterialCardView? = view.findViewById(R.id.cardSintomaBadge)
         val ivProducto: ShapeableImageView = view.findViewById(R.id.ivProducto)
         val cardFecha: MaterialCardView = view.findViewById(R.id.cardFecha)
         val btnQuickStock: MaterialButton = view.findViewById(R.id.btnQuickStock)
@@ -126,13 +138,26 @@ class AdapterProductosInventariosRecycler(
 
         holder.tvNombre.text = productoItem.nombre.ifBlank { "Sin nombre" }
         
-        // Manejo del badge de síntoma inteligente
+        // Manejo del badge de síntoma inteligente (V4.9: Solo si hay búsqueda activa)
         val resultado = ultimosResultadosBusqueda.find { it.product.indice == productoItem.indice }
-        if (resultado != null && resultado.matchType == SmartSearchEngine.MatchType.SYMPTOM && !resultado.matchedText.isNullOrBlank()) {
-            holder.tvSintomaSugerido.visibility = View.VISIBLE
-            holder.tvSintomaSugerido.text = "✨ Sugerido para: ${resultado.matchedText}"
+        val esSintomaMatch = resultado != null && (
+            resultado.matchType == SmartSearchEngine.MatchType.SYMPTOM_DIRECT || 
+            resultado.matchType == SmartSearchEngine.MatchType.SYMPTOM_EXPANDED
+        )
+        val mostrarBadge = busquedaClinicaActiva && esSintomaMatch && !resultado?.matchedText.isNullOrBlank()
+
+        if (mostrarBadge && resultado != null) {
+            holder.cardSintomaBadge?.visibility = View.VISIBLE
+            // Truncamos y simplificamos para UX: "Para: fiebre" en vez de frases largas
+            val matchedText = resultado.matchedText ?: ""
+            val displaySymptom = if (matchedText.length > 25) {
+                matchedText.take(22) + "..."
+            } else {
+                matchedText
+            }
+            holder.tvSintomaSugerido.text = "✨ Para: ${displaySymptom.replaceFirstChar { it.uppercase() }}"
         } else {
-            holder.tvSintomaSugerido.visibility = View.GONE
+            holder.cardSintomaBadge?.visibility = View.GONE
         }
 
         // En móvil el subtítulo es "Categoría · Presentación" tipo Play Store; en tablet, solo categoría
@@ -144,20 +169,36 @@ class AdapterProductosInventariosRecycler(
         }
 
         val unidadBaseRaw = productoItem.unidadbase
+        val unidadVisualRaw = productoItem.unidadVisualInventario.ifBlank { unidadBaseRaw }
         val basePorUnidad = productoItem.basePorUnidad
         val esMl = unidadBaseRaw.equals("mL", ignoreCase = true)
         val esG = unidadBaseRaw.equals("g", ignoreCase = true)
+        val usaUnidadVisualMayor = usaUnidadVisualMayor(unidadBaseRaw, unidadVisualRaw)
         val muestraUnidades = (esMl || esG) && basePorUnidad > 0
 
-        val cantidadVisible = if (muestraUnidades) {
-            formatearCantidadContenedores(cantidadActual, basePorUnidad)
+        val stockInfo = if (usaUnidadVisualMayor) {
+            ProductUtils.InfoStockEstructurada(
+                "${formatearCantidadUnidadVisual(cantidadActual, unidadVisualRaw)} $unidadVisualRaw",
+                ""
+            )
+        } else if (muestraUnidades) {
+            val cantidadVisible = formatearCantidadContenedores(cantidadActual, basePorUnidad)
+            val unidadVisible = if (esTablet) {
+                resolverUnidadVisible(unidadBaseRaw, cantidadActual, muestraUnidades)
+            } else {
+                resolverUnidadAbreviada(unidadBaseRaw, cantidadActual, muestraUnidades)
+            }
+            ProductUtils.InfoStockEstructurada("$cantidadVisible $unidadVisible", "")
         } else {
-            cantidadActual.toString()
+            ProductUtils.obtenerInfoStockEstructurada(productoItem)
         }
-        holder.tvCantidad.text = if (esTablet) {
-            "$cantidadVisible ${resolverUnidadVisible(unidadBaseRaw, cantidadActual, muestraUnidades)}"
+
+        holder.tvCantidad.text = stockInfo.principal
+        if (stockInfo.detalle.isNotBlank() && !esTablet) {
+            holder.tvDetalleStock?.text = stockInfo.detalle
+            holder.tvDetalleStock?.visibility = View.VISIBLE
         } else {
-            "$cantidadVisible ${resolverUnidadAbreviada(unidadBaseRaw, cantidadActual, muestraUnidades)}"
+            holder.tvDetalleStock?.visibility = View.GONE
         }
 
         resolverUnidadVisible(unidadBaseRaw, cantidadActual, muestraUnidades)
@@ -166,6 +207,7 @@ class AdapterProductosInventariosRecycler(
         } else {
             "${stockMinimo.coerceAtLeast(0)} ${resolverUnidadAbreviada(unidadBaseRaw, stockMinimo, muestraUnidades)}"
         }
+        holder.tvResumenMinimo.text = formatearMinimoVisible(productoItem, esTablet, muestraUnidades)
 
         holder.itemView.alpha = if (activo) 1.0f else 0.5f
 
@@ -181,7 +223,16 @@ class AdapterProductosInventariosRecycler(
         // En el diseño de tarjeta móvil, coloreamos el valor de Stock según el estado
         // (verde = suficiente, naranja = bajo, rojo = agotado)
         if (!esTablet) {
-            holder.tvCantidad.setTextColor(estadoPrincipal.textColor)
+            if (estadoPrincipal.texto == "Suficiente") {
+                holder.tvCantidad.setTextColor(context.getColor(R.color.text_primary))
+                // Detalle en gris suave si es suficiente (para no saturar de verde)
+                holder.tvDetalleStock?.setTextColor(context.getColor(R.color.text_tertiary_muted))
+                holder.tvDetalleStock?.alpha = 1.0f
+            } else {
+                holder.tvCantidad.setTextColor(estadoPrincipal.textColor)
+                holder.tvDetalleStock?.setTextColor(estadoPrincipal.textColor)
+                holder.tvDetalleStock?.alpha = 0.8f
+            }
         }
 
         val vencimientoUi = resolverVencimientoUi(
@@ -306,6 +357,25 @@ class AdapterProductosInventariosRecycler(
         }
     }
 
+    private fun usaUnidadVisualMayor(unidadBaseRaw: String, unidadVisualRaw: String): Boolean {
+        return (unidadBaseRaw.equals("g", ignoreCase = true) && unidadVisualRaw.equals("kg", ignoreCase = true)) ||
+            (unidadBaseRaw.equals("mL", ignoreCase = true) && unidadVisualRaw.equals("L", ignoreCase = true))
+    }
+
+    private fun formatearCantidadUnidadVisual(cantidadBase: Int, unidadVisualRaw: String): String {
+        val divisor = when (unidadVisualRaw.trim()) {
+            "kg", "L" -> 1000.0
+            else -> 1.0
+        }
+        val value = cantidadBase / divisor
+        val entero = value.toInt()
+        return if (abs(value - entero) < 0.01) {
+            entero.toString()
+        } else {
+            String.format(Locale.getDefault(), "%.2f", value).trimEnd('0').trimEnd(',')
+        }
+    }
+
     private fun resolverUnidadVisible(
         unidadBaseRaw: String,
         cantidad: Int,
@@ -340,6 +410,53 @@ class AdapterProductosInventariosRecycler(
                     else -> visible
                 }
             }
+        }
+    }
+
+    private fun formatearMinimoVisible(
+        producto: MoldeProductos,
+        esTablet: Boolean,
+        muestraUnidades: Boolean
+    ): String {
+        val minimoUnidadBase = producto.stockminimo.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val minimoContenedores = producto.stockMinimoContenedores.coerceAtLeast(0)
+        val unidadMinimoGuardada = producto.unidadStockMinimo.trim()
+        val unidadVisualRaw = producto.unidadVisualInventario.ifBlank { producto.unidadbase }
+        if (usaUnidadVisualMayor(producto.unidadbase, unidadVisualRaw)) {
+            return "${formatearCantidadUnidadVisual(minimoUnidadBase, unidadVisualRaw)} $unidadVisualRaw"
+        }
+        val presentacionPrincipal = producto.presentacionprincipal.trim()
+
+        val unidadPreferida = when {
+            unidadMinimoGuardada.isNotBlank() &&
+                !unidadMinimoGuardada.equals("unidad", ignoreCase = true) &&
+                !unidadMinimoGuardada.equals("unidades", ignoreCase = true) &&
+                !unidadMinimoGuardada.equals("und", ignoreCase = true) &&
+                !unidadMinimoGuardada.equals("uds", ignoreCase = true) -> unidadMinimoGuardada
+            presentacionPrincipal.isNotBlank() && minimoContenedores > 0 -> presentacionPrincipal
+            else -> ""
+        }
+
+        if (minimoContenedores > 0 && unidadPreferida.isNotBlank()) {
+            return "$minimoContenedores ${resolverNombreUnidad(unidadPreferida, minimoContenedores)}"
+        }
+
+        return if (esTablet) {
+            "${minimoUnidadBase} ${resolverUnidadVisible(producto.unidadbase, minimoUnidadBase, muestraUnidades)}"
+        } else {
+            "${minimoUnidadBase} ${resolverUnidadAbreviada(producto.unidadbase, minimoUnidadBase, muestraUnidades)}"
+        }
+    }
+
+    private fun resolverNombreUnidad(unidadRaw: String, cantidad: Int): String {
+        val unidad = unidadRaw.trim().lowercase(Locale.getDefault())
+        if (unidad.isBlank()) return if (cantidad == 1) "unidad" else "unidades"
+
+        return when {
+            cantidad == 1 -> unidad
+            unidad.endsWith("s") -> unidad
+            unidad.endsWith("x") -> "${unidad}es"
+            else -> "${unidad}s"
         }
     }
 

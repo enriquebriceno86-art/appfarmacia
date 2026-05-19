@@ -18,7 +18,7 @@ object SesionUnicaManager {
 
     private const val NODO_SESIONES_ACTIVAS = "SesionesActivas"
     const val HEARTBEAT_INTERVALO_MS = 25_000L
-    const val HEARTBEAT_EXPIRACION_MS = 120_000L
+    const val HEARTBEAT_EXPIRACION_MS = 300_000L
 
     private val heartbeatHandler by lazy { Handler(Looper.getMainLooper()) }
     private var heartbeatRunnable: Runnable? = null
@@ -35,6 +35,13 @@ object SesionUnicaManager {
         val expiraEnTimestamp: Long,
         val estadoConexion: Boolean
     )
+
+    sealed class ResultadoValidacionSesion {
+        object VALIDA : ResultadoValidacionSesion()
+        data class REEMPLAZADA(val info: SesionRemotaInfo) : ResultadoValidacionSesion()
+        object ERROR_TEMPORAL : ResultadoValidacionSesion()
+        object SIN_CONEXION : ResultadoValidacionSesion()
+    }
 
     private fun refSesionActiva(idUsuario: String): DatabaseReference {
         return FirebaseDatabase.getInstance()
@@ -72,11 +79,11 @@ object SesionUnicaManager {
         idUsuario: String,
         nombreUsuario: String,
         rolUsuario: String,
-        onComplete: (Boolean) -> Unit
+        onComplete: (ResultadoValidacionSesion) -> Unit
     ) {
         val uid = idUsuario.trim()
         if (uid.isBlank()) {
-            onComplete(false)
+            onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
             return
         }
 
@@ -106,11 +113,7 @@ object SesionUnicaManager {
                 .setValue(data)
                 .addOnCompleteListener { task ->
                     if (!task.isSuccessful) {
-                        val resultado = SesionUnicaRules.resolverResultadoReclamo(
-                            exito = false,
-                            sessionIdNueva = ""
-                        )
-                        aplicarResultadoReclamoSesion(context, resultado, onComplete)
+                        onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
                         return@addOnCompleteListener
                     }
 
@@ -136,12 +139,12 @@ object SesionUnicaManager {
         idUsuario: String,
         nombreUsuario: String,
         rolUsuario: String,
-        onComplete: (Boolean) -> Unit
+        onComplete: (ResultadoValidacionSesion) -> Unit
     ) {
         val uid = idUsuario.trim()
         val localSessionId = SessionManager.obtenerSessionIdLocal(context).trim()
         if (uid.isBlank() || localSessionId.isBlank()) {
-            onComplete(false)
+            onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
             return
         }
 
@@ -159,15 +162,15 @@ object SesionUnicaManager {
                         )
                     }
                     SesionUnicaRules.coincideSesionRemotaConLocal(info.sessionId, localSessionId) -> {
-                        onComplete(true)
+                        onComplete(ResultadoValidacionSesion.VALIDA)
                     }
                     else -> {
-                        onComplete(false)
+                        onComplete(ResultadoValidacionSesion.REEMPLAZADA(info))
                     }
                 }
             }
             .addOnFailureListener {
-                onComplete(false)
+                onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
             }
     }
 
@@ -201,13 +204,22 @@ object SesionUnicaManager {
         return ref to listener
     }
 
+    sealed class LecturaSesionResultado {
+        data class ConSesion(val info: SesionRemotaInfo) : LecturaSesionResultado()
+        object SinSesion : LecturaSesionResultado()
+        data class Error(val mensaje: String) : LecturaSesionResultado()
+    }
+
     /** Lectura única (get) de la sesión activa — no registra un listener permanente. */
     fun obtenerSesionActivaUnaVez(
         idUsuario: String,
-        onResult: (SesionRemotaInfo?) -> Unit
+        onResult: (LecturaSesionResultado) -> Unit
     ) {
         val uid = idUsuario.trim()
-        if (uid.isBlank()) { onResult(null); return }
+        if (uid.isBlank()) { 
+            onResult(LecturaSesionResultado.Error("ID de usuario vacío"))
+            return 
+        }
         refSesionActiva(uid).get()
             .addOnSuccessListener { snapshot ->
                 val lectura = SesionUnicaRules.resolverLecturaSesionRemota(
@@ -215,11 +227,13 @@ object SesionUnicaManager {
                     info = snapshot.toSesionRemotaInfoOrNull()
                 )
                 when (lectura) {
-                    is LecturaSesionRemotaResultado.ConSesion -> onResult(lectura.info)
-                    LecturaSesionRemotaResultado.SinSesion -> onResult(null)
+                    is LecturaSesionRemotaResultado.ConSesion -> onResult(LecturaSesionResultado.ConSesion(lectura.info))
+                    LecturaSesionRemotaResultado.SinSesion -> onResult(LecturaSesionResultado.SinSesion)
                 }
             }
-            .addOnFailureListener { onResult(null) }
+            .addOnFailureListener { e -> 
+                onResult(LecturaSesionResultado.Error(e.message ?: "Error de red desconocido")) 
+            }
     }
 
     fun dejarDeEscuchar(reference: DatabaseReference?, listener: ValueEventListener?) {
@@ -410,23 +424,42 @@ object SesionUnicaManager {
 
     private fun aplicarResultadoReclamoSesion(
         context: Context,
+        idUsuario: String,
         resultado: ReclamoSesionResultado,
-        onComplete: (Boolean) -> Unit
+        onComplete: (ResultadoValidacionSesion) -> Unit
     ) {
         if (resultado.debePersistirSessionLocal) {
             SessionManager.guardarSessionIdLocal(context, resultado.sessionIdNueva)
-            // Eliminamos el onDisconnect().removeValue() para permitir persistencia al cerrar la app
         }
-        onComplete(resultado.exito)
+        
+        if (resultado.exito) {
+            onComplete(ResultadoValidacionSesion.VALIDA)
+        } else {
+            // Si el reclamo falló, verificamos si es porque alguien más tomó la sesión
+            // mientras intentábamos reclamarla.
+            val uid = idUsuario.trim()
+            if (uid.isNotBlank()) {
+                obtenerSesionActivaUnaVez(uid) { checkResultado ->
+                    if (checkResultado is LecturaSesionResultado.ConSesion) {
+                        onComplete(ResultadoValidacionSesion.REEMPLAZADA(checkResultado.info))
+                    } else {
+                        onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
+                    }
+                }
+            } else {
+                onComplete(ResultadoValidacionSesion.ERROR_TEMPORAL)
+            }
+        }
     }
 
     private fun confirmarReclamoSesion(
         context: Context,
         idUsuario: String,
         sessionIdEsperada: String,
-        onComplete: (Boolean) -> Unit
+        onComplete: (ResultadoValidacionSesion) -> Unit
     ) {
-        obtenerSesionActivaUnaVez(idUsuario) { info ->
+        obtenerSesionActivaUnaVez(idUsuario) { resultado ->
+            val info = (resultado as? LecturaSesionResultado.ConSesion)?.info
             val exito = info != null &&
                 !sesionEstaExpirada(info) &&
                 SesionUnicaRules.coincideSesionRemotaConLocal(
@@ -434,11 +467,11 @@ object SesionUnicaManager {
                     sessionIdLocal = sessionIdEsperada
                 )
 
-            val resultado = SesionUnicaRules.resolverResultadoReclamo(
+            val rulesResultado = SesionUnicaRules.resolverResultadoReclamo(
                 exito = exito,
                 sessionIdNueva = if (exito) sessionIdEsperada else ""
             )
-            aplicarResultadoReclamoSesion(context, resultado, onComplete)
+            aplicarResultadoReclamoSesion(context, idUsuario, rulesResultado, onComplete)
         }
     }
 

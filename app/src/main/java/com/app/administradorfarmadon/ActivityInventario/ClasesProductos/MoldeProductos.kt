@@ -38,6 +38,7 @@ fun DataSnapshot.toMoldeProductos(): MoldeProductos? {
             stockMinimoContenedores   = child("stockMinimoContenedores").value?.toString()?.toIntOrNull() ?: 0,
             unidadStockMinimo         = child("unidadStockMinimo").value?.toString().orEmpty(),
             unidadbase                = child("unidadbase").value?.toString().orEmpty(),
+            unidadVisualInventario    = child("unidadVisualInventario").value?.toString().orEmpty(),
             tipoBaseInventario        = PresentacionRules.normalizarTipoBaseInventario(
                 child("tipoBaseInventario").value?.toString(),
                 child("unidadbase").value?.toString().orEmpty()
@@ -85,6 +86,7 @@ data class MoldeProductos(
     var stockMinimoContenedores: Int = 0,
     var unidadStockMinimo: String = "",
     var unidadbase: String = "",
+    var unidadVisualInventario: String = "",
     var tipoBaseInventario: String = "",
     var presentacionprincipal: String = "",
     var requierereceta: Boolean = false,
@@ -118,4 +120,18 @@ data class MoldeProductos(
     var referenceConfidence: Double = 0.0,
     var referenceLanguage: String = "es",
     var lotes: Map<String, LoteProducto> = emptyMap()
+)
+
+/**
+ * V17.46: Registro simplificado para el índice plano de lotes.
+ * Permite saber a qué producto pertenece un lote sin descargar todo el inventario.
+ */
+data class LoteIndexado(
+    val numero: String = "",
+    val productoId: String = "",
+    val productoNombre: String = "",
+    val loteId: String = "",
+    val lotePath: String = "",
+    val vencimiento: String = "",
+    val timestamp: Long = System.currentTimeMillis()
 )

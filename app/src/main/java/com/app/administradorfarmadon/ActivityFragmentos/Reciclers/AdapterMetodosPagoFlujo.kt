@@ -72,11 +72,11 @@ class AdapterMetodosPagoFlujo(
     }
 
     private fun MetodoPagoConfig.esTransferenciaLike(): Boolean {
-        return categoria == "transferencia_bancaria"
+        return categoria == "transferencia_bancaria" || categoria == "transferencia"
     }
 
     private fun MetodoPagoConfig.esBilleteraLike(): Boolean {
-        return categoria == "billetera_digital"
+        return categoria == "billetera_digital" || categoria == "billetera" || categoria == "qr"
     }
 
     private fun MetodoPagoConfig.esMixtoLike(): Boolean {

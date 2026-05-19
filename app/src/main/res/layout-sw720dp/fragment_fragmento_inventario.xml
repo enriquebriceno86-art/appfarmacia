@@ -513,7 +513,7 @@
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:minHeight="46dp"
-                    android:text="+ Agregar primer producto"
+                    android:text="Agregar producto"
                     android:textAllCaps="false"
                     android:textColor="@color/brand_green"
                     android:textSize="15sp"
@@ -747,21 +747,17 @@
     <!-- ── FAB principal: Nuevo producto (anclado abajo-derecha) ─────────────── -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/floatingbotoncrearproducto"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:layout_gravity="bottom|end"
         android:layout_margin="24dp"
-        android:paddingStart="20dp"
-        android:paddingEnd="22dp"
-        android:text="Nuevo"
-        android:textAllCaps="false"
-        android:textColor="@color/surface_white"
-        android:textSize="15sp"
-        android:textStyle="bold"
+        android:contentDescription="Nuevo producto"
+        android:text=""
+        android:textColor="@android:color/transparent"
         app:backgroundTint="@color/brand_green"
         app:elevation="6dp"
         app:icon="@drawable/baseline_add_24"
-        app:iconSize="20dp"
+        app:iconSize="24dp"
         app:iconTint="@color/surface_white" />
 
     <!-- Skeleton inicial conservado -->

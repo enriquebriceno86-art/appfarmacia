@@ -25,7 +25,53 @@ data class CategorySuggestion(
     val existeEnLista: Boolean,
     val confianza: Int,
     val razon: String,
-    val keywords: List<String> = emptyList() // Palabras clave o síntomas
+    val keywords: List<String> = emptyList(), // Palabras clave o síntomas
+    val esInsegura: Boolean = false, // Flag para sugerencias de baja confianza (V3.23)
+    val isRefined: Boolean = false, // V5.7: Indica si es una respuesta completa de IA
+
+    // Nueva capa de intención (V8.0)
+    val tipoConsulta: TipoConsultaDetectada = TipoConsultaDetectada.ESPECIFICO,
+    val nombreCorregido: String? = null, // V9.0: Nombre estandarizado por IA
+    val sugerenciaUsuario: String? = null,
+    val sugerenciasBusqueda: List<String> = emptyList(),
+    
+    // Metadatos de la referencia (V5.0)
+    val fuenteReferencia: String = "Estimaci\u00f3n IA",
+    val confianzaReferencia: Int = 0, // 0-100
+    
+    // Referencias reales de mercado (V6.0)
+    val marketPriceReferences: List<MarketPriceReference> = emptyList(),
+    
+    // Investigaci\u00f3n estructurada de mercado (V7.0)
+    val marketResearch: MarketResearchResult? = null,
+    
+    // V13.0: Referencias r\u00e1pidas de mercado (reemplaza marketPriceReferences para simplificar)
+    val marketReferences: List<MarketReferenceItem> = emptyList(),
+
+    // V14.4: Validación de integridad del producto
+    val estadoProducto: EstadoProducto = EstadoProducto.VALIDO,
+    val opcionesSeparadas: List<String> = emptyList(),
+    val puedeContinuar: Boolean = true,
+    val motivoValidacion: String? = null
+)
+
+/**
+ * V14.4: Clasifica la calidad/integridad de la entrada del usuario.
+ */
+enum class EstadoProducto {
+    VALIDO,          // Producto claro y bien escrito
+    CORREGIBLE,      // Producto claro pero con errores menores (tipográficos/unidades)
+    CONTRADICTORIO,  // Mezcla de productos incompatibles
+    DESCONOCIDO      // Información insuficiente
+}
+
+/**
+ * V13.0: Item simple de referencia de mercado para la IA Profunda.
+ */
+data class MarketReferenceItem(
+    val presentation: String,
+    val price: Double,
+    val source: String
 )
 
 /**
@@ -39,7 +85,13 @@ data class CategorySuggestion(
 data class PresentacionSugerida(
     val nombre: String,
     val equivalenciaUnidadBase: Int,
-    val descripcion: String = ""
+    val descripcion: String = "",
+    val precioMercadoReferencial: Double? = null,
+    val tipoComercial: String = "DESCONOCIDO", // V5.8: GENERICO | MARCA | DESCONOCIDO
+    
+    // Metadatos específicos por presentación (V5.0)
+    val confianzaPrecio: Int = 0,
+    val advertencia: String? = null
 )
 
 /**
@@ -84,10 +136,22 @@ enum class TipoControlDetectado {
 }
 
 /**
+ * Clasifica la intención del usuario al escribir el nombre (V8.0).
+ * Ayuda a determinar si la IA debe ser asertiva o sugerente.
+ */
+enum class TipoConsultaDetectada {
+    ESPECIFICO,   // Producto identificado claramente (Ej: Panadol 500mg)
+    GENERAL,      // Nombre real pero genérico (Ej: Panadol)
+    AMBIGUO,      // Varias interpretaciones posibles (Ej: Amoxi)
+    INSUFICIENTE  // Texto sin valor farmacéutico (Ej: medicina)
+}
+
+/**
  * Estados del flujo de sugerencia.
  *
  *  - INITIAL: aún no hay nombre suficiente; tarjeta vacía invitando a escribir.
  *  - LOADING: Gemini consultando; mostrar shimmer animado.
+ *  - PRELIMINARY: Sugerencia rápida (heurística o caché parcial).
  *  - READY: hay una sugerencia válida lista para auto-aceptarse.
  *  - ACCEPTED: el usuario aceptó (o pasó al siguiente paso); chip oculto.
  *  - MANUAL: el usuario eligió escribir manualmente; mostrar text field.
@@ -96,23 +160,83 @@ enum class TipoControlDetectado {
 enum class CategorySuggestionStatus {
     INITIAL,
     LOADING,
+    PRELIMINARY,
     READY,
     ACCEPTED,
     MANUAL,
     FALLBACK_MANUAL
 }
 
+enum class ConfianzaCorreccion {
+    ALTA,
+    MEDIA,
+    BAJA
+}
+
+/**
+ * Resultado estructurado de una corrección de nombre (V12.0).
+ */
+data class NameCorrectionResult(
+    val nombreCorregido: String? = null,
+    val nivelConfianza: ConfianzaCorreccion = ConfianzaCorreccion.BAJA,
+    val motivo: String = "",
+    val alternativas: List<String> = emptyList(),
+    val cambioPotenciaDetectado: Boolean = false,
+    val localSafetyLog: String? = null
+)
+
+enum class ConfianzaIA {
+    ALTA,
+    MEDIA,
+    BAJA,
+    DESCONOCIDA
+}
+
+/**
+ * V16.10: Sugerencia ligera de tipo de control para el modo manual.
+ * V17.82: Añadido contexto de nombre y categoría para validación estricta.
+ */
+data class ManualTypeSuggestion(
+    val tipo: TipoControlDetectado,
+    val confianza: ConfianzaIA,
+    val motivo: String = "",
+    val productName: String = "",
+    val category: String = ""
+)
+
 data class CategorySuggestionUiState(
     val status: CategorySuggestionStatus = CategorySuggestionStatus.INITIAL,
     val suggestion: CategorySuggestion? = null,
-    val queryName: String = ""
+    val queryName: String = "",
+    val interpreted: PharmaceuticalParser.ParsedProduct? = null, // Interpretación farmacéutica (V3.25)
+    val loadingMessage: String? = null, // V5.7: Feedback de progreso
+    val pendingCorrection: NameCorrectionResult? = null, // V12.0: Resultado estructurado de corrección
+    
+    // V14.4: Estado extendido para manejo de conflictos
+    val errorValidacion: String? = null,
+    val opcionesAlternativas: List<String> = emptyList(),
+    
+    // V16.0: Soporte para asistencia manual ligera
+    val asistenciaManualCategorias: List<String> = emptyList(),
+    val estaCargandoAsistencia: Boolean = false,
+
+    // V16.10: Soporte para sugerencia silenciosa de tipo
+    val sugerenciaTipoManual: ManualTypeSuggestion? = null,
+    val estaCargandoTipo: Boolean = false
 )
 
 // ─── Modelos crudos de la API de Gemini (generateContent) ────────────────────
 
 data class GeminiRequest(
     val contents: List<GeminiContent>,
-    val generationConfig: GeminiGenerationConfig
+    val generationConfig: GeminiGenerationConfig,
+    @Json(name = "system_instruction") val systemInstruction: GeminiContent? = null,
+    val tools: List<GeminiTool>? = null
+)
+
+data class GeminiTool(
+    @Json(name = "google_search_retrieval")
+    val googleSearchRetrieval: Map<String, Any>? = null
 )
 
 data class GeminiContent(
@@ -127,8 +251,8 @@ data class GeminiPart(
 
 data class GeminiGenerationConfig(
     val temperature: Double = 0.2,
-    @param:Json(name = "responseMimeType") val responseMimeType: String = "application/json",
-    @param:Json(name = "responseSchema") val responseSchema: GeminiSchema? = null
+    @Json(name = "responseMimeType") val responseMimeType: String = "application/json",
+    @Json(name = "responseSchema") val responseSchema: GeminiSchema? = null
 )
 
 data class GeminiSchema(

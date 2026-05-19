@@ -6,8 +6,11 @@ import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import java.time.LocalDate
@@ -19,6 +22,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,17 +37,25 @@ import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldePro
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.PresentacionProducto
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.SugerenciaPresentacion
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.toMoldeProductos
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteIndexado
+import com.app.administradorfarmadon.ClasesDatabase.DbPaths
+import com.app.administradorfarmadon.ActivityInventario.reference.normalizeProductName
 import com.app.administradorfarmadon.ActivityInventario.domain.PresentacionRules
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductControlType
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductPresentation
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductScreen
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductState
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductStep
+import com.app.administradorfarmadon.ActivityInventario.ui.sugerirPresentacionesIniciales
+import com.app.administradorfarmadon.ActivityInventario.ui.calculateTotalBaseStock
+import com.app.administradorfarmadon.ActivityInventario.ui.calculateBaseMinimumStock
 import com.app.administradorfarmadon.ActivityInventario.ui.ProductCreatedSummary
+import com.app.administradorfarmadon.ActivityInventario.ui.formatCreateProductNumber
 import com.app.administradorfarmadon.ActivityInventario.ui.SmartProductHint
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionViewModel
+import com.app.administradorfarmadon.ActivityInventario.reference.PresentationSuggestionRules
 import com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel
 import com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado
 import com.app.administradorfarmadon.ActivityInventario.reference.ProductReference
@@ -57,9 +70,25 @@ import java.util.UUID
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductStockEntryMode
 import com.app.administradorfarmadon.ActivityInventario.ui.StockControlMode
 import com.app.administradorfarmadon.ActivityInventario.ui.getEffectiveStockControlMode
+import com.app.administradorfarmadon.ActivityInventario.ui.getPurchasePresentationName
+import com.app.administradorfarmadon.ActivityInventario.ui.isStockEntryModeValidForControlType
+import com.app.administradorfarmadon.ActivityInventario.ui.resetStockEntryConfiguration
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.app.administradorfarmadon.ClasesDatabase.FeedbackCajaController
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Color as ComposeColor
 import com.google.android.material.card.MaterialCardView
 
 
@@ -76,11 +105,25 @@ class CrearProducto : AppCompatActivity() {
     private var createProductShowReference by mutableStateOf(false)
     private var createProductReferenceDismissed by mutableStateOf(false)
     private val createProductCategoryOptions = mutableStateListOf<String>()
-    private val createProductExistingLots = mutableStateListOf<String>()
     private val createProductExistingNormalizedNames = mutableStateListOf<String>()
     private var ultimoProductoCreadoCompose: MoldeProductos? = null
     private var createProductCategoryValidationJob: Job? = null
     private var createProductNameValidationJob: Job? = null
+    private var createProductBarcodeValidationJob: Job? = null
+    private var createProductLotValidationJob: Job? = null // V17.45: Job para validación remota de lote
+
+    // V17.49: Estados para validación remota de lote (Blindado)
+    private var isCheckingLotRemote by mutableStateOf(false)
+    private var isCheckingBarcodeRemote by mutableStateOf(false)
+    private var currentLotRequestId = 0 // Contador para proteger spinner de respuestas viejas
+    private var currentBarcodeRequestId = 0
+    private var lotValidatedFor by mutableStateOf<String?>(null) 
+    private var lotConflictInfo by mutableStateOf<String?>(null)
+    private var lotConflictColor by mutableStateOf(0) 
+    private var lotConflictSeverity by mutableStateOf(0) 
+    private var marginRulesLoadStarted = false
+    private var savedPresentationsLoadStarted = false
+    private var aiWarmupStarted = false
     // Fix (M5): recuerda el último (nombre|categoria) por el que ya se pidió
     // la búsqueda de referencia para evitar lanzar requests duplicados cuando
     // el usuario va y vuelve entre pasos sin cambiar esos campos.
@@ -98,6 +141,15 @@ class CrearProducto : AppCompatActivity() {
 
     private var statusBarColorOriginal: Int? = null
     private var statusBarLightOriginal: Boolean? = null
+    private var navigationBarColorOriginal: Int? = null
+    private var navigationBarLightOriginal: Boolean? = null
+
+    // V15.4: Estado reactivo para la IA
+    private var aiInventoryEnabled by mutableStateOf(true)
+
+    private val feedbackController by lazy { FeedbackCajaController(this) }
+    private var isSuccessAnimVisible by mutableStateOf(false)
+    private var isErrorAnimVisible by mutableStateOf(false)
 
 
 
@@ -113,6 +165,8 @@ class CrearProducto : AppCompatActivity() {
         private const val PATH_PRODUCTOS = "Productos"
         private const val PATH_BUSQUEDA = "BusquedaProductos"
         private const val PATH_PRESENTACIONES = "Presentaciones"
+        private const val PATH_MARGENES = "ConfiguracionMargenes"
+        private const val PATH_CODIGOS = "CodigosProductos"
 
         private const val CLOUDINARY_CLOUD_NAME = "dluvatyh7"
         private const val CLOUDINARY_UPLOAD_PRESET = "productos_app"
@@ -132,13 +186,57 @@ class CrearProducto : AppCompatActivity() {
         aplicarStatusBarBlanca()
 
         createProductUiState = construirEstadoInicialCreateProduct()
+        
+        // V13.7: Warm-up de conexión IA condicional
+        // El warmup de IA se retrasa hasta despues del primer frame para no
+        // competir con la apertura visual de la pantalla.
 
-        setContent {
+        mostrarArranqueLigero()
+
+        window.decorView.post {
+            setContent {
             val referenceState by productReferenceViewModel.referenceState.collectAsState()
-            // Sugerencia IA de categoría (Gemini). El chip que vive dentro
-            // de CategoryAutocompleteField se actualiza vía este state.
             val categorySuggestionState by categorySuggestionViewModel.state.collectAsState()
             val labelScannerState by labelScannerViewModel.state.collectAsState()
+
+            // V16.10: Observamos la sugerencia de tipo para aplicación AUTOMÁTICA si la confianza es ALTA
+            // V17.82: Restaurada la auto-selección silenciosa para un flujo sin fricciones.
+            LaunchedEffect(categorySuggestionState.sugerenciaTipoManual) {
+                val suggestion = categorySuggestionState.sugerenciaTipoManual
+                if (suggestion != null && 
+                    suggestion.confianza == com.app.administradorfarmadon.ActivityInventario.reference.ConfianzaIA.ALTA &&
+                    createProductUiState.controlType == null &&
+                    !createProductUiState.typeSelectedManually) {
+                    
+                    delay(350) // Delay visual premium antes de la aplicación
+                    
+                    // Verificación de contexto post-delay (P1 Fix)
+                    val nombreActual = normalizeProductName(createProductUiState.name)
+                    val catActual = normalizeProductName(createProductUiState.category)
+                    val nombreSugerido = normalizeProductName(suggestion.productName)
+                    val catSugerida = normalizeProductName(suggestion.category)
+
+                    if (nombreActual == nombreSugerido && catActual == catSugerida) {
+                        val mappedType = when (suggestion.tipo) {
+                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD -> CreateProductControlType.UNIDAD
+                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO -> CreateProductControlType.PESO
+                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO -> CreateProductControlType.LIQUIDO
+                            else -> null
+                        }
+
+                        if (mappedType != null) {
+                            actualizarCreateProductState(
+                                createProductUiState.copy(
+                                    controlType = mappedType,
+                                    errors = createProductUiState.errors - "controlType"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            var pendingCameraAction by remember { mutableStateOf<String?>(null) }
 
             // Launcher de la cámara que captura un Bitmap (preview).
             // El bitmap se le pasa al ViewModel para procesarlo con Gemini.
@@ -149,90 +247,242 @@ class CrearProducto : AppCompatActivity() {
             }
 
             // Launcher del permiso CAMERA. Si el usuario aprueba, abrimos la
-            // cámara; si rechaza, no hacemos nada (el botón sigue disponible
+            // acción pendiente; si rechaza, no hacemos nada (el botón sigue disponible
             // por si el usuario re-intenta).
             val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
             ) { granted ->
-                if (granted) cameraLauncher.launch(null)
+                if (granted) {
+                    when (pendingCameraAction) {
+                        "BARCODE" -> actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = true))
+                        "LABEL" -> actualizarCreateProductState(createProductUiState.copy(isLabelScanning = true))
+                        "PHOTO" -> cameraLauncher.launch(null)
+                    }
+                }
+                pendingCameraAction = null
             }
 
             MaterialTheme {
-                CreateProductScreen(
-                    state = createProductUiState,
-                    categoryOptions = createProductCategoryOptions.toList(),
-                    smartHint = null,
-                    existingLotNumbers = createProductExistingLots.toSet(),
-                    // Fix (F1): el botón "Siguiente"/"Guardar" antes solo se
-                    // desactivaba si había error en `name`. Ahora refleja la
-                    // validez completa del paso actual mediante un chequeo
-                    // puro (sin mutar el estado), de modo que el usuario ve
-                    // visualmente cuándo puede avanzar.
-                    nextEnabled = !createProductLoading &&
-                            puedeAvanzarPasoCreateProduct(
-                                createProductUiState,
-                                createProductExistingLots.toSet()
-                            ),
-                    referenceState = referenceState,
-                    categorySuggestionState = categorySuggestionState,
-                    onAcceptCategorySuggestion = ::aceptarSugerenciaCategoria,
-                    onSwitchToManualCategory = ::cambiarACategoriaManual,
-                    onBackToAiCategory = ::volverASugerenciaIaCategoria,
-                    labelScannerState = labelScannerState,
-                    onRequestLabelScan = {
-                        // Si ya tenemos permiso, abrir cámara directo; si no,
-                        // pedirlo y al aprobar el launcher de permiso abre
-                        // la cámara automáticamente.
-                        val granted = androidx.core.content.ContextCompat
-                            .checkSelfPermission(this, android.Manifest.permission.CAMERA) ==
-                            android.content.pm.PackageManager.PERMISSION_GRANTED
-                        if (granted) cameraLauncher.launch(null)
-                        else permissionLauncher.launch(android.Manifest.permission.CAMERA)
-                    },
-                    onConsumeLabelScan = { labelScannerViewModel.reset() },
-                    loading = createProductLoading,
-                    successSummary = createProductSuccessSummary,
-                    showReferenceScreen = createProductShowReference,
-                    showReferenceSection = !createProductReferenceDismissed,
-                    onBack = ::manejarAtrasFlujoComposeCrearProducto,
-                    onStateChange = ::actualizarCreateProductState,
-                    onNext = ::avanzarPasoCreateProduct,
-                    onPrevious = ::retrocederPasoCreateProduct,
-                    onSave = ::guardarProductoDesdeCompose,
-                    onCreateAnother = ::reiniciarFlujoComposeCrearProducto,
-                    onViewProduct = ::abrirProductoRecienCreado,
-                    onRetryReference = {
-                        productReferenceViewModel.retry(
-                            productName = createProductUiState.name,
-                            category = createProductUiState.category
-                        )
-                    },
-                    onOpenReference = { createProductShowReference = true },
-                    onDismissReference = { createProductShowReference = false },
-                    onConfirmReference = {
-                        createProductReferenceDismissed = false
-                        createProductShowReference = false
-                        guardarReferenciaSugeridaEnProducto(it)
-                    },
-                    onSkipReference = {
-                        reiniciarFlujoComposeCrearProducto()
-                    }
-                )
-            }
-        }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    CreateProductScreen(
+                        state = createProductUiState,
+                        categoryOptions = createProductCategoryOptions.toList(),
+                        smartHint = null,
+                        // Fix (F1): el botón "Siguiente"/"Guardar" antes solo se
+                        // desactivaba si había error en `name`. Ahora refleja la
+                        // validez completa del paso actual mediante un chequeo
+                        // puro (sin mutar el estado), de modo que el usuario ve
+                        // visualmente cuándo puede avanzar.
+                        nextEnabled = !createProductLoading &&
+                                puedeAvanzarPasoCreateProduct(
+                                    createProductUiState
+                                ),
+                        aiInventoryEnabled = aiInventoryEnabled,
+                        referenceState = referenceState,
+                        categorySuggestionState = categorySuggestionState,
+                        onAcceptCategorySuggestion = ::aceptarSugerenciaCategoria,
+                        onSwitchToManualCategory = ::cambiarACategoriaManual,
+                        onBackToAiCategory = ::volverASugerenciaIaCategoria,
+                        onSearchIA = { inmediato -> buscarConIACompose(inmediato as? Boolean ?: false) },
+                        onApplyNameCorrection = ::aplicarCorreccionNombreIA,
+                        onDismissNameCorrection = ::descartarCorreccionNombreIA,
+                        onAsistManualName = { 
+                            categorySuggestionViewModel.asistirManualConNombre(it, com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion) 
+                        },
+                        onAsistManualCategory = { texto -> 
+                            categorySuggestionViewModel.asistirManualConTextoCategoria(
+                                texto = texto, 
+                                productName = createProductUiState.name,
+                                mercadoActivo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion
+                            )
+                        },
+                        onClearAsistManual = {
+                            categorySuggestionViewModel.limpiarAsistenciaManual()
+                        },
+                        labelScannerState = labelScannerState,
+                        onRequestLabelScan = {
+                            val granted = androidx.core.content.ContextCompat
+                                .checkSelfPermission(this@CrearProducto, android.Manifest.permission.CAMERA) ==
+                                android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (granted) actualizarCreateProductState(createProductUiState.copy(isLabelScanning = true))
+                            else {
+                                pendingCameraAction = "LABEL"
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+                        },
+                        onConsumeLabelScan = { labelScannerViewModel.reset() },
+                        loading = createProductLoading,
+                        successSummary = createProductSuccessSummary,
+                        showReferenceScreen = createProductShowReference,
+                        showReferenceSection = !createProductReferenceDismissed,
+                        onBack = ::manejarAtrasFlujoComposeCrearProducto,
+                        onStateChange = ::actualizarCreateProductState,
+                        onNext = ::avanzarPasoCreateProduct,
+                        onPrevious = ::retrocederPasoCreateProduct,
+                        onSave = ::guardarProductoDesdeCompose,
+                        onCreateAnother = ::reiniciarFlujoComposeCrearProducto,
+                        onViewProduct = ::abrirProductoRecienCreado,
+                        onRetryReference = {
+                            productReferenceViewModel.retry(
+                                productName = createProductUiState.name,
+                                category = createProductUiState.category
+                            )
+                        },
+                        onOpenReference = { createProductShowReference = true },
+                        onDismissReference = { createProductShowReference = false },
+                        onConfirmReference = {
+                            createProductReferenceDismissed = false
+                            createProductShowReference = false
+                            guardarReferenciaSugeridaEnProducto(it)
+                        },
+                        onSkipReference = {
+                            reiniciarFlujoComposeCrearProducto()
+                        },
+                        onAddStockToExistingProduct = ::abrirIngresoStockProductoExistente,
+                        // V17.45: Pasamos estados de validación remota de lote
+                        isCheckingLotRemote = isCheckingLotRemote,
+                        isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+                        lotConflictInfo = lotConflictInfo,
+                        lotConflictColor = androidx.compose.ui.graphics.Color(lotConflictColor),
+                        lotConflictSeverity = lotConflictSeverity,
+                        onRequestBarcodeScan = {
+                            val granted = androidx.core.content.ContextCompat
+                                .checkSelfPermission(this@CrearProducto, android.Manifest.permission.CAMERA) ==
+                                android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (granted) actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = true))
+                            else {
+                                pendingCameraAction = "BARCODE"
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+                        }
+                    )
 
-        window.decorView.post {
+                    if (createProductUiState.isBarcodeScanning) {
+                        // Usamos el scanner con OptIn (V17.90)
+                        @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+                        com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay(
+                            onBarcodeDetected = { code ->
+                                feedbackController.ventaExitosa(null) // Sonido/vibración suave
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(
+                                        barcode = code,
+                                        isBarcodeScanning = false,
+                                        isBarcodeManualMode = false
+                                    )
+                                )
+                            },
+                            onDismiss = {
+                                actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = false))
+                            }
+                        )
+                    }
+
+                    if (createProductUiState.isLabelScanning) {
+                        @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+                        com.app.administradorfarmadon.ActivityInventario.ui.LiveOcrScannerOverlay(
+                            onResultDetected = { lote, venc ->
+                                feedbackController.ventaExitosa(null)
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(
+                                        lotNumber = lote ?: createProductUiState.lotNumber,
+                                        expirationDate = venc ?: createProductUiState.expirationDate,
+                                        isLabelScanning = false
+                                    )
+                                )
+                            },
+                            onDismiss = {
+                                actualizarCreateProductState(createProductUiState.copy(isLabelScanning = false))
+                            }
+                        )
+                    }
+
+                    if (isSuccessAnimVisible) {
+                        SuccessAnimationOverlay()
+                    }
+                    if (isErrorAnimVisible) {
+                        ErrorAnimationOverlay()
+                    }
+                }
+
+                LaunchedEffect(isSuccessAnimVisible, isErrorAnimVisible) {
+                    if (isSuccessAnimVisible) {
+                        updateBarsForAnimation(android.graphics.Color.parseColor("#2E7D32"), false)
+                    } else if (isErrorAnimVisible) {
+                        updateBarsForAnimation(android.graphics.Color.parseColor("#C62828"), false)
+                    } else {
+                        restaurarStatusBarOriginal()
+                    }
+                }
+            }
+            }
+
+            // Solo lo esencial para el Paso 1 (Ligero)
             PresentacionesTiendaConfigManager.precargar()
             obtenerCategoriasDeProductos()
-            obtenerNombresDeProductos()
-            cargarPresentacionesGuardadas()
-            // Fix (F4): los lotes existentes antes solo se pedían al llegar
-            // al paso LOTE_INICIAL. Esa carga asíncrona muchas veces llegaba
-            // después de que el usuario ya había escrito un lote, dejando
-            // pasar duplicados sin advertencia. Ahora se precarga junto con
-            // las demás listas para que la validación tenga el set listo.
-            obtenerLotesExistentesParaCrearProducto()
+            precalentarIaDespuesDelPrimerFrame()
         }
+    }
+
+    private fun mostrarArranqueLigero() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.WHITE)
+            setPadding(40, 40, 40, 40)
+        }
+
+        val progress = ProgressBar(this).apply {
+            isIndeterminate = true
+        }
+
+        val title = TextView(this).apply {
+            text = "Preparando producto"
+            textSize = 22f
+            setTextColor(Color.parseColor("#111827"))
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+
+        val subtitle = TextView(this).apply {
+            text = "Cargando formulario..."
+            textSize = 14f
+            setTextColor(Color.parseColor("#6B7280"))
+            gravity = Gravity.CENTER
+        }
+
+        root.addView(progress)
+        root.addView(title, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = 20 })
+        root.addView(subtitle, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = 8 })
+
+        setContentView(root)
+    }
+
+    private fun precalentarIaDespuesDelPrimerFrame() {
+        if (aiWarmupStarted || !aiInventoryEnabled) return
+        aiWarmupStarted = true
+        window.decorView.postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                categorySuggestionViewModel.warmup()
+            }
+        }, 900L)
+    }
+
+    private fun asegurarReglasMargenCargadas() {
+        if (marginRulesLoadStarted) return
+        marginRulesLoadStarted = true
+        obtenerReglasDeMargen()
+    }
+
+    private fun asegurarPresentacionesGuardadasCargadas() {
+        if (savedPresentationsLoadStarted) return
+        savedPresentationsLoadStarted = true
+        cargarPresentacionesGuardadas()
     }
 
     private fun cargarPresentacionesGuardadas() {
@@ -275,6 +525,12 @@ class CrearProducto : AppCompatActivity() {
             .setValue(mapOf("nombre" to saved.name, "equivalencia" to saved.equivalenceBase))
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Actualizar preferencia cada vez que la pantalla vuelve al frente
+        aiInventoryEnabled = com.app.administradorfarmadon.ClasesDatabase.PreferenciasFeedbackCaja.estaIaInventarioActiva(this)
+    }
+
     override fun onDestroy() {
         restaurarStatusBarOriginal()
         super.onDestroy()
@@ -311,6 +567,11 @@ class CrearProducto : AppCompatActivity() {
 
     private fun actualizarCreateProductState(nuevoEstado: CreateProductState) {
         val estadoAnterior = createProductUiState
+        createProductUiState = nuevoEstado
+
+        if (estadoAnterior.barcode != createProductUiState.barcode) {
+            programarValidacionBarcodeCompose(createProductUiState.barcode)
+        }
 
         // Persistir cualquier nueva presentacion guardada por el usuario
         val nuevasPresentaciones = nuevoEstado.savedPresentationOptions.filterNot { nueva ->
@@ -326,10 +587,8 @@ class CrearProducto : AppCompatActivity() {
             nuevoEstado.controlType != null
         ) {
             nuevoEstado.copy(
-                receivedPresentation = "",
                 presentations = sugerirPresentacionesIniciales(
-                    nuevoEstado.controlType,
-                    nuevoEstado.receivedPresentation
+                    nuevoEstado.controlType
                 ),
                 mainPresentationId = "",
                 draftPresentationName = "",
@@ -359,18 +618,49 @@ class CrearProducto : AppCompatActivity() {
             mainPresentationId = mainIdNormalizado
         )
 
+        // V16.10: Si cambia el nombre o la categoría, pedimos sugerencia de tipo (Asistente Silencioso)
+        // V16.12: La sugerencia de tipo SOLO se dispara si la categoría fue elegida desde IA (Sugerencia)
+        // V17.2: Si la categoría es de IA, lanzamos la consulta de tipo de forma INMEDIATA
+        if (estadoAnterior.lotNumber != createProductUiState.lotNumber) {
+            validarLoteRemotoCompose(createProductUiState.lotNumber)
+        }
+
         if (estadoAnterior.name != createProductUiState.name) {
+            // V17.1: Si cambia el nombre, invalidamos la selección previa de IA
+            // para garantizar coherencia en el próximo asistente de tipo.
+            // V17.15: Protegemos el reseteo para que no ocurra al navegar entre pasos
+            if (createProductUiState.currentStep == CreateProductStep.PRODUCTO) {
+                createProductUiState = createProductUiState.copy(
+                    categorySelectedFromAi = false
+                )
+            }
+
+            // Sugerencia IA: Actualización LOCAL inmediata de interpretación (V5.10)
+            categorySuggestionViewModel.actualizarInterpretacionLocal(createProductUiState.name)
+            
             programarValidacionNombreCompose(createProductUiState.name)
             // Sugerencia IA: re-evaluar la categoría cuando cambia el nombre.
-            // El propio ViewModel aplica debounce de 800ms y respeta el modo
-            // manual si el usuario ya decidió escribir.
-            categorySuggestionViewModel.onNombreCambio(
-                nombre = createProductUiState.name,
-                categoriasExistentes = createProductCategoryOptions.toList()
-            )
+            // Sincronización V5.4: Ya no llamamos a categorySuggestionViewModel.onNombreCambio aquí
+            // para evitar doble debounce y cache keys inconsistentes con los defaults.
+            // Ahora se centraliza en programarValidacionNombreCompose() tras verificar duplicados
+            // y con el contexto de mercado (país) y moneda reales.
         }
         if (estadoAnterior.category != createProductUiState.category) {
             programarValidacionCategoriaCompose(createProductUiState.category)
+        }
+
+        // V17.84: Solución al "Empleado Celoso" (IA ya no es ciega al teclado manual)
+        if (createProductUiState.currentStep == CreateProductStep.PRODUCTO &&
+            (estadoAnterior.category != createProductUiState.category || estadoAnterior.name != createProductUiState.name)) {
+
+            // Si la categoría tiene texto, el asistente analiza el producto SIEMPRE, sin importar el origen.
+            if (createProductUiState.category.isNotBlank() && createProductUiState.name.isNotBlank()) {
+                categorySuggestionViewModel.asistirManualConTipo(
+                    nombre = createProductUiState.name,
+                    categoria = createProductUiState.category,
+                    inmediato = true
+                )
+            }
         }
     }
 
@@ -389,6 +679,7 @@ class CrearProducto : AppCompatActivity() {
     private fun aceptarSugerenciaCategoria(suggestion: CategorySuggestion) {
         val categoria = suggestion.categoria.trim()
         if (categoria.isBlank()) return
+        val nombreCorregido = suggestion.nombreCorregido?.trim().orEmpty()
 
         if (!createProductCategoryOptions.any { it.equals(categoria, ignoreCase = true) }) {
             createProductCategoryOptions.add(categoria)
@@ -403,6 +694,15 @@ class CrearProducto : AppCompatActivity() {
 
         val cambios = mutableMapOf<String, Any?>()
         var nuevoEstado = createProductUiState
+        if (nombreCorregido.isNotBlank() && !nombreCorregido.equals(nuevoEstado.name, ignoreCase = true)) {
+            nuevoEstado = nuevoEstado.copy(
+                name = nombreCorregido,
+                pendingHighlight = true,
+                duplicateProductFound = null,
+                errors = nuevoEstado.errors - "name"
+            )
+            cambios["name"] = nombreCorregido
+        }
         if (nuevoEstado.category != categoria) {
             nuevoEstado = nuevoEstado.copy(
                 category = categoria,
@@ -411,22 +711,11 @@ class CrearProducto : AppCompatActivity() {
             cambios["category"] = categoria
         }
         if (controlTypeDetectado != null && nuevoEstado.controlType != controlTypeDetectado) {
-            // Convertimos las sugerencias de la IA a nuestro modelo de UI.
-            val presentacionesIA = suggestion.presentacionesSugeridas.map { sug ->
-                CreateProductPresentation(
-                    id = sug.nombre.lowercase().replace(" ", "_") + "_" + UUID.randomUUID().toString().take(4),
-                    name = sug.nombre,
-                    equivalenceText = sug.equivalenciaUnidadBase.toString(),
-                    salePriceText = "",
-                    isAiSuggested = true
-                )
-            }
-
+            // V13.1: En este flujo ya no hay presentaciones de la IA inicialmente
             nuevoEstado = nuevoEstado.copy(
                 controlType = controlTypeDetectado,
-                // Si la IA trajo presentaciones, las usamos; si no, fallback al default vacío.
-                presentations = presentacionesIA.ifEmpty { sugerirPresentacionesIniciales(controlTypeDetectado, "") },
-                mainPresentationId = presentacionesIA.firstOrNull()?.id ?: "",
+                presentations = sugerirPresentacionesIniciales(controlTypeDetectado),
+                mainPresentationId = "",
                 errors = nuevoEstado.errors - "controlType"
             )
             cambios["controlType"] = controlTypeDetectado.name
@@ -441,36 +730,21 @@ class CrearProducto : AppCompatActivity() {
             cambios["requiresPrescription"] = suggestion.requiereReceta
         }
 
-        // --- NUEVO: ASIGNAR KEYWORDS DE IA AL ESTADO ---
-        if (suggestion.keywords.isNotEmpty()) {
-            nuevoEstado = nuevoEstado.copy(
-                keywords = suggestion.keywords,
-                // Por defecto, todas las sugerencias de la IA se seleccionan inicialmente
-                selectedKeywords = suggestion.keywords.toSet()
-            )
-        }
-
-        if (cambios.isNotEmpty() || suggestion.keywords.isNotEmpty()) {
+        if (cambios.isNotEmpty()) {
             createProductUiState = nuevoEstado
         }
         categorySuggestionViewModel.aceptar()
+        
+        // V13.1: Siempre avanzamos al siguiente paso ya que la IA rápida es final para el paso 1.
+        avanzarPasoCreateProduct()
     }
 
-    /**
-     * El usuario tocó "Cambiar manualmente". Se limpian AMBOS campos
-     * (categoría + tipo de control) para que escriba/elija desde cero, y
-     * el ViewModel cambia a modo MANUAL, que es el único estado donde la
-     * UI muestra el text field + el selector de tipo tradicional.
-     */
     private fun cambiarACategoriaManual() {
         createProductUiState = createProductUiState.copy(
             category = "",
             controlType = null,
             presentations = emptyList(),
             mainPresentationId = "",
-            // En manual reseteamos a defaults seguros: receta=false (la mayoría
-            // de productos OTC no la requiere) y activo=true (el comportamiento
-            // natural al crear un producto nuevo).
             requiresPrescription = false,
             active = true,
             errors = createProductUiState.errors - "category" - "controlType"
@@ -489,17 +763,93 @@ class CrearProducto : AppCompatActivity() {
         )
         categorySuggestionViewModel.volverASugerenciaIA(
             nombre = createProductUiState.name,
-            categoriasExistentes = createProductCategoryOptions.toList()
+            categoriasExistentes = createProductCategoryOptions.toList(),
+            mercadoActivo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion,
+            monedaSimbolo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo
         )
+    }
+
+    private fun buscarConIACompose(inmediato: Boolean = false) {
+        val currentName = createProductUiState.name
+        val normalized = normalizeProductName(currentName)
+        
+        android.util.Log.d("CategoryAI", "buscarConIACompose: '$currentName', inmediato: $inmediato")
+
+        // V17.6: El Modo Manual Silencioso NO se bloquea por la preferencia global, 
+        // ya que es una ayuda ligera no invasiva.
+
+        if (normalized.length < 3) {
+            android.util.Log.w("CategoryAI", "Nombre demasiado corto para IA: '$normalized'")
+            return
+        }
+
+        actualizarCreateProductState(createProductUiState.copy(isAnalyzingKeywords = true))
+        
+        categorySuggestionViewModel.buscarSugerenciaIA(
+            nombre = currentName,
+            categoriasExistentes = createProductCategoryOptions.toList(),
+            mercadoActivo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion,
+            monedaSimbolo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+            inmediato = inmediato,
+            onStateChange = { loading ->
+                if (normalizeProductName(createProductUiState.name) == normalized) {
+                    actualizarCreateProductState(createProductUiState.copy(isAnalyzingKeywords = loading))
+                }
+            }
+        )
+    }
+
+    private fun aplicarCorreccionNombreIA(original: String, corregido: String) {
+        // 1. Actualizar el nombre y limpiar estados de error/duplicados del nombre viejo
+        val key = "$original|$corregido"
+        val nextState = createProductUiState.copy(
+            name = corregido,
+            lastAppliedCorrection = key,
+            duplicateProductFound = null,
+            errors = createProductUiState.errors - "name",
+            pendingHighlight = true // V10.0: Activar resaltado visual del nuevo nombre
+        )
+        actualizarCreateProductState(nextState)
+
+        // 2. Sincronizar con el ViewModel de IA
+        categorySuggestionViewModel.actualizarInterpretacionLocal(corregido)
+        categorySuggestionViewModel.marcarCorreccionAplicada()
+
+        // 3. Re-validar duplicados inmediatamente con el nombre nuevo
+        validarNombreInmediatoCompose(corregido)
+
+        // 4. Re-lanzar búsqueda IA con el nombre estandarizado (Automático)
+        buscarConIACompose()
+    }
+
+    private fun descartarCorreccionNombreIA(original: String, corregido: String) {
+        val key = "$original|$corregido"
+        val nextDismissed = createProductUiState.dismissedCorrections + key
+        actualizarCreateProductState(
+            createProductUiState.copy(dismissedCorrections = nextDismissed)
+        )
+        // Sincronizar con el ViewModel para que no vuelva a sugerirlo en la burbuja
+        categorySuggestionViewModel.descartarCorreccion(original, corregido)
+    }
+
+    private fun validarNombreInmediatoCompose(name: String) {
+        val normalized = normalizeProductName(name)
+        if (normalized.isBlank()) return
+
+        val key = buildNormalizedNameKey(normalized)
+        verificarNombreDuplicadoEnFirebase(key, { productoExistente ->
+            if (normalizeProductName(createProductUiState.name) == normalized) {
+                actualizarCreateProductState(createProductUiState.copy(
+                    duplicateProductFound = productoExistente
+                ))
+            }
+        }, {})
     }
 
 
 
     private fun normalizeProductName(name: String): String {
-        return name
-            .trim()
-            .lowercase(Locale.getDefault())
-            .replace(Regex("\\s+"), " ")
+        return com.app.administradorfarmadon.ActivityInventario.reference.normalizeProductName(name)
     }
 
     private fun existeNombreDuplicadoCompose(name: String): Boolean {
@@ -512,31 +862,173 @@ class CrearProducto : AppCompatActivity() {
         return sanitizarNombreArchivo(normalizedName)
     }
 
+    private fun programarValidacionBarcodeCompose(barcode: String) {
+        createProductBarcodeValidationJob?.cancel()
+
+        val value = barcode.trim()
+        
+        // V3.30: Limpiar duplicado previo inmediatamente al cambiar el código
+        createProductUiState = createProductUiState.copy(
+            errors = createProductUiState.errors - "barcode",
+            duplicateProductFound = if (createProductUiState.duplicateProductFound?.codigo == value) 
+                                      createProductUiState.duplicateProductFound else null
+        )
+        isCheckingBarcodeRemote = true
+
+        if (value.isBlank()) {
+            isCheckingBarcodeRemote = false
+            return
+        }
+
+        createProductBarcodeValidationJob = lifecycleScope.launch {
+            delay(500)
+            val requestId = ++currentBarcodeRequestId
+            
+            FirebaseDatabase.getInstance()
+                .getReference(PATH_INVENTARIO)
+                .child(PATH_CODIGOS)
+                .child(value)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    if (requestId == currentBarcodeRequestId) {
+                        isCheckingBarcodeRemote = false
+                        if (snapshot.exists()) {
+                            val productInfo = snapshot.value as? Map<*, *>
+                            val productId = productInfo?.get("productoId") as? String
+                            if (productId != null) {
+                                buscarProductoPorIdYMostrarDuplicado(productId)
+                            }
+                        }
+                    }
+                }
+                .addOnFailureListener {
+                    if (requestId == currentBarcodeRequestId) {
+                        isCheckingBarcodeRemote = false
+                        actualizarCreateProductState(createProductUiState.copy(
+                            errors = createProductUiState.errors + ("barcode" to "No se pudo validar el código. Revisa tu conexión.")
+                        ))
+                    }
+                }
+        }
+    }
+
+    private fun buscarProductoPorIdYMostrarDuplicado(productId: String) {
+        FirebaseDatabase.getInstance()
+            .getReference(PATH_INVENTARIO)
+            .child(PATH_PRODUCTOS)
+            .child(productId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val productoExistente = snapshot.toMoldeProductos()
+                if (productoExistente != null) {
+                    actualizarCreateProductState(createProductUiState.copy(
+                        duplicateProductFound = productoExistente,
+                        errors = createProductUiState.errors + ("barcode" to "Este código ya pertenece a otro producto.")
+                    ))
+                }
+            }
+    }
+
     private fun programarValidacionNombreCompose(name: String) {
         createProductNameValidationJob?.cancel()
 
         val normalized = normalizeProductName(name)
 
+        // Sincronización V3.3: Limpiar duplicado previo inmediatamente al cambiar el nombre
         createProductUiState = createProductUiState.copy(
-            errors = createProductUiState.errors - "name"
+            errors = createProductUiState.errors - "name",
+            duplicateProductFound = null,
+            pendingHighlight = false, // V10.0: Resetear el resaltado si el usuario escribe
+            isValidatingNameRemote = true // V17.85: Encendemos el semáforo al iniciar validación
         )
 
-        if (normalized.isBlank()) return
+        if (normalized.isBlank()) {
+            createProductUiState = createProductUiState.copy(isValidatingNameRemote = false)
+            return
+        }
 
         createProductNameValidationJob = lifecycleScope.launch {
-            delay(450)
-
-            if (normalizeProductName(createProductUiState.name) != normalized) {
+            delay(300) // V17.11: Reducido a 300ms para sincronizar con la IA silenciosa
+            val currentName = createProductUiState.name
+            if (normalizeProductName(currentName) != normalized) {
+                // Si el nombre ya cambió, esta corrutina ya no es válida. 
+                // No apagamos el semáforo porque la nueva corrutina lo hará.
                 return@launch
             }
 
-            if (existeNombreDuplicadoCompose(createProductUiState.name)) {
+            // 1. Bloqueo inmediato si ya existe en la caché local
+            if (existeNombreDuplicadoCompose(currentName)) {
                 createProductUiState = createProductUiState.copy(
-                    errors = createProductUiState.errors + (
-                            "name" to "Ya existe un producto con este nombre."
-                            )
+                    errors = createProductUiState.errors + ("name" to "Ya existe un producto con este nombre."),
+                    isValidatingNameRemote = false // V17.85: Apagamos el semáforo
                 )
+                // Sincronización V3.7: Si es duplicado, reseteamos IA inmediatamente para no mostrar dos tarjetas
+                categorySuggestionViewModel.reset()
+
+                // Sincronización V3.3: Buscamos el objeto real para la mini-card aunque sea local
+                val key = buildNormalizedNameKey(currentName)
+                verificarNombreDuplicadoEnFirebase(key, { productoExistente ->
+                    // Solo actualizamos si el nombre sigue siendo el mismo después de la red
+                    if (normalizeProductName(createProductUiState.name) == normalized) {
+                        actualizarCreateProductState(createProductUiState.copy(
+                            duplicateProductFound = productoExistente,
+                            isAnalyzingKeywords = false
+                        ))
+                    }
+                }, {
+                    // En caso de error de red (el helper ya mostró el Toast)
+                    if (normalizeProductName(createProductUiState.name) == normalized) {
+                        actualizarCreateProductState(createProductUiState.copy(
+                            isAnalyzingKeywords = false,
+                            isValidatingNameRemote = false // V17.85: Reset por seguridad
+                        ))
+                    }
+                })
+                return@launch
             }
+
+            // 2. Verificar contra Firebase (caso general)
+            val key = buildNormalizedNameKey(currentName)
+            var esDuplicadoEnFirebase = false
+
+            verificarNombreDuplicadoEnFirebase(key, { productoExistente ->
+                esDuplicadoEnFirebase = true
+                if (normalizeProductName(createProductUiState.name) == normalized) {
+                    createProductUiState = createProductUiState.copy(
+                        duplicateProductFound = productoExistente,
+                        errors = createProductUiState.errors + ("name" to "Ya existe un producto registrado con este nombre."),
+                        isValidatingNameRemote = false // V17.85: Apagamos el semáforo
+                    )
+                    // Sincronización V3.7: Si Firebase confirma duplicado, cancelamos cualquier sugerencia IA
+                    categorySuggestionViewModel.reset()
+                    actualizarCreateProductState(createProductUiState.copy(isAnalyzingKeywords = false))
+                }
+            }, {
+                // Sincronización V3.7: Solo si NO es duplicado notificamos el cambio al ViewModel
+                if (!esDuplicadoEnFirebase && normalizeProductName(createProductUiState.name) == normalized) {
+                    
+                    // V17.85: Apagamos el semáforo
+                    createProductUiState = createProductUiState.copy(isValidatingNameRemote = false)
+
+                    // V5.5: Reglas de estabilidad (solo para limpieza de estados, no dispara red)
+                    val numWords = normalized.split(" ").filter { it.isNotBlank() }.size
+                    val isStable = normalized.length >= 10 || numWords >= 2
+                    
+                    if (isStable && !createProductUiState.name.endsWith(" ")) {
+                        actualizarCreateProductState(createProductUiState.copy(
+                            isAnalyzingKeywords = false, // Solo es true durante búsqueda IA manual
+                            duplicateProductFound = null
+                        ))
+                    } else {
+                        // Si no es estable, aseguramos que la IA esté reseteada o en estado inicial
+                        actualizarCreateProductState(createProductUiState.copy(
+                            isAnalyzingKeywords = false,
+                            duplicateProductFound = null,
+                            isValidatingNameRemote = false // V17.85: Reset por seguridad
+                        ))
+                    }
+                }
+            })
         }
     }
 
@@ -547,7 +1039,7 @@ class CrearProducto : AppCompatActivity() {
         val value = category.trim()
 
         createProductUiState = createProductUiState.copy(
-            errors = createProductUiState.errors - "categoryExistsInfo"
+            categoryStatus = null
         )
 
         if (value.isBlank()) return
@@ -562,47 +1054,154 @@ class CrearProducto : AppCompatActivity() {
             }
 
             createProductUiState = createProductUiState.copy(
-                errors = createProductUiState.errors + (
-                        "categoryExistsInfo" to if (existe) {
-                            "Categoría existente"
-                        } else {
-                            "Categoría nueva"
-                        }
-                        )
+                categoryStatus = if (existe) "Categoría existente" else "Categoría nueva"
             )
         }
     }
 
-    private fun obtenerLotesExistentesParaCrearProducto() {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val lotes = mutableListOf<String>()
-                snapshot.children.forEach { productoSnapshot ->
-                    val producto = productoSnapshot.toMoldeProductos() ?: return@forEach
-                    producto.lotes.values.forEach { lote ->
-                        val numero = lote.numero.trim()
-                        if (numero.isNotBlank()) {
-                            lotes.add(numero.uppercase(Locale.getDefault()))
-                        }
+    /**
+     * V17.47: Función de Backfill para indexar todos los lotes existentes.
+     * Solo debe usarse una vez para migrar la base de datos antigua al nuevo índice plano.
+     */
+    private fun migrarLotesAIndicePlano() {
+        val rootRef = FirebaseDatabase.getInstance().reference
+        rootRef.child("Inventario/Productos").get().addOnSuccessListener { snapshot ->
+            val updates = mutableMapOf<String, Any?>()
+            snapshot.children.forEach { prodSnap ->
+                val prod = prodSnap.toMoldeProductos() ?: return@forEach
+                prod.lotes.forEach { (_, lote) ->
+                    val numLote = lote.numero.trim().uppercase()
+                    if (numLote.isNotBlank()) {
+                        val keyLote = ProductUtils.encodeLotKey(numLote)
+                        val registroLote = LoteIndexado(
+                            numero = numLote,
+                            productoId = prod.indice,
+                            productoNombre = prod.nombre,
+                            vencimiento = lote.vencimiento
+                        )
+                        updates["${DbPaths.INVENTARIO_LOTES_POR_NUMERO}/$keyLote"] = registroLote
                     }
                 }
-
-                createProductExistingLots.clear()
-                createProductExistingLots.addAll(lotes.distinct().sorted())
             }
-            .addOnFailureListener {
-                createProductExistingLots.clear()
+            if (updates.isNotEmpty()) {
+                rootRef.updateChildren(updates).addOnSuccessListener {
+                    Toast.makeText(this, "Migración de lotes completada", Toast.LENGTH_SHORT).show()
+                }
             }
+        }
     }
 
 
 
+    private fun validarLoteRemotoCompose(numeroLote: String) {
+        createProductLotValidationJob?.cancel()
+        
+        val loteLimpio = numeroLote.trim().uppercase()
+        if (loteLimpio.isBlank()) {
+            lotConflictInfo = null
+            lotConflictColor = 0
+            lotConflictSeverity = 0
+            lotValidatedFor = null
+            isCheckingLotRemote = false
+            return
+        }
+
+        createProductLotValidationJob = lifecycleScope.launch {
+            delay(600)
+            isCheckingLotRemote = true
+            val requestId = ++currentLotRequestId // V17.49: Capturamos ID de esta petición
+            lotConflictInfo = null
+            
+            // V17.49: Usamos la función compartida y segura (Base64)
+            val keyLote = ProductUtils.encodeLotKey(loteLimpio)
+            
+            FirebaseDatabase.getInstance()
+                .getReference(DbPaths.INVENTARIO_LOTES_POR_NUMERO)
+                .child(keyLote)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    // V17.49: El spinner solo se apaga si esta es la petición más reciente
+                    if (requestId == currentLotRequestId) {
+                        isCheckingLotRemote = false
+                    }
+
+                    // V17.48: Protección contra lógica de negocio vieja
+                    if (loteLimpio != createProductUiState.lotNumber.trim().uppercase()) {
+                        return@addOnSuccessListener
+                    }
+                    
+                    lotValidatedFor = loteLimpio 
+                    
+                    if (snapshot.exists()) {
+                        val loteIndexado = snapshot.getValue(LoteIndexado::class.java)
+                        if (loteIndexado != null) {
+                            val esMismoProducto = normalizeProductName(loteIndexado.productoNombre) == normalizeProductName(createProductUiState.name)
+                            
+                            if (esMismoProducto) {
+                                lotConflictInfo = "Lote detectado: se sumará al stock existente"
+                                lotConflictColor = android.graphics.Color.parseColor("#F59E0B")
+                                lotConflictSeverity = 1
+                            } else {
+                                lotConflictInfo = "¡Cuidado! Lote asignado a: ${loteIndexado.productoNombre}"
+                                lotConflictColor = android.graphics.Color.parseColor("#EF4444")
+                                lotConflictSeverity = 2
+                            }
+                        }
+                    } else {
+                        lotConflictInfo = "Lote disponible"
+                        lotConflictColor = android.graphics.Color.parseColor("#0E8F63")
+                        lotConflictSeverity = 0
+                    }
+                }
+                .addOnFailureListener {
+                    if (requestId == currentLotRequestId) {
+                        isCheckingLotRemote = false
+                        lotValidatedFor = null
+                        lotConflictInfo = "Error de conexión: No se pudo validar el lote"
+                        lotConflictColor = android.graphics.Color.GRAY
+                        lotConflictSeverity = 2
+                    }
+                }
+        }
+    }
+
     private fun avanzarPasoCreateProduct() {
         val estadoActual = createProductUiState
-        if (!validarPasoCreateProduct(estadoActual.currentStep)) return
+
+        // V17.83: Validación de avance inteligente (Eliminación de choques por debounce)
+        if (estadoActual.currentStep == CreateProductStep.PRODUCTO) {
+            // Verificamos presencia física de datos. Ignoramos estados transitorios de validación de red
+            // para garantizar un salto de pantalla instantáneo y fluido.
+            if (estadoActual.name.trim().isBlank() || estadoActual.category.trim().isBlank() || estadoActual.controlType == null) {
+                return
+            }
+            // Solo frenamos si hay un duplicado CONFIRMADO en la caché local o servidor
+            if (existeNombreDuplicadoCompose(estadoActual.name)) {
+                Toast.makeText(this, "Ya existe un producto con este nombre.", Toast.LENGTH_SHORT).show()
+                return
+            }
+        } else if (!validarPasoCreateProduct(estadoActual.currentStep)) {
+            // V17.67: Obtener los errores específicos del paso actual para el Toast
+            val relevantKeys = when (estadoActual.currentStep) {
+                CreateProductStep.PRODUCTO -> setOf("name", "category", "controlType")
+                CreateProductStep.LOTE_INICIAL -> setOf(
+                    "lotNumber", "expirationDate", "stockEntryMode", 
+                    "receivedUnits", "boxesReceived", "unitsPerBox", 
+                    "unitsPerPackage", "minimumStock", "purchaseCost"
+                )
+                CreateProductStep.PRESENTACIONES -> setOf("presentations", "mainPresentation", "presentations_total")
+                CreateProductStep.RESUMEN -> emptySet()
+            }
+            
+            val firstRelevantError = createProductUiState.errors
+                .filter { it.key in relevantKeys || it.key.startsWith("price_") || it.key.startsWith("equivalence_") }
+                .values.firstOrNull()
+
+            if (!firstRelevantError.isNullOrBlank()) {
+                Toast.makeText(this, firstRelevantError, Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
 
         val siguientePaso = when (estadoActual.currentStep) {
                 CreateProductStep.PRODUCTO -> CreateProductStep.LOTE_INICIAL
@@ -614,22 +1213,33 @@ class CrearProducto : AppCompatActivity() {
             estadoActual.currentStep == CreateProductStep.LOTE_INICIAL &&
             siguientePaso == CreateProductStep.PRESENTACIONES
         ) {
-            // Al llegar a "Presentaciones", priorizamos las que sugirió la IA
-            // (jerárquicas: caja → blister → tableta, etc.). Si la IA no
-            // devolvió nada (sin internet / falló), caemos al fallback
-            // hardcoded que solo arma una entrada según el modo de ingreso.
+            // Sincronización V3.1: Fusionar presentación real de compra con sugerencias IA
+            val presentacionesCompra = presentacionesDesdeIngreso(estadoActual)
             val sugerenciasIA = categorySuggestionViewModel.state.value
                 .suggestion?.presentacionesSugeridas.orEmpty()
-            val nuevasPresentaciones = if (sugerenciasIA.isNotEmpty()) {
-                mapearPresentacionesIA(sugerenciasIA)
+
+            val presentacionesFinales = if (sugerenciasIA.isNotEmpty()) {
+                val mapeadasIA = mapearPresentacionesIA(sugerenciasIA)
+                var resultado = mapeadasIA
+                
+                // Forzamos la inclusión de la presentación de compra real.
+                // Si la IA sugirió una con el mismo nombre (ej. "Caja"), 
+                // mergePresentacionEvitandoDuplicado la reemplazará con la real
+                // de compra (que tiene la equivalencia física configurada).
+                presentacionesCompra.forEach { real ->
+                    resultado = com.app.administradorfarmadon.ActivityInventario.ui.mergePresentacionEvitandoDuplicado(
+                        resultado, real
+                    ).first
+                }
+                resultado
             } else {
-                presentacionesDesdeIngreso(estadoActual)
+                presentacionesCompra
             }
 
             estadoActual.copy(
                 currentStep = siguientePaso,
-                presentations = nuevasPresentaciones,
-                mainPresentationId = nuevasPresentaciones.firstOrNull()?.id.orEmpty()
+                presentations = presentacionesFinales,
+                mainPresentationId = deducirPresentacionPrincipalInteligente(presentacionesFinales)
             )
         } else {
             estadoActual.copy(
@@ -653,10 +1263,12 @@ class CrearProducto : AppCompatActivity() {
             }
         }
 
-        if (siguientePaso == CreateProductStep.LOTE_INICIAL &&
-            createProductExistingLots.isEmpty()
-        ) {
-            obtenerLotesExistentesParaCrearProducto()
+        if (siguientePaso == CreateProductStep.PRESENTACIONES) {
+            asegurarPresentacionesGuardadasCargadas()
+        }
+
+        if (siguientePaso == CreateProductStep.RESUMEN) {
+            asegurarReglasMargenCargadas()
         }
     }
 
@@ -677,6 +1289,19 @@ class CrearProducto : AppCompatActivity() {
         createProductShowReference = false
         createProductReferenceDismissed = false
         ultimoProductoCreadoCompose = null
+        isSuccessAnimVisible = false
+        isErrorAnimVisible = false
+
+        // V17.86: Limpieza exhaustiva de validación remota de lote
+        isCheckingLotRemote = false
+        isCheckingBarcodeRemote = false
+        lotValidatedFor = null
+        lotConflictInfo = null
+        lotConflictColor = 0
+        lotConflictSeverity = 0
+        currentLotRequestId++ // Invalida cualquier respuesta de red pendiente
+        currentBarcodeRequestId++
+
         // Fix (M5): liberar la clave cacheada para que el siguiente producto
         // dispare una búsqueda fresca aunque coincida en nombre/categoría.
         ultimaReferenciaSolicitada = null
@@ -720,41 +1345,6 @@ class CrearProducto : AppCompatActivity() {
 
 
 
-    private fun sugerirPresentacionesIniciales(
-        controlType: CreateProductControlType?,
-        receivedPresentation: String
-    ): List<CreateProductPresentation> {
-        val recibida = receivedPresentation.trim()
-
-        val options = if (recibida.isNotBlank()) {
-            mutableListOf(recibida)
-        } else {
-            // Sin sugerencias hardcoded: el usuario crea sus presentaciones manualmente.
-            mutableListOf<String>()
-        }
-
-        return options.distinctBy { it.lowercase(Locale.getDefault()) }.map { option ->
-            val isBaseSimple = option.equals("Unidad", ignoreCase = true) ||
-                    option.equals("g", ignoreCase = true) ||
-                    option.equals("mL", ignoreCase = true)
-
-            // Intenta extraer un número de la cadena para la equivalencia (ej. "100 mL" -> 100)
-            val autoEquivalence = if (!isBaseSimple && recibida.isBlank()) {
-                Regex("\\d+").find(option)?.value?.toIntOrNull()?.toString() ?: ""
-            } else {
-                if (isBaseSimple) "1" else ""
-            }
-
-            CreateProductPresentation(
-                id = option.lowercase(Locale.getDefault()).replace(" ", "_"),
-                name = option,
-                equivalenceText = autoEquivalence,
-                salePriceText = ""
-            )
-        }
-    }
-
-
     // Fix (M2): se eliminaron `inferirPresentacionLiquida`,
     // `inferirPresentacionPeso` e `inferirPresentacionUnidad`. Eran
     // helpers heredados del flujo XML antiguo y no se invocaban en
@@ -780,17 +1370,27 @@ class CrearProducto : AppCompatActivity() {
     private fun mapearPresentacionesIA(
         sugerencias: List<com.app.administradorfarmadon.ActivityInventario.reference.PresentacionSugerida>
     ): List<CreateProductPresentation> {
-        return sugerencias.map { sug ->
+        val mapped = sugerencias.map { sug ->
             val nombreLimpio = sug.nombre.trim()
             val idBase = nombreLimpio.lowercase(Locale.getDefault()).replace(" ", "_")
+            val (inferredGeneric, inferredBrand) = PresentationSuggestionRules.inferCommercialType(nombreLimpio, sug.descripcion)
+            val isGeneric = sug.tipoComercial == "GENERICO" || inferredGeneric
+            val isBrand = sug.tipoComercial == "MARCA" || inferredBrand
+
             CreateProductPresentation(
                 id = idBase + "_" + UUID.randomUUID().toString().take(4),
                 name = nombreLimpio,
                 equivalenceText = sug.equivalenciaUnidadBase.toString(),
                 salePriceText = "",
-                isAiSuggested = true
+                isAiSuggested = true,
+                marketPriceReference = sug.precioMercadoReferencial,
+                marketConfidence = sug.confianzaPrecio,
+                aiDescription = sug.descripcion.ifBlank { null },
+                isGeneric = isGeneric,
+                isBrand = isBrand
             )
         }
+        return PresentationSuggestionRules.deduplicateSuggestions(mapped)
     }
 
     private fun presentacionesDesdeIngreso(state: CreateProductState): List<CreateProductPresentation> {
@@ -815,17 +1415,39 @@ class CrearProducto : AppCompatActivity() {
                 state.presentations.map { presentation ->
                     if (presentation.id == existingCompra.id) {
                         val newEquivalence = when (state.stockEntryMode) {
-                            CreateProductStockEntryMode.UNIDAD -> "1"
-                            CreateProductStockEntryMode.CAJA -> state.unitsPerBoxText
-                            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                                val total = parseComposeNumber(state.packagesPerBoxText) *
-                                        parseComposeNumber(state.unitsPerPackageText)
-                                if (total > 0) total.toInt().toString() else presentation.equivalenceText
+                            CreateProductStockEntryMode.UNIDAD -> {
+                                if (state.controlType == CreateProductControlType.UNIDAD) {
+                                    1.0
+                                } else {
+                                    parseComposeNumber(state.unitsPerItemText)
+                                }
                             }
-                            null -> presentation.equivalenceText
+                            CreateProductStockEntryMode.CAJA -> {
+                                // V17.61: La caja equivale al volumen total contenido en ella
+                                if (state.controlType == CreateProductControlType.UNIDAD) {
+                                    val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
+                                        .takeIf { it > 0.0 }
+                                        ?: 1.0
+                                    parseComposeNumber(state.unitsPerBoxText) * contenidoPorItem
+                                } else {
+                                    parseComposeNumber(state.unitsPerBoxText) * parseComposeNumber(state.unitsPerItemText)
+                                }
+                            }
+                            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+                                parseComposeNumber(state.unitsPerPackageText)
+                            }
+                            null -> parseComposeNumber(presentation.equivalenceText)
                         }
+                        
+                        // Normalizar por unidades (Kg/L)
+                        val finalEquivalence = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
+                            newEquivalence * 1000.0
+                        } else {
+                            newEquivalence
+                        }
+
                         presentation.copy(
-                            equivalenceText = newEquivalence.takeIf { it.isNotBlank() } ?: presentation.equivalenceText,
+                            equivalenceText = if (finalEquivalence > 0) formatCreateProductNumber(finalEquivalence) else presentation.equivalenceText,
                             salePriceText = presentation.salePriceText.takeIf { it.isNotBlank() }
                                 ?: state.presentations.firstOrNull()?.salePriceText.orEmpty()
                         )
@@ -835,26 +1457,48 @@ class CrearProducto : AppCompatActivity() {
                 }
             } else {
                 // Si no existe, agregamos la presentación de compra al principio de la lista
+                val baseEquiv = when (state.stockEntryMode) {
+                    CreateProductStockEntryMode.UNIDAD -> {
+                        if (state.controlType == CreateProductControlType.UNIDAD) {
+                            1.0
+                        } else {
+                            parseComposeNumber(state.unitsPerItemText)
+                        }
+                    }
+                    CreateProductStockEntryMode.CAJA -> {
+                        if (state.controlType == CreateProductControlType.UNIDAD) {
+                            val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
+                                .takeIf { it > 0.0 }
+                                ?: 1.0
+                            parseComposeNumber(state.unitsPerBoxText) * contenidoPorItem
+                        } else {
+                            parseComposeNumber(state.unitsPerBoxText) * parseComposeNumber(state.unitsPerItemText)
+                        }
+                    }
+                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
+                    null -> 0.0
+                }
+
+                val finalEquiv = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") baseEquiv * 1000.0 else baseEquiv
+
                 val nuevaPresentacion = when (state.stockEntryMode) {
                     CreateProductStockEntryMode.UNIDAD -> CreateProductPresentation(
                         id = "unidad",
-                        name = "Unidad",
-                        equivalenceText = "1",
+                        name = getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.UNIDAD),
+                        equivalenceText = formatCreateProductNumber(finalEquiv),
                         salePriceText = state.presentations.firstOrNull()?.salePriceText.orEmpty()
                     )
                     CreateProductStockEntryMode.CAJA -> CreateProductPresentation(
                         id = "caja",
-                        name = "Caja",
-                        equivalenceText = state.unitsPerBoxText,
+                        name = getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.CAJA),
+                        equivalenceText = formatCreateProductNumber(finalEquiv),
                         salePriceText = state.presentations.firstOrNull()?.salePriceText.orEmpty()
                     )
                     CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                        val total = parseComposeNumber(state.packagesPerBoxText) *
-                                parseComposeNumber(state.unitsPerPackageText)
                         CreateProductPresentation(
-                            id = "caja",
-                            name = "Caja",
-                            equivalenceText = if (total > 0) total.toInt().toString() else "",
+                            id = "blister",
+                            name = getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.CAJA_CON_PAQUETES),
+                            equivalenceText = formatCreateProductNumber(finalEquiv),
                             salePriceText = state.presentations.firstOrNull()?.salePriceText.orEmpty()
                         )
                     }
@@ -865,21 +1509,53 @@ class CrearProducto : AppCompatActivity() {
             }
         }
 
-        // Si no hay presentaciones, generar la lista inicial según el modo de ingreso (comportamiento anterior)
+        // Si no hay presentaciones, generar la lista inicial según el modo de ingreso
+        val baseEquiv = when (state.stockEntryMode) {
+            CreateProductStockEntryMode.UNIDAD -> {
+                if (state.controlType == CreateProductControlType.UNIDAD) {
+                    1.0
+                } else {
+                    parseComposeNumber(state.unitsPerItemText)
+                }
+            }
+            CreateProductStockEntryMode.CAJA -> {
+                if (state.controlType == CreateProductControlType.UNIDAD) {
+                    val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
+                        .takeIf { it > 0.0 }
+                        ?: 1.0
+                    parseComposeNumber(state.unitsPerBoxText) * contenidoPorItem
+                } else {
+                    parseComposeNumber(state.unitsPerBoxText) * parseComposeNumber(state.unitsPerItemText)
+                }
+            }
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
+            null -> 0.0
+        }
+        val finalEquiv = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") baseEquiv * 1000.0 else baseEquiv
+
         return when (state.stockEntryMode) {
             CreateProductStockEntryMode.UNIDAD -> listOf(
-                CreateProductPresentation("unidad", "Unidad", "1", "")
+                CreateProductPresentation(
+                    "unidad",
+                    getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.UNIDAD),
+                    formatCreateProductNumber(finalEquiv),
+                    ""
+                )
             )
             CreateProductStockEntryMode.CAJA -> listOf(
-                CreateProductPresentation("caja", "Caja", state.unitsPerBoxText, "")
+                CreateProductPresentation(
+                    "caja",
+                    getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.CAJA),
+                    formatCreateProductNumber(finalEquiv),
+                    ""
+                )
             )
             CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                val total = parseComposeNumber(state.packagesPerBoxText) *
-                        parseComposeNumber(state.unitsPerPackageText)
                 listOf(
                     CreateProductPresentation(
-                        "caja", "Caja",
-                        if (total > 0) total.toInt().toString() else "",
+                        "blister",
+                        getPurchasePresentationName(state.controlType, CreateProductStockEntryMode.CAJA_CON_PAQUETES),
+                        formatCreateProductNumber(finalEquiv),
                         ""
                     )
                 )
@@ -904,53 +1580,59 @@ class CrearProducto : AppCompatActivity() {
      *  - RESUMEN: los tres anteriores en conjunto.
      */
     private fun puedeAvanzarPasoCreateProduct(
-        estado: CreateProductState,
-        lotesExistentes: Set<String>
+        estado: CreateProductState
     ): Boolean {
         return when (estado.currentStep) {
             CreateProductStep.PRODUCTO -> puedeAvanzarPasoProducto(estado)
-            CreateProductStep.LOTE_INICIAL -> puedeAvanzarPasoLote(estado, lotesExistentes)
+            CreateProductStep.LOTE_INICIAL -> puedeAvanzarPasoLote(estado)
             CreateProductStep.PRESENTACIONES -> puedeAvanzarPasoPresentaciones(estado)
             CreateProductStep.RESUMEN ->
                 puedeAvanzarPasoProducto(estado) &&
-                puedeAvanzarPasoLote(estado, lotesExistentes) &&
+                puedeAvanzarPasoLote(estado) &&
                 puedeAvanzarPasoPresentaciones(estado)
         }
     }
 
     private fun puedeAvanzarPasoProducto(estado: CreateProductState): Boolean {
+        // V17.85: Bloqueo de avance mientras la validación de red está en curso (Semáforo)
+        if (estado.isValidatingNameRemote || isCheckingBarcodeRemote) return false
+
+        // V17.86: Bloqueo explícito si se encontró un producto duplicado (Sincronización con UI)
+        if (estado.duplicateProductFound != null) return false
+
+        // El botón se enciende si hay datos escritos
         if (estado.name.trim().isBlank()) return false
         if (estado.category.trim().isBlank()) return false
         if (estado.controlType == null) return false
+        
+        // El botón solo se apaga si la corrutina de fondo YA terminó y confirmó un error real en pantalla
         if (!estado.errors["name"].isNullOrBlank()) return false
+        if (!estado.errors["barcode"].isNullOrBlank()) return false
+
         return true
     }
 
     private fun puedeAvanzarPasoLote(
-        estado: CreateProductState,
-        lotesExistentes: Set<String>
+        estado: CreateProductState
     ): Boolean {
         val lote = estado.lotNumber.trim().uppercase(Locale.getDefault())
         if (lote.isBlank()) return false
-        if (lotesExistentes.contains(lote)) return false
+        
+        // V17.48: Bloqueo de avance si la validación remota no ha terminado o falló
+        if (isCheckingLotRemote) return false
+        if (lotValidatedFor != lote) return false // No ha validado el texto actual aún
+        if (lotConflictSeverity == 2) return false // Rojo (Conflicto con otro producto)
 
         if (!esVencimientoValido(estado.expirationDate)) return false
         if (estaVencido(estado.expirationDate)) return false
         if (!esVencimientoDentroDeRango(estado.expirationDate)) return false
 
         val modo = estado.stockEntryMode ?: return false
+        if (!isStockEntryModeValidForControlType(estado.controlType, modo)) return false
         if (!estado.stockEntryConfigured) return false
-        val recibido = when (modo) {
-            CreateProductStockEntryMode.UNIDAD ->
-                parseComposeNumber(estado.receivedUnitsText)
-            CreateProductStockEntryMode.CAJA ->
-                parseComposeNumber(estado.boxesReceivedText) *
-                    parseComposeNumber(estado.unitsPerBoxText)
-            CreateProductStockEntryMode.CAJA_CON_PAQUETES ->
-                parseComposeNumber(estado.boxesReceivedText) *
-                    parseComposeNumber(estado.packagesPerBoxText) *
-                    parseComposeNumber(estado.unitsPerPackageText)
-        }
+        
+        // V17.61: Uso de la Calculadora Oficial para validar stock
+        val recibido = calculateTotalBaseStock(estado)
         if (recibido <= 0.0) return false
 
         // La validación ahora usa minimumStockUnits (el valor físico calculado)
@@ -961,7 +1643,7 @@ class CrearProducto : AppCompatActivity() {
         // al guardar, aquí solo validamos que la opción elegida sea positiva.
 
         val costo = estado.purchaseCost
-            .replace("Bs", "", ignoreCase = true)
+            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
             .trim()
             .replace(",", ".")
             .toDoubleOrNull()
@@ -972,20 +1654,30 @@ class CrearProducto : AppCompatActivity() {
 
     private fun puedeAvanzarPasoPresentaciones(estado: CreateProductState): Boolean {
         if (estado.presentations.isEmpty()) return false
+        val recibidoBase = calculateTotalBaseStock(estado)
+        var totalAsignado = 0.0
+
         estado.presentations.forEach { presentation ->
             val equivalencia = presentation.equivalenceText
                 .trim()
                 .replace(",", ".")
-                .toDoubleOrNull()
-            if (equivalencia == null || equivalencia <= 0.0) return false
-
+                .toDoubleOrNull() ?: 0.0
+            
+            if (equivalencia <= 0.0) return false
+            
             val precio = presentation.salePriceText
-                .replace("Bs", "", ignoreCase = true)
+                .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
                 .trim()
                 .replace(",", ".")
-                .toDoubleOrNull()
-            if (precio == null || precio <= 0.0) return false
+                .toDoubleOrNull() ?: 0.0
+            
+            if (precio <= 0.0) return false
+            totalAsignado += equivalencia
         }
+        
+        // V17.65: Regla de oro - La suma de presentaciones no puede superar el stock recibido
+        if (totalAsignado > recibidoBase) return false
+
         if (estado.presentations.size > 1 && estado.mainPresentationId.isBlank()) return false
         return true
     }
@@ -1020,12 +1712,8 @@ class CrearProducto : AppCompatActivity() {
             CreateProductStep.LOTE_INICIAL -> {
                 if (estado.lotNumber.trim().isBlank()) {
                     errors["lotNumber"] = "Ingresa el numero de lote"
-                } else if (
-                    createProductExistingLots.contains(
-                        estado.lotNumber.trim().uppercase(Locale.getDefault())
-                    )
-                ) {
-                    errors["lotNumber"] = "Ese lote ya existe"
+                } else if (lotConflictSeverity == 2) {
+                    errors["lotNumber"] = lotConflictInfo ?: "Lote no disponible"
                 } else {
                     errors.remove("lotNumber")
                 }
@@ -1048,6 +1736,8 @@ class CrearProducto : AppCompatActivity() {
 
                 if (estado.stockEntryMode == null || !estado.stockEntryConfigured) {
                     errors["stockEntryMode"] = "Selecciona como recibiste el producto"
+                } else if (!isStockEntryModeValidForControlType(estado.controlType, estado.stockEntryMode)) {
+                    errors["stockEntryMode"] = "Selecciona una presentación válida para este tipo de producto"
                 } else {
                     errors.remove("stockEntryMode")
                 }
@@ -1055,14 +1745,36 @@ class CrearProducto : AppCompatActivity() {
                 when (estado.stockEntryMode) {
                     null -> Unit
                     CreateProductStockEntryMode.UNIDAD -> {
-                        val quantity = parseComposeNumber(estado.receivedUnitsText)
+                        val quantity = if (estado.controlType == CreateProductControlType.UNIDAD) {
+                            parseComposeNumber(estado.unitsPerItemText)
+                        } else {
+                            parseComposeNumber(estado.receivedUnitsText)
+                        }
+                        val content = parseComposeNumber(estado.unitsPerItemText)
 
                         if (quantity <= 0.0) {
-                            errors["receivedUnits"] = "Ingresa la cantidad recibida"
+                            if (estado.controlType == CreateProductControlType.UNIDAD) {
+                                errors["unitsPerItem"] = "Ingresa la cantidad recibida"
+                            } else {
+                                errors["receivedUnits"] = "Ingresa la cantidad recibida"
+                            }
                         } else {
-                            errors.remove("receivedUnits")
+                            if (estado.controlType == CreateProductControlType.UNIDAD) {
+                                errors.remove("unitsPerItem")
+                            } else {
+                                errors.remove("receivedUnits")
+                            }
                         }
 
+                        if (estado.controlType != CreateProductControlType.UNIDAD) {
+                            if (content <= 0.0) {
+                                errors["unitsPerItem"] = "Ingresa el contenido por item"
+                            } else {
+                                errors.remove("unitsPerItem")
+                            }
+                        }
+
+                        if (estado.controlType == CreateProductControlType.UNIDAD) errors.remove("receivedUnits")
                         errors.remove("boxesReceived")
                         errors.remove("unitsPerBox")
                         errors.remove("packagesPerBox")
@@ -1091,47 +1803,30 @@ class CrearProducto : AppCompatActivity() {
                     }
 
                     CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                        val boxes = parseComposeNumber(estado.boxesReceivedText)
-                        val packagesPerBox = parseComposeNumber(estado.packagesPerBoxText)
+                        val blisters = parseComposeNumber(estado.boxesReceivedText)
                         val unitsPerPackage = parseComposeNumber(estado.unitsPerPackageText)
 
-                        if (boxes <= 0.0) {
-                            errors["boxesReceived"] = "Ingresa cuantas cajas recibiste"
+                        if (blisters <= 0.0) {
+                            errors["boxesReceived"] = "Ingresa cuántos blísteres recibiste"
                         } else {
                             errors.remove("boxesReceived")
                         }
 
-                        if (packagesPerBox <= 0.0) {
-                            errors["packagesPerBox"] = "Ingresa cuantos paquetes trae cada caja"
-                        } else {
-                            errors.remove("packagesPerBox")
-                        }
-
                         if (unitsPerPackage <= 0.0) {
-                            errors["unitsPerPackage"] = "Ingresa cuanto trae cada paquete"
+                            errors["unitsPerPackage"] = "Ingresa cuántas unidades trae cada blíster"
                         } else {
                             errors.remove("unitsPerPackage")
                         }
 
                         errors.remove("receivedUnits")
                         errors.remove("unitsPerBox")
+                        errors.remove("packagesPerBox")
                     }
                 }
 
-                val minimumStockBase = calcularStockMinimoDesdeCompose(estado)
-                // Total recibido en unidades base (g, mL o unidades).
-                val recibidoEnBase = when (estado.stockEntryMode) {
-                    CreateProductStockEntryMode.UNIDAD ->
-                        parseComposeNumber(estado.receivedUnitsText)
-                    CreateProductStockEntryMode.CAJA ->
-                        parseComposeNumber(estado.boxesReceivedText) *
-                            parseComposeNumber(estado.unitsPerBoxText)
-                    CreateProductStockEntryMode.CAJA_CON_PAQUETES ->
-                        parseComposeNumber(estado.boxesReceivedText) *
-                            parseComposeNumber(estado.packagesPerBoxText) *
-                            parseComposeNumber(estado.unitsPerPackageText)
-                    null -> 0.0
-                }
+                val minimumStockBase = calculateBaseMinimumStock(estado)
+                // V17.61: Uso de la Calculadora Oficial
+                val recibidoEnBase = calculateTotalBaseStock(estado)
 
                 // La validación ahora usa minimumStockUnits en lugar del campo de texto antiguo.
                 if (estado.minimumStockUnits <= 0) {
@@ -1145,7 +1840,7 @@ class CrearProducto : AppCompatActivity() {
                 }
 
                 val purchaseCost = estado.purchaseCost
-                    .replace("Bs", "", ignoreCase = true)
+                    .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
                     .trim()
                     .replace(",", ".")
                     .toDoubleOrNull()
@@ -1155,9 +1850,6 @@ class CrearProducto : AppCompatActivity() {
                 } else {
                     errors.remove("purchaseCost")
                 }
-
-                errors.remove("receivedPresentation")
-                errors.remove("receivedQuantity")
             }
 
             CreateProductStep.PRESENTACIONES -> {
@@ -1167,29 +1859,41 @@ class CrearProducto : AppCompatActivity() {
                     errors.remove("presentations")
                 }
 
+                val recibidoBase = calculateTotalBaseStock(estado)
+                var totalAsignado = 0.0
+
                 estado.presentations.forEach { presentation ->
                     val equivalence = presentation.equivalenceText
                         .trim()
                         .replace(",", ".")
-                        .toDoubleOrNull()
+                        .toDoubleOrNull() ?: 0.0
 
-                    if (equivalence == null || equivalence <= 0.0) {
+                    if (equivalence <= 0.0) {
                         errors["equivalence_${presentation.id}"] = "Equivalencia invalida"
                     } else {
                         errors.remove("equivalence_${presentation.id}")
                     }
 
                     val price = presentation.salePriceText
-                        .replace("Bs", "", ignoreCase = true)
+                        .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
                         .trim()
                         .replace(",", ".")
-                        .toDoubleOrNull()
+                        .toDoubleOrNull() ?: 0.0
 
-                    if (price == null || price <= 0.0) {
+                    if (price <= 0.0) {
                         errors["price_${presentation.id}"] = "Precio requerido"
                     } else {
                         errors.remove("price_${presentation.id}")
                     }
+                    
+                    totalAsignado += equivalence
+                }
+                
+                // V17.65: Error general si la suma supera la capacidad del lote
+                if (totalAsignado > recibidoBase) {
+                    errors["presentations_total"] = "Las presentaciones superan el stock recibido (${formatCreateProductNumber(recibidoBase)})"
+                } else {
+                    errors.remove("presentations_total")
                 }
 
                 if (estado.presentations.size > 1 && estado.mainPresentationId.isBlank()) {
@@ -1321,15 +2025,19 @@ class CrearProducto : AppCompatActivity() {
     }
 
     /**
-     * Fix duplicados: consulta `NombresProductos/{normalizedKey}` antes de
-     * persistir el producto. Si la entrada existe, llama a `onExiste`; si
-     * no, llama a `onContinuar`. En caso de fallo de red se asume que no
-     * existe para no bloquear al usuario y se delega la deduplicación al
-     * chequeo por `indice` que ya hace `verificarProductoComposeAntesDeGuardar`.
+     * Sincronización V3.17 (Estricta): Verifica si el nombre normalizado ya
+     * está en el índice global de `NombresProductos`. 
+     *
+     * Si el nombre ya existe, llama a `onExiste` con el producto completo.
+     * Si no existe, llama a `onContinuar`.
+     *
+     * IMPORTANTE: Si ocurre un error de red o de Firebase, ya NO se asume
+     * que no existe. Se detiene el proceso y se informa al usuario para
+     * evitar la creación de duplicados por falta de conectividad.
      */
     private fun verificarNombreDuplicadoEnFirebase(
         nombre: String,
-        onExiste: () -> Unit,
+        onExiste: (MoldeProductos) -> Unit,
         onContinuar: () -> Unit
     ) {
         val normalized = normalizeProductName(nombre)
@@ -1338,6 +2046,7 @@ class CrearProducto : AppCompatActivity() {
             onContinuar()
             return
         }
+        
         FirebaseDatabase.getInstance()
             .getReference(PATH_INVENTARIO)
             .child(PATH_NOMBRES)
@@ -1348,13 +2057,44 @@ class CrearProducto : AppCompatActivity() {
                     if (!createProductExistingNormalizedNames.contains(normalized)) {
                         createProductExistingNormalizedNames.add(normalized)
                     }
-                    onExiste()
+                    
+                    val indice = snapshot.child("indice").getValue(String::class.java).orEmpty()
+                    if (indice.isNotBlank()) {
+                        FirebaseDatabase.getInstance()
+                            .getReference(PATH_INVENTARIO)
+                            .child(PATH_PRODUCTOS)
+                            .child(indice)
+                            .get()
+                            .addOnSuccessListener { productSnapshot ->
+                                val prod = productSnapshot.toMoldeProductos()
+                                if (prod != null) {
+                                    onExiste(prod)
+                                } else {
+                                    // Índice huérfano (existe nombre pero no producto)
+                                    // Por seguridad en V3.17, tratamos como error de datos
+                                    createProductLoading = false
+                                    mostrarErrorGuardado("Error de integridad: El nombre existe pero los datos del producto no. Por favor, contacte a soporte.")
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                createProductLoading = false
+                                mostrarErrorGuardado("No se pudo verificar el producto debido a un error de red: ${e.message}. Intente de nuevo.")
+                            }
+                    } else {
+                        // Seguridad V3.21: Si el nombre existe pero el índice está vacío o corrupto,
+                        // bloqueamos por precaución para evitar duplicados "ciegos".
+                        createProductLoading = false
+                        mostrarErrorGuardado("Error de integridad: Se encontró el nombre pero el índice está corrupto. Guardado bloqueado por seguridad.")
+                    }
                 } else {
+                    // No existe, procedemos normal
                     onContinuar()
                 }
             }
-            .addOnFailureListener {
-                onContinuar()
+            .addOnFailureListener { e ->
+                // Seguridad V3.17: Si falla la red, bloqueamos el guardado
+                createProductLoading = false
+                mostrarErrorGuardado("No se puede validar la existencia del producto (Error de red). Guardado cancelado para evitar duplicados.")
             }
     }
 
@@ -1395,53 +2135,104 @@ class CrearProducto : AppCompatActivity() {
     }
 
     private fun guardarProductoFinalCompose(producto: MoldeProductos) {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .child(producto.indice)
-            .setValue(producto)
+        val rootRef = FirebaseDatabase.getInstance().getReference(PATH_INVENTARIO)
+        
+        // Preparar operación atómica (V3.16)
+        val updates = mutableMapOf<String, Any?>()
+        
+        // 1. Datos del producto
+        val productPath = "$PATH_PRODUCTOS/${producto.indice}"
+        updates[productPath] = productoParaFirebase(producto)
+
+        val presentacionesPath = "ProductoPresentaciones/${producto.indice}"
+        val lotesPath = "ProductoLotes/${producto.indice}"
+        updates[presentacionesPath] = relacionesPresentacionesParaFirebase(producto)
+        updates[lotesPath] = relacionesLotesParaFirebase(producto)
+
+        // 1.1 Código de barras (Índice y dato en producto)
+        if (producto.codigo.isNotBlank()) {
+            updates["$PATH_CODIGOS/${producto.codigo}"] = mapOf(
+                "productoId" to producto.indice,
+                "productoNombre" to producto.nombre,
+                "categoria" to producto.categoria
+            )
+        }
+        
+        // 2. Índice de nombre para búsqueda/duplicados
+        val normalized = normalizeProductName(producto.nombre)
+        if (normalized.isNotBlank()) {
+            val key = buildNormalizedNameKey(normalized)
+            if (key.isNotBlank()) {
+                val registroNombre = NombreProductos(
+                    id = key,
+                    nombre = producto.nombre,
+                    indice = producto.indice,
+                    normalizedName = normalized
+                )
+                updates["$PATH_NOMBRES/$key"] = registroNombre
+            }
+        }
+
+        // 3. Índice plano de lotes (V17.46)
+        producto.lotes.forEach { (loteId, lote) ->
+            val numLote = lote.numero.trim().uppercase()
+            if (numLote.isNotBlank()) {
+                val keyLote = ProductUtils.encodeLotKey(numLote)
+                val lotePath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/${producto.indice}/$loteId"
+                val registroLote = LoteIndexado(
+                    numero = numLote,
+                    productoId = producto.indice,
+                    productoNombre = producto.nombre,
+                    loteId = loteId,
+                    lotePath = lotePath,
+                    vencimiento = lote.vencimiento
+                )
+                updates["LotesPorNumero/$keyLote"] = registroLote
+            }
+        }
+
+        rootRef.updateChildren(updates)
             .addOnSuccessListener {
+                // Sincronización V3.20: Solo actualizar caché local si la escritura fue exitosa
+                if (normalized.isNotBlank() && !createProductExistingNormalizedNames.contains(normalized)) {
+                    createProductExistingNormalizedNames.add(normalized)
+                }
+
                 createProductLoading = false
                 ultimoProductoCreadoCompose = producto
-                createProductSuccessSummary = construirResumenExitoCompose(producto)
-                // Fix duplicados: tras guardar, persistir el nombre normalizado
-                // en `NombresProductos` y agregarlo al set en memoria para que
-                // futuras creaciones (esta sesión y la próxima) lo detecten
-                // como duplicado. Antes solo se escribía en `Productos` y el
-                // catálogo de nombres quedaba desactualizado.
-                registrarNombreProductoPersistido(producto)
+                // Sincronización V3.21: Animación de éxito completa (Sin resumen fijo)
+                triggerSuccessAnimation()
             }
             .addOnFailureListener { e ->
                 mostrarErrorGuardado(e.message)
             }
     }
 
-    /**
-     * Fix duplicados: persiste el nombre del producto recién creado en
-     * `NombresProductos/{normalizedKey}` y mantiene en memoria el set
-     * `createProductExistingNormalizedNames` para que el chequeo local
-     * detecte el duplicado al instante. Se ignora el resultado de la
-     * escritura porque la prevención principal corre antes (consulta
-     * directa en `verificarProductoComposeAntesDeGuardar`).
-     */
-    private fun registrarNombreProductoPersistido(producto: MoldeProductos) {
-        val normalized = normalizeProductName(producto.nombre)
-        if (normalized.isBlank()) return
-        if (!createProductExistingNormalizedNames.contains(normalized)) {
-            createProductExistingNormalizedNames.add(normalized)
+    private fun triggerSuccessAnimation() {
+        isSuccessAnimVisible = true
+        feedbackController.ventaExitosa(null)
+        lifecycleScope.launch {
+            delay(3500)
+            isSuccessAnimVisible = false
+            reiniciarFlujoComposeCrearProducto()
         }
-        val key = buildNormalizedNameKey(normalized).ifBlank { return }
-        val registro = NombreProductos(
-            id = key,
-            nombre = producto.nombre,
-            indice = producto.indice,
-            normalizedName = normalized
-        )
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_NOMBRES)
-            .child(key)
-            .setValue(registro)
+    }
+
+    private fun triggerErrorAnimation() {
+        isErrorAnimVisible = true
+        feedbackController.error(null)
+        lifecycleScope.launch {
+            delay(3500)
+            isErrorAnimVisible = false
+        }
+    }
+
+    private fun updateBarsForAnimation(color: Int, isLight: Boolean) {
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        window.statusBarColor = color
+        window.navigationBarColor = color
+        insetsController.isAppearanceLightStatusBars = isLight
+        insetsController.isAppearanceLightNavigationBars = isLight
     }
 
     private fun generarIndiceProductoUnico(indiceBase: String): String {
@@ -1468,104 +2259,38 @@ class CrearProducto : AppCompatActivity() {
     private fun parseComposeNumber(value: String): Double {
         return value
             .trim()
-            .replace("Bs", "", ignoreCase = true)
+            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
             .replace(",", ".")
             .toDoubleOrNull()
             ?: 0.0
     }
 
-    /**
-     * Fix (F2): antes devolvía `Int` y se truncaban los decimales para PESO
-     * y LIQUIDO (ej. recibir "5000.5 mL" se guardaba como 5000 mL).
-     * Ahora devuelve `Double` y `construirProductoDesdeCompose` se encarga
-     * de formatearlo como texto sin perder precisión.
-     */
-    private fun calcularStockInicialDesdeCompose(state: CreateProductState): Double {
-        val total = when (state.stockEntryMode) {
-            null -> 0.0
-            CreateProductStockEntryMode.UNIDAD -> {
-                parseComposeNumber(state.receivedUnitsText)
-            }
-
-            CreateProductStockEntryMode.CAJA -> {
-                parseComposeNumber(state.boxesReceivedText) *
-                        parseComposeNumber(state.unitsPerBoxText)
-            }
-
-            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                parseComposeNumber(state.boxesReceivedText) *
-                        parseComposeNumber(state.packagesPerBoxText) *
-                        parseComposeNumber(state.unitsPerPackageText)
-            }
-        }
-
-        return total.coerceAtLeast(0.0)
-    }
-
-    private fun calcularUnidadesPorPresentacionCompraDesdeCompose(state: CreateProductState): Int {
-        val unidadesPorPresentacion = when (state.stockEntryMode) {
-            null -> 1.0
-            CreateProductStockEntryMode.UNIDAD -> {
-                1.0
-            }
-
-            CreateProductStockEntryMode.CAJA -> {
-                parseComposeNumber(state.unitsPerBoxText)
-            }
-
-            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                parseComposeNumber(state.packagesPerBoxText) *
-                        parseComposeNumber(state.unitsPerPackageText)
-            }
-        }
-
-        return unidadesPorPresentacion.toInt().coerceAtLeast(1)
-    }
-
-    /**
-     * Calcula la cantidad base (mL, g o unidades) para el stock mínimo.
-     * Ahora utiliza `minimumStockUnits` como fuente de verdad.
-     */
-    private fun calcularStockMinimoDesdeCompose(state: CreateProductState): Double {
-        val unidadesFisicas = state.minimumStockUnits.coerceAtLeast(0)
-        
-        // Determinamos cuántas unidades base hay por cada unidad física.
-        val factorBase = when (state.stockControlMode ?: getEffectiveStockControlMode(state)) {
-            StockControlMode.INDIVISIBLE -> {
-                // Si es indivisible (por envase), la unidad física es el frasco/caja.
-                // Obtenemos el contenido de 1 envase según el modo de entrada.
-                when (state.stockEntryMode) {
-                    CreateProductStockEntryMode.UNIDAD -> 1.0 // Recibido como frascos sueltos
-                    CreateProductStockEntryMode.CAJA -> parseComposeNumber(state.unitsPerBoxText)
-                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> 
-                        parseComposeNumber(state.packagesPerBoxText) * parseComposeNumber(state.unitsPerPackageText)
-                    null -> 1.0
-                }
-            }
-            StockControlMode.DIVISIBLE -> 1.0 // Ya es unidad base
-        }
-
-        return unidadesFisicas * factorBase
-    }
-
     private fun construirProductoDesdeCompose(state: CreateProductState): MoldeProductos {
         val controlType = state.controlType ?: CreateProductControlType.UNIDAD
+        val nombreProducto = normalizarTextoVisible(state.name)
+        val categoriaProducto = normalizarTextoVisible(state.category)
 
+        // V17.60: Sincronización absoluta con la Calculadora Oficial del Paso 2
+        val stockDisponible = calculateTotalBaseStock(state)
+        val stockMinimo = calculateBaseMinimumStock(state)
+        
         val unidadBase = when (controlType) {
             CreateProductControlType.UNIDAD -> "Unidad"
             CreateProductControlType.PESO -> "g"
             CreateProductControlType.LIQUIDO -> "mL"
         }
-
-        val unidadStockMinimo = when (controlType) {
-            CreateProductControlType.UNIDAD -> "unidades"
-            CreateProductControlType.PESO -> "g"
-            CreateProductControlType.LIQUIDO -> "mL"
+        val unidadVisualInventario = when (controlType) {
+            CreateProductControlType.UNIDAD -> unidadBase
+            CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
+            CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
         }
+
+        val effectiveMode = state.stockControlMode ?: getEffectiveStockControlMode(state)
+        val unidadStockMinimo = resolverUnidadStockMinimoProfesional(state, controlType, effectiveMode)
 
         val presentaciones = state.presentations.map { presentation ->
             PresentacionProducto(
-                nombre = presentation.name.trim(),
+                nombre = normalizarTextoVisible(presentation.name),
                 cantidad = presentation.equivalenceText
                     .trim()
                     .replace(",", ".")
@@ -1574,7 +2299,7 @@ class CrearProducto : AppCompatActivity() {
                     ?.coerceAtLeast(1)
                     ?: 1,
                 precioventa = presentation.salePriceText
-                    .replace("Bs", "", ignoreCase = true)
+                    .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
                     .trim()
                     .replace(",", ".")
                     .toDoubleOrNull()
@@ -1582,14 +2307,28 @@ class CrearProducto : AppCompatActivity() {
             )
         }.toMutableList()
 
-        // Fix (F2): `stockDisponible` y `stockMinimo` ahora son `Double` para
-        // preservar decimales en PESO/LIQUIDO. Se serializan con
-        // `formatearCantidadCompose` que omite el ".0" cuando el valor es
-        // entero, manteniendo compatibilidad con productos existentes.
-        val stockDisponible = calcularStockInicialDesdeCompose(state)
-        val stockMinimo = calcularStockMinimoDesdeCompose(state)
-        val unidadesPorPresentacionCompra =
-            calcularUnidadesPorPresentacionCompraDesdeCompose(state)
+        val unidadesPorPresentacionCompra = when (state.stockEntryMode) {
+            null -> 1.0
+            CreateProductStockEntryMode.UNIDAD -> {
+                if (controlType == CreateProductControlType.UNIDAD) 1.0 
+                else parseComposeNumber(state.unitsPerItemText)
+            }
+            CreateProductStockEntryMode.CAJA -> {
+                if (controlType == CreateProductControlType.UNIDAD) {
+                    val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
+                        .takeIf { it > 0.0 }
+                        ?: 1.0
+                    parseComposeNumber(state.unitsPerBoxText) * contenidoPorItem
+                } else {
+                    // V17.61: La caja equivale al volumen total contenido en ella
+                    parseComposeNumber(state.unitsPerBoxText) * parseComposeNumber(state.unitsPerItemText)
+                }
+            }
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
+        }.let { raw ->
+            // Normalizar por unidades (Kg/L) si aplica
+            if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") raw * 1000.0 else raw
+        }.toInt().coerceAtLeast(1)
 
         val mainPresentation = when {
             presentaciones.isEmpty() -> ""
@@ -1606,7 +2345,7 @@ class CrearProducto : AppCompatActivity() {
         }
 
         val precioCompra = state.purchaseCost
-            .replace("Bs", "", ignoreCase = true)
+            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
             .trim()
             .replace(",", ".")
 
@@ -1615,12 +2354,12 @@ class CrearProducto : AppCompatActivity() {
             .replace("/", "_")
 
         val indiceBase =
-            "${state.name.trim()}_${state.category.trim()}_$vencimientoLimpio"
+            "${nombreProducto}_${categoriaProducto}_$vencimientoLimpio"
 
         val indiceSanitizado = sanitizarNombreArchivo(indiceBase)
 
-        val numeroLote = state.lotNumber.trim()
-        val claveLote = sanitizarClaveLote(numeroLote)
+        val numeroLote = state.lotNumber.trim().uppercase(Locale.getDefault())
+        val claveLote = ProductUtils.encodeLotKey(numeroLote)
 
         val primerLote = LoteProducto(
             numero = numeroLote,
@@ -1628,20 +2367,23 @@ class CrearProducto : AppCompatActivity() {
             cantidad = stockDisponible,
             fecha = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 .format(java.util.Date()),
-            costoUltimoIngreso = precioCompra.toDoubleOrNull() ?: 0.0
+            costoCompraUnitario = calcularCostoUnitario(precioCompra, stockDisponible),
+            costoUltimoIngreso = precioCompra.toDoubleOrNull() ?: 0.0,
+            costoUltimoIngresoUnitario = calcularCostoUnitario(precioCompra, stockDisponible)
         )
 
         return MoldeProductos(
-            nombre = state.name.trim(),
-            codigo = "",
+            nombre = nombreProducto,
+            codigo = state.barcode,
             vencimiento = state.expirationDate.trim(),
-            categoria = state.category.trim(),
+            categoria = categoriaProducto,
             preciodecompra = precioCompra,
             cantidadinicial = formatearCantidadCompose(stockDisponible),
             stockminimo = formatearCantidadCompose(stockMinimo),
             stockMinimoContenedores = state.minimumStockUnits,
             unidadStockMinimo = unidadStockMinimo,
             unidadbase = unidadBase,
+            unidadVisualInventario = unidadVisualInventario,
             tipoBaseInventario = PresentacionRules.tipoBaseInventarioDesdeUnidadBase(unidadBase),
             presentacionprincipal = mainPresentation,
             requierereceta = state.requiresPrescription,
@@ -1650,19 +2392,232 @@ class CrearProducto : AppCompatActivity() {
             tienePresentaciones = presentaciones.isNotEmpty(),
             presentaciones = presentaciones,
             unidadesPorPresentacionCompra = unidadesPorPresentacionCompra,
-            basePorUnidad = when (controlType) {
-                CreateProductControlType.UNIDAD -> 0.0
-                CreateProductControlType.PESO -> 1.0
-                CreateProductControlType.LIQUIDO -> 1.0
-            },
+            basePorUnidad = calcularBasePorUnidadProfesional(state, controlType),
             referenceKeywords = state.selectedKeywords.toList(), // Guardar solo las seleccionadas
             imagenUrl = "",
             lotes = mapOf(claveLote to primerLote)
         )
     }
 
-    private fun sanitizarClaveLote(numero: String): String {
-        return ProductUtils.sanitizarTexto(numero).ifBlank { "L001" }
+    private fun productoParaFirebase(producto: MoldeProductos): Map<String, Any?> {
+        val data = linkedMapOf<String, Any?>()
+
+        fun putText(key: String, value: String) {
+            value.trim().takeIf { it.isNotBlank() }?.let { data[key] = it }
+        }
+
+        fun putNumber(key: String, value: Number) {
+            val asDouble = value.toDouble()
+            if (asDouble != 0.0) data[key] = value
+        }
+
+        putText("nombre", producto.nombre)
+        putText("categoria", producto.categoria)
+        putText("codigo", producto.codigo)
+        putText("vencimiento", producto.vencimiento)
+        putText("preciodecompra", producto.preciodecompra)
+        putText("cantidadinicial", producto.cantidadinicial)
+        putText("stockminimo", producto.stockminimo)
+        putNumber("stockMinimoContenedores", producto.stockMinimoContenedores)
+        putText("unidadStockMinimo", producto.unidadStockMinimo)
+        putText("unidadbase", producto.unidadbase)
+        putText("unidadVisualInventario", producto.unidadVisualInventario)
+        putText("tipoBaseInventario", producto.tipoBaseInventario)
+        putText("presentacionprincipal", producto.presentacionprincipal)
+
+        data["requierereceta"] = producto.requierereceta
+        data["estadodelproducto"] = producto.estadodelproducto
+        putText("indice", producto.indice)
+        data["tienePresentaciones"] = producto.tienePresentaciones
+        putNumber("unidadesPorPresentacionCompra", producto.unidadesPorPresentacionCompra)
+        putNumber("basePorUnidad", producto.basePorUnidad)
+        putText("imagenUrl", producto.imagenUrl)
+        putText("loteConsumoSeleccionado", producto.loteConsumoSeleccionado)
+        if (producto.loteConsumoSeleccionManual) data["loteConsumoSeleccionManual"] = true
+
+        putText("referenceCommonUse", producto.referenceCommonUse)
+        if (producto.referenceUseCases.isNotEmpty()) data["referenceUseCases"] = producto.referenceUseCases
+        putText("referenceHowToUse", producto.referenceHowToUse)
+        if (producto.referenceNotRecommendedFor.isNotEmpty()) data["referenceNotRecommendedFor"] = producto.referenceNotRecommendedFor
+        if (producto.referenceKeywords.isNotEmpty()) data["referenceKeywords"] = producto.referenceKeywords
+        if (producto.referenceWarnings.isNotEmpty()) data["referenceWarnings"] = producto.referenceWarnings
+        putText("referenceSourceName", producto.referenceSourceName)
+        putText("referenceSourceUrl", producto.referenceSourceUrl)
+        putText("referenceRxcui", producto.referenceRxcui)
+        putText("referenceNdc", producto.referenceNdc)
+        putText("referenceMatchedName", producto.referenceMatchedName)
+        putNumber("referenceConfidence", producto.referenceConfidence)
+        if (producto.referenceLanguage.isNotBlank() && productoTieneReferencia(producto)) {
+            data["referenceLanguage"] = producto.referenceLanguage
+        }
+
+        return data
+    }
+
+    private fun relacionesPresentacionesParaFirebase(producto: MoldeProductos): List<Map<String, Any?>> {
+        return producto.presentaciones
+            .filter { it.nombre.trim().isNotBlank() }
+            .map { presentacion ->
+                linkedMapOf<String, Any?>(
+                    "nombre" to presentacion.nombre.trim(),
+                    "cantidad" to presentacion.cantidad.coerceAtLeast(1),
+                    "precioventa" to presentacion.precioventa
+                )
+            }
+    }
+
+    private fun relacionesLotesParaFirebase(producto: MoldeProductos): Map<String, Map<String, Any?>> {
+        return producto.lotes
+            .filterKeys { it.isNotBlank() }
+            .mapValues { (loteId, lote) ->
+                loteParaFirebase(
+                    lote = lote,
+                    loteId = loteId,
+                    lotePath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/${producto.indice}/$loteId"
+                )
+            }
+            .filterValues { it.isNotEmpty() }
+    }
+
+    private fun loteParaFirebase(
+        lote: LoteProducto,
+        loteId: String = "",
+        lotePath: String = ""
+    ): Map<String, Any?> {
+        val data = linkedMapOf<String, Any?>()
+
+        fun putText(key: String, value: String) {
+            value.trim().takeIf { it.isNotBlank() }?.let { data[key] = it }
+        }
+
+        fun putNumber(key: String, value: Number) {
+            val asDouble = value.toDouble()
+            if (asDouble != 0.0) data[key] = value
+        }
+
+        putText("loteId", loteId)
+        putText("lotePath", lotePath)
+        putText("numero", lote.numero)
+        putText("vencimiento", lote.vencimiento)
+        putNumber("cantidad", lote.cantidad)
+        putNumber("cantidadBloqueada", lote.cantidadBloqueada)
+        putText("fecha", lote.fecha)
+        putNumber("costoCompraUnitario", lote.costoCompraUnitario)
+        putNumber("costoUltimoIngreso", lote.costoUltimoIngreso)
+        putNumber("costoUltimoIngresoUnitario", lote.costoUltimoIngresoUnitario)
+        putText("observaciones", lote.observaciones)
+        putText("motivoBloqueo", lote.motivoBloqueo)
+        putNumber("timestampUltimoBloqueo", lote.timestampUltimoBloqueo)
+
+        return data
+    }
+
+    private fun productoTieneReferencia(producto: MoldeProductos): Boolean {
+        return producto.referenceCommonUse.isNotBlank() ||
+                producto.referenceUseCases.isNotEmpty() ||
+                producto.referenceHowToUse.isNotBlank() ||
+                producto.referenceNotRecommendedFor.isNotEmpty() ||
+                producto.referenceKeywords.isNotEmpty() ||
+                producto.referenceWarnings.isNotEmpty() ||
+                producto.referenceSourceName.isNotBlank() ||
+                producto.referenceSourceUrl.isNotBlank() ||
+                producto.referenceRxcui.isNotBlank() ||
+                producto.referenceNdc.isNotBlank() ||
+                producto.referenceMatchedName.isNotBlank() ||
+                producto.referenceConfidence > 0.0
+    }
+
+    private fun calcularCostoUnitario(precioCompra: String, stockDisponible: Double): Double {
+        val total = precioCompra.toDoubleOrNull() ?: 0.0
+        return if (total > 0.0 && stockDisponible > 0.0) total / stockDisponible else 0.0
+    }
+
+    private fun resolverUnidadStockMinimoProfesional(
+        state: CreateProductState,
+        controlType: CreateProductControlType,
+        effectiveMode: StockControlMode
+    ): String {
+        if (effectiveMode != StockControlMode.INDIVISIBLE) {
+            return when (controlType) {
+                CreateProductControlType.UNIDAD -> "unidades"
+                CreateProductControlType.PESO -> "g"
+                CreateProductControlType.LIQUIDO -> "mL"
+            }
+        }
+
+        return when (controlType) {
+            CreateProductControlType.LIQUIDO -> "frasco"
+            CreateProductControlType.PESO -> "envase"
+            CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
+                CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "blister"
+                else -> "item"
+            }
+        }
+    }
+
+    private fun calcularBasePorUnidadProfesional(
+        state: CreateProductState,
+        controlType: CreateProductControlType
+    ): Double {
+        if (controlType == CreateProductControlType.UNIDAD) return 0.0
+
+        val rawBase = when (state.stockEntryMode) {
+            CreateProductStockEntryMode.UNIDAD,
+            CreateProductStockEntryMode.CAJA -> parseComposeNumber(state.unitsPerItemText)
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
+            null -> 0.0
+        }
+
+        val baseNormalizada = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
+            rawBase * 1000.0
+        } else {
+            rawBase
+        }
+
+        return baseNormalizada.takeIf { it > 0.0 } ?: 0.0
+    }
+
+    private fun normalizarTextoVisible(value: String): String {
+        val compactado = value.trim()
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("(?i)(\\d+(?:[.,]\\d+)?)(mg|mcg|ml|l|kg|g|ui)\\b")) { match ->
+                "${match.groupValues[1]} ${normalizarUnidadVisible(match.groupValues[2])}"
+            }
+
+        if (compactado.isBlank()) return ""
+
+        return compactado
+            .split(" ")
+            .joinToString(" ") { token -> normalizarTokenVisible(token) }
+    }
+
+    private fun normalizarTokenVisible(token: String): String {
+        val limpio = token.trim()
+        if (limpio.isBlank()) return ""
+
+        val lower = limpio.lowercase(Locale.getDefault())
+        val unidad = normalizarUnidadVisible(limpio)
+        if (lower in setOf("ml", "l", "mg", "g", "kg", "mcg", "ui")) return unidad
+
+        if (limpio.any { it.isDigit() } || limpio.all { !it.isLetter() }) return limpio
+        if (limpio.length <= 2 && limpio.all { it.isUpperCase() }) return limpio
+
+        return limpio.replaceFirstChar { char ->
+            if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+        }
+    }
+
+    private fun normalizarUnidadVisible(token: String): String {
+        return when (token.trim().lowercase(Locale.getDefault())) {
+            "ml" -> "mL"
+            "l" -> "L"
+            "mg" -> "mg"
+            "g" -> "g"
+            "kg" -> "kg"
+            "mcg" -> "mcg"
+            "ui" -> "UI"
+            else -> token
+        }
     }
 
     private fun construirResumenExitoCompose(producto: MoldeProductos): ProductCreatedSummary {
@@ -1700,6 +2655,48 @@ class CrearProducto : AppCompatActivity() {
         startActivity(
             android.content.Intent(this, EditarProductodelInventario::class.java).apply {
                 putExtra("indice", indice)
+            }
+        )
+    }
+
+    /**
+     * Elige automáticamente la mejor presentación para mostrar como "Principal" al vender.
+     * Prioriza unidades minoristas (Unidad, Frasco, Tableta) sobre bultos (Caja, Pack).
+     */
+    private fun deducirPresentacionPrincipalInteligente(
+        presentaciones: List<com.app.administradorfarmadon.ActivityInventario.ui.CreateProductPresentation>
+    ): String {
+        if (presentaciones.isEmpty()) return ""
+        
+        // Palabras clave de unidades que suelen ser la unidad mínima de venta (retail)
+        val retailKeywords = listOf(
+            "unidad", "pieza", "frasco", "botella", "ampolla", "vial", 
+            "tableta", "pastilla", "comprimido", "capsula", "sobre", "sachet", 
+            "tubo", "crema", "pomada", "g", "ml"
+        )
+
+        // Buscamos la primera que contenga una palabra de retail como palabra completa (word boundary)
+        // para evitar que "g" o "ml" den falsos positivos dentro de otras palabras.
+        val priorizada = presentaciones.firstOrNull { pres ->
+            val nombre = pres.name.lowercase(Locale.getDefault())
+            retailKeywords.any { key -> 
+                // Expresión regular para buscar la palabra exacta con límites (\b)
+                val regex = "\\b${Regex.escape(key)}\\b".toRegex()
+                nombre.contains(regex)
+            }
+        }
+
+        return priorizada?.id ?: presentaciones.first().id
+    }
+
+    private fun abrirIngresoStockProductoExistente(producto: com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos) {
+        val indice = producto.indice.trim()
+        if (indice.isBlank()) return
+
+        startActivity(
+            android.content.Intent(this, EditarProductodelInventario::class.java).apply {
+                putExtra("indice", indice)
+                putExtra("auto_ingreso_stock", true)
             }
         )
     }
@@ -1762,38 +2759,20 @@ class CrearProducto : AppCompatActivity() {
             }
     }
 
-    private fun suggestUniqueLotNumberFromActivity(
-        productName: String,
-        currentLot: String
-    ): String {
-        val prefix = productName.trim()
-            .firstOrNull { it.isLetterOrDigit() }
-            ?.uppercaseChar()
-            ?.toString()
-            ?: currentLot.trim().firstOrNull()?.uppercaseChar()?.toString()
-            ?: "L"
-
-        val suffixDigits = currentLot.trim().takeLastWhile { it.isDigit() }
-        val width = suffixDigits.length.coerceAtLeast(3)
-        var nextNumber = suffixDigits.toIntOrNull()?.plus(1) ?: 1
-        var candidate: String
-
-        do {
-            candidate = prefix + nextNumber.toString().padStart(width, '0')
-            nextNumber++
-        } while (createProductExistingLots.contains(candidate.uppercase(Locale.getDefault())))
-
-        return candidate
-    }
-
     private fun aplicarStatusBarBlanca() {
         if (statusBarColorOriginal == null) {
             statusBarColorOriginal = window.statusBarColor
+        }
+        if (navigationBarColorOriginal == null) {
+            navigationBarColorOriginal = window.navigationBarColor
         }
 
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         if (statusBarLightOriginal == null) {
             statusBarLightOriginal = insetsController.isAppearanceLightStatusBars
+        }
+        if (navigationBarLightOriginal == null) {
+            navigationBarLightOriginal = insetsController.isAppearanceLightNavigationBars
         }
 
         window.statusBarColor = Color.WHITE
@@ -1804,10 +2783,16 @@ class CrearProducto : AppCompatActivity() {
         statusBarColorOriginal?.let { color ->
             window.statusBarColor = color
         }
+        navigationBarColorOriginal?.let { color ->
+            window.navigationBarColor = color
+        }
 
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         statusBarLightOriginal?.let { lightStatusBar ->
-            WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
-                lightStatusBar
+            insetsController.isAppearanceLightStatusBars = lightStatusBar
+        }
+        navigationBarLightOriginal?.let { lightNav ->
+            insetsController.isAppearanceLightNavigationBars = lightNav
         }
     }
 
@@ -1833,35 +2818,24 @@ class CrearProducto : AppCompatActivity() {
             }
     }
 
-    // Fix (M1): se eliminó la escritura redundante en `listaNombreAutoComplete`
-    // (campo eliminado). El único consumidor real es
-    // `createProductExistingNormalizedNames`, usado por la validación de
-    // nombre duplicado.
-    private fun obtenerNombresDeProductos() {
+    private fun obtenerReglasDeMargen() {
         FirebaseDatabase.getInstance()
             .getReference(PATH_INVENTARIO)
-            .child(PATH_NOMBRES)
+            .child(PATH_MARGENES)
             .get()
             .addOnSuccessListener { snapshot ->
-                createProductExistingNormalizedNames.clear()
-
+                val reglas = mutableListOf<com.app.administradorfarmadon.ActivityInventario.ui.CategoryMarginRule>()
                 snapshot.children.forEach { data ->
-                    val nombreProducto = data.getValue(NombreProductos::class.java)
-                    if (nombreProducto != null) {
-                        val normalized = nombreProducto.normalizedName
-                            ?.takeIf { it.isNotBlank() }
-                            ?: normalizeProductName(nombreProducto.nombre)
-
-                        if (normalized.isNotBlank()) {
-                            createProductExistingNormalizedNames.add(normalized)
-                        }
+                    val regla = data.getValue(com.app.administradorfarmadon.ActivityInventario.ui.CategoryMarginRule::class.java)
+                    if (regla != null) {
+                        reglas.add(regla)
                     }
                 }
-            }
-            .addOnFailureListener {
-                createProductExistingNormalizedNames.clear()
+                actualizarCreateProductState(createProductUiState.copy(marginRules = reglas))
             }
     }
+
+
 
 
 
@@ -1912,12 +2886,126 @@ class CrearProducto : AppCompatActivity() {
 
     private fun mostrarErrorGuardado(mensaje: String?) {
         createProductLoading = false
+        triggerErrorAnimation()
 
         Toast.makeText(
             this,
             mensaje ?: getString(R.string.error_generico_guardar),
             Toast.LENGTH_LONG
         ).show()
+    }
+
+
+    @androidx.compose.runtime.Composable
+    private fun SuccessAnimationOverlay() {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ComposeColor(0xFF2E7D32)), // Green 800
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedCheckmark(Modifier.size(180.dp))
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun ErrorAnimationOverlay() {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ComposeColor(0xFFC62828)), // Red 800
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedCross(Modifier.size(180.dp))
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun AnimatedCheckmark(modifier: Modifier = Modifier) {
+        val progress = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            progress.animateTo(1f, animationSpec = tween(800, easing = LinearOutSlowInEasing))
+        }
+
+        Canvas(modifier = modifier) {
+            val strokeWidth = 16.dp.toPx()
+            val w = size.width
+            val h = size.height
+
+            val p1 = Offset(w * 0.25f, h * 0.5f)
+            val p2 = Offset(w * 0.45f, h * 0.7f)
+            val p3 = Offset(w * 0.75f, h * 0.35f)
+
+            if (progress.value > 0f) {
+                val firstSegmentProgress = (progress.value / 0.4f).coerceAtMost(1f)
+                drawLine(
+                    color = ComposeColor.White,
+                    start = p1,
+                    end = Offset(
+                        p1.x + (p2.x - p1.x) * firstSegmentProgress,
+                        p1.y + (p2.y - p1.y) * firstSegmentProgress
+                    ),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            if (progress.value > 0.4f) {
+                val secondSegmentProgress = ((progress.value - 0.4f) / 0.6f).coerceAtMost(1f)
+                drawLine(
+                    color = ComposeColor.White,
+                    start = p2,
+                    end = Offset(
+                        p2.x + (p3.x - p2.x) * secondSegmentProgress,
+                        p2.y + (p3.y - p2.y) * secondSegmentProgress
+                    ),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun AnimatedCross(modifier: Modifier = Modifier) {
+        val progress = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            progress.animateTo(1f, animationSpec = tween(800, easing = LinearOutSlowInEasing))
+        }
+
+        Canvas(modifier = modifier) {
+            val strokeWidth = 16.dp.toPx()
+            val w = size.width
+            val h = size.height
+
+            if (progress.value > 0f) {
+                val firstLineProgress = (progress.value / 0.5f).coerceAtMost(1f)
+                drawLine(
+                    color = ComposeColor.White,
+                    start = Offset(w * 0.3f, h * 0.3f),
+                    end = Offset(
+                        w * 0.3f + (w * 0.4f) * firstLineProgress,
+                        h * 0.3f + (h * 0.4f) * firstLineProgress
+                    ),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            if (progress.value > 0.5f) {
+                val secondLineProgress = ((progress.value - 0.5f) / 0.5f).coerceAtMost(1f)
+                drawLine(
+                    color = ComposeColor.White,
+                    start = Offset(w * 0.7f, h * 0.3f),
+                    end = Offset(
+                        w * 0.7f - (w * 0.4f) * secondLineProgress,
+                        h * 0.3f + (h * 0.4f) * secondLineProgress
+                    ),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
     }
 
 

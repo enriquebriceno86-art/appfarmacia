@@ -96,9 +96,8 @@ class AdapterInventarioAlertasHorizontal(
         holder.tvBadge.setTextColor(colorBadgeTexto)
         holder.tvBadge.background?.setTint(colorBadgeFondo)
 
-        // Stock con unidad abreviada
-        val unidadAbrev = resolverUnidadAbreviada(producto.unidadbase, cantidadActual)
-        holder.tvStock.text = "$cantidadActual $unidadAbrev"
+        // Stock visible: prioriza la presentacion principal si existe equivalencia valida
+        holder.tvStock.text = ProductUtils.formatearStockVisible(producto)
         holder.tvStock.setTextColor(
             if (cantidadActual <= 0) 0xFFB42318.toInt() else 0xFFB45309.toInt()
         )

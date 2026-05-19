@@ -53,7 +53,43 @@ object HorarioRules {
             if (data.horaApertura.isBlank() || data.horaCierre.isBlank()) {
                 return HorarioValidationResult(
                     esValido = false,
-                    horasError = "Selecciona las horas"
+                    horasError = "Selecciona las horas de apertura y cierre"
+                )
+            }
+
+            try {
+                val sdf = SimpleDateFormat("h:mm a", Locale.US)
+                val apertura = sdf.parse(data.horaApertura)
+                val cierre = sdf.parse(data.horaCierre)
+
+                if (apertura != null && cierre != null) {
+                    if (apertura == cierre) {
+                        return HorarioValidationResult(
+                            esValido = false,
+                            horasError = "La apertura y el cierre no pueden ser a la misma hora. Si atiendes todo el día, usa la opción 'Atender 24 horas'."
+                        )
+                    }
+                    
+                    if (cierre.before(apertura)) {
+                        return HorarioValidationResult(
+                            esValido = true,
+                            aviso = "Has configurado un turno nocturno que termina el día siguiente (${data.horaCierre})."
+                        )
+                    }
+                    
+                    val diff = cierre.time - apertura.time
+                    val diffHours = diff / (1000 * 60 * 60)
+                    if (diffHours < 1) {
+                        return HorarioValidationResult(
+                            esValido = true,
+                            aviso = "El rango de atención es muy corto (menos de 1 hora). ¿Es correcto?"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                return HorarioValidationResult(
+                    esValido = false,
+                    horasError = "Formato de hora inválido"
                 )
             }
         }
@@ -142,6 +178,96 @@ object HorarioRules {
 
         return horarios.sortedBy { horario ->
             ordenNormalizado[normalizarDia(horario.dia)] ?: Int.MAX_VALUE
+        }
+    }
+
+    fun calcularEstadoActual(
+        horarioSemanal: HorarioTienda?,
+        excepcionHoy: HorarioExcepcion?,
+        ahora: Calendar = Calendar.getInstance()
+    ): EstadoHorarioActual {
+        // La excepción siempre tiene prioridad sobre el horario semanal
+        if (excepcionHoy != null) {
+            return calcularEstadoGenerico(
+                cerrado = excepcionHoy.cerrado,
+                v24 = excepcionHoy.veinticuatroHoras,
+                aperturaStr = excepcionHoy.horaApertura,
+                cierreStr = excepcionHoy.horaCierre,
+                prefijoMensaje = if (excepcionHoy.motivo.isNotBlank()) "${excepcionHoy.motivo}: " else "",
+                ahora = ahora
+            )
+        }
+
+        if (horarioSemanal == null || horarioSemanal.cerrado) {
+            return EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
+        }
+
+        val localeEs = Locale.forLanguageTag("es")
+        val diaActualStr = ahora.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, localeEs) ?: ""
+        
+        if (normalizarDia(horarioSemanal.dia) != normalizarDia(diaActualStr)) {
+            return EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
+        }
+
+        return calcularEstadoGenerico(
+            cerrado = horarioSemanal.cerrado,
+            v24 = horarioSemanal.veinticuatroHoras,
+            aperturaStr = horarioSemanal.horaApertura,
+            cierreStr = horarioSemanal.horaCierre,
+            ahora = ahora
+        )
+    }
+
+    private fun calcularEstadoGenerico(
+        cerrado: Boolean,
+        v24: Boolean,
+        aperturaStr: String,
+        cierreStr: String,
+        prefijoMensaje: String = "",
+        ahora: Calendar
+    ): EstadoHorarioActual {
+        if (cerrado) return EstadoHorarioActual(EstadoTipo.CERRADO, "${prefijoMensaje}Cerrado")
+        if (v24) return EstadoHorarioActual(EstadoTipo.ABIERTO, "${prefijoMensaje}Abierto 24h")
+        
+        if (aperturaStr.isBlank() || cierreStr.isBlank()) {
+            return EstadoHorarioActual(EstadoTipo.CERRADO, "${prefijoMensaje}Horario no definido")
+        }
+
+        return try {
+            val sdf = SimpleDateFormat("h:mm a", Locale.US)
+            val horaActual = sdf.parse(sdf.format(ahora.time)) ?: return EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
+            val apertura = sdf.parse(aperturaStr) ?: return EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
+            val cierre = sdf.parse(cierreStr) ?: return EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
+
+            val esNocturno = cierre.before(apertura)
+            val estaAbierto = if (esNocturno) {
+                horaActual.after(apertura) || horaActual.before(cierre)
+            } else {
+                horaActual.after(apertura) && horaActual.before(cierre)
+            }
+
+            if (estaAbierto) {
+                val cierreRelativo = if (esNocturno && horaActual.after(apertura)) {
+                    cierre.time + (24 * 60 * 60 * 1000)
+                } else {
+                    cierre.time
+                }
+                val diffMin = (cierreRelativo - horaActual.time) / (1000 * 60)
+                if (diffMin in 1..60) {
+                    EstadoHorarioActual(EstadoTipo.CIERRA_PRONTO, "${prefijoMensaje}Cierra en $diffMin min", diffMin)
+                } else {
+                    EstadoHorarioActual(EstadoTipo.ABIERTO, "${prefijoMensaje}Abierto ahora")
+                }
+            } else {
+                if (horaActual.before(apertura)) {
+                    val diffApertura = (apertura.time - horaActual.time) / (1000 * 60)
+                    if (diffApertura in 1..60) {
+                        EstadoHorarioActual(EstadoTipo.PROXIMA_APERTURA, "${prefijoMensaje}Abre en $diffApertura min", diffApertura)
+                    } else EstadoHorarioActual(EstadoTipo.CERRADO, "${prefijoMensaje}Cerrado")
+                } else EstadoHorarioActual(EstadoTipo.CERRADO, "${prefijoMensaje}Cerrado")
+            }
+        } catch (e: Exception) {
+            EstadoHorarioActual(EstadoTipo.CERRADO, "Cerrado")
         }
     }
 

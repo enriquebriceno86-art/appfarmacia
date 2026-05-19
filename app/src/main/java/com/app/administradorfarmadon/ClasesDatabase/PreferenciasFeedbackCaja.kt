@@ -1,72 +1,49 @@
 package com.app.administradorfarmadon.ClasesDatabase
 
 import android.content.Context
+import android.content.SharedPreferences
 
 object PreferenciasFeedbackCaja {
-    private const val PREFS = "feedback_caja"
-    private const val KEY_POS_ACTIVO = "feedback_pos_activo"
-    private const val KEY_ACTIVO = "feedback_agregar_activo"
-    private const val KEY_SONIDO_ACTIVO = "feedback_agregar_sonido_activo"
-    private const val KEY_HAPTICA_ACTIVA = "feedback_agregar_haptica_activa"
+    private const val PREFS = "preferencias_feedback_caja"
+    private const val KEY_POS_ACTIVO = "pos_activo"
+    private const val KEY_ACTIVO = "vibracion_activa"
+    private const val KEY_SONIDO_ACTIVO = "sonido_activo"
+    private const val KEY_HAPTICA_ACTIVA = "haptica_activa"
+    private const val KEY_IA_INVENTARIO_ACTIVA = "ia_inventario_activa"
 
     fun estaActivo(context: Context): Boolean {
-        val prefs = obtenerPrefs(context)
-        return when {
-            prefs.contains(KEY_POS_ACTIVO) -> prefs.getBoolean(KEY_POS_ACTIVO, true)
-            prefs.contains(KEY_ACTIVO) -> prefs.getBoolean(KEY_ACTIVO, true)
-            else -> estaSonidoActivoInterno(prefs) || estaHapticaActivaInterno(prefs)
-        }
+        return obtenerPrefs(context)?.getBoolean(KEY_ACTIVO, true) ?: true
     }
 
     fun setActivo(context: Context, activo: Boolean) {
-        obtenerPrefs(context)
-            .edit()
-            .putBoolean(KEY_POS_ACTIVO, activo)
-            .putBoolean(KEY_HAPTICA_ACTIVA, activo)
-            .putBoolean(KEY_SONIDO_ACTIVO, activo)
-            .apply()
+        obtenerPrefs(context)?.edit()?.putBoolean(KEY_ACTIVO, activo)?.apply()
     }
 
     fun setSonidoActivo(context: Context, activo: Boolean) {
-        obtenerPrefs(context)
-            .edit()
-            .putBoolean(KEY_SONIDO_ACTIVO, activo)
-            .apply()
+        obtenerPrefs(context)?.edit()?.putBoolean(KEY_SONIDO_ACTIVO, activo)?.apply()
     }
 
-    fun setHapticaActiva(context: Context, activa: Boolean) {
-        obtenerPrefs(context)
-            .edit()
-            .putBoolean(KEY_HAPTICA_ACTIVA, activa)
-            .apply()
+    fun setHapticaActiva(context: Context, activo: Boolean) {
+        obtenerPrefs(context)?.edit()?.putBoolean(KEY_HAPTICA_ACTIVA, activo)?.apply()
     }
 
     fun estaSonidoActivo(context: Context): Boolean {
-        val prefs = obtenerPrefs(context)
-        return estaActivo(context) && estaSonidoActivoInterno(prefs)
+        return obtenerPrefs(context)?.getBoolean(KEY_SONIDO_ACTIVO, true) ?: true
     }
 
     fun estaHapticaActiva(context: Context): Boolean {
-        val prefs = obtenerPrefs(context)
-        return estaActivo(context) && estaHapticaActivaInterno(prefs)
+        return obtenerPrefs(context)?.getBoolean(KEY_HAPTICA_ACTIVA, true) ?: true
     }
 
-    private fun obtenerPrefs(context: Context) =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    private fun estaSonidoActivoInterno(prefs: android.content.SharedPreferences): Boolean {
-        return when {
-            prefs.contains(KEY_SONIDO_ACTIVO) -> prefs.getBoolean(KEY_SONIDO_ACTIVO, true)
-            prefs.contains(KEY_ACTIVO) -> prefs.getBoolean(KEY_ACTIVO, true)
-            else -> true
-        }
+    fun estaIaInventarioActiva(context: Context): Boolean {
+        return obtenerPrefs(context)?.getBoolean(KEY_IA_INVENTARIO_ACTIVA, true) ?: true
     }
 
-    private fun estaHapticaActivaInterno(prefs: android.content.SharedPreferences): Boolean {
-        return when {
-            prefs.contains(KEY_HAPTICA_ACTIVA) -> prefs.getBoolean(KEY_HAPTICA_ACTIVA, true)
-            prefs.contains(KEY_ACTIVO) -> prefs.getBoolean(KEY_ACTIVO, true)
-            else -> true
-        }
+    fun setIaInventarioActiva(context: Context, activo: Boolean) {
+        obtenerPrefs(context)?.edit()?.putBoolean(KEY_IA_INVENTARIO_ACTIVA, activo)?.apply()
+    }
+
+    private fun obtenerPrefs(context: Context): SharedPreferences? {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     }
 }

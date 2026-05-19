@@ -23,6 +23,7 @@ object SessionManager {
     var appSessionId: String by StringPreference("app_session_id", "")
     var monedaCodigo: String by StringPreference("moneda_codigo", "PEN")
     var monedaSimbolo: String by StringPreference("moneda_simbolo", "S/")
+    var paisOperacion: String by StringPreference("pais_operacion", "Perú") // V5.3: País explícito para IA
     var isLoggedIn: Boolean by BooleanPreference("login", false)
 
     /**
@@ -90,11 +91,12 @@ object SessionManager {
         appSessionId = sessionId.trim()
     }
 
-    fun guardarMonedaConfigurada(context: Context, codigo: String, simbolo: String) {
+    fun guardarMonedaConfigurada(context: Context, codigo: String, simbolo: String, pais: String = "Perú") {
         cargarSesion(context)
         val resultado = SessionRules.resolverMoneda(codigo, simbolo)
         monedaCodigo = resultado.codigo
         monedaSimbolo = resultado.simbolo
+        paisOperacion = pais // V5.4: Persistir país real de la tienda
     }
 
     fun obtenerSessionIdLocal(context: Context): String {
@@ -128,6 +130,7 @@ object SessionManager {
         appSessionId = ""
         monedaCodigo = "PEN"
         monedaSimbolo = "S/"
+        paisOperacion = "Perú"
         isLoggedIn = false
     }
 

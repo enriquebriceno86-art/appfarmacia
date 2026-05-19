@@ -40,7 +40,7 @@
                         android:layout_weight="1"
                         android:text="Inventario"
                         android:textColor="@color/text_primary_alt"
-                        android:textSize="32sp"
+                        android:textSize="28sp"
                         android:textStyle="bold" />
 
                     <ImageButton
@@ -50,6 +50,17 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:contentDescription="Historial"
                         android:src="@drawable/baseline_access_time_24"
+                        app:tint="@color/text_secondary" />
+
+                    <ImageButton
+                        android:id="@+id/btnImportarMasivo"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Importación masiva"
+                        android:src="@drawable/ic_download"
+                        android:rotation="180"
                         app:tint="@color/text_secondary" />
 
                     <ImageButton
@@ -380,11 +391,11 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                >
+                app:layout_constraintVertical_bias="0.35">
 
                 <ImageView
-                    android:layout_width="130dp"
-                    android:layout_height="130dp"
+                    android:layout_width="110dp"
+                    android:layout_height="110dp"
                     android:contentDescription="@null"
                     android:src="@drawable/inventory_2icon"
                     app:tint="#B8D7C8" />
@@ -393,10 +404,10 @@
                     android:id="@+id/tvTituloEmpty"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="16dp"
                     android:text="Inventario vacío"
                     android:textColor="@color/text_primary_alt"
-                    android:textSize="28sp"
+                    android:textSize="24sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -407,21 +418,21 @@
                     android:gravity="center"
                     android:text="Aún no has agregado productos."
                     android:textColor="@color/text_secondary"
-                    android:textSize="18sp" />
+                    android:textSize="15sp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAgregarPrimerProducto"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="20dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:minHeight="54dp"
-                    android:text="+ Agregar primer producto"
+                    android:text="Agregar producto"
                     android:textAllCaps="false"
                     android:textColor="@color/brand_green_dark"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     app:cornerRadius="20dp"
                     app:strokeColor="@color/brand_green_dark"
                     app:strokeWidth="1dp" />
@@ -599,39 +610,23 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- FAB circular pequeño abajo a la derecha + texto "Nuevo" debajo -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <!-- FAB circular principal abajo a la derecha -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/floatingbotoncrearproducto"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="24dp"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/floatingbotoncrearproducto"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:contentDescription="Nuevo producto"
-            android:text=""
-            android:textColor="@android:color/transparent"
-            app:backgroundTint="@color/brand_green_dark"
-            app:elevation="6dp"
-            app:icon="@drawable/baseline_add_24"
-            app:iconPadding="0dp"
-            app:iconSize="24dp"
-            app:iconTint="@color/white" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="@font/inter_medium"
-            android:text="Nuevo"
-            android:textColor="@color/brand_green_dark"
-            android:textSize="12sp" />
-    </LinearLayout>
+        android:contentDescription="Nuevo producto"
+        android:text=""
+        android:textColor="@android:color/transparent"
+        app:backgroundTint="@color/brand_green_dark"
+        app:elevation="6dp"
+        app:icon="@drawable/baseline_add_24"
+        app:iconPadding="0dp"
+        app:iconSize="24dp"
+        app:iconTint="@color/white" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutSkeletonInventarioInicial"

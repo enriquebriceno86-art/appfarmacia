@@ -7,6 +7,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
+import com.app.administradorfarmadon.ActivitysPerfilItem.EstadoTipo
+import com.app.administradorfarmadon.ActivitysPerfilItem.HorarioExcepcion
+import com.app.administradorfarmadon.ActivitysPerfilItem.HorarioRules
 import com.app.administradorfarmadon.ActivitysPerfilItem.HorarioTienda
 import com.app.administradorfarmadon.R
 import com.google.android.material.button.MaterialButton
@@ -16,10 +19,12 @@ import java.util.Locale
 
 class AdapterHorarios(
     private var listaHorarios: MutableList<HorarioTienda> = mutableListOf(),
+    private var listaExcepciones: List<HorarioExcepcion> = emptyList(),
     private val onEditarClick: (HorarioTienda) -> Unit
 ) : RecyclerView.Adapter<AdapterHorarios.ViewHolder>() {
 
-    fun updateList(newList: List<HorarioTienda>) {
+    fun updateList(newList: List<HorarioTienda>, newExcepciones: List<HorarioExcepcion> = listaExcepciones) {
+        listaExcepciones = newExcepciones
         val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
             override fun getOldListSize(): Int = listaHorarios.size
             override fun getNewListSize(): Int = newList.size
@@ -91,67 +96,38 @@ class AdapterHorarios(
     }
 
     private fun actualizarIndicadorEstado(holder: ViewHolder, horario: HorarioTienda) {
-        val estado = obtenerEstadoHorario(horario)
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val hoyStr = sdf.format(Calendar.getInstance().time)
+        val excepcionHoy = listaExcepciones.find { it.fecha == hoyStr }
         
-        if (estado == EstadoTienda.CERRADO) {
-            holder.layoutAbiertoAhora.visibility = View.GONE
-            return
-        }
-
-        holder.layoutAbiertoAhora.visibility = View.VISIBLE
+        val estado = HorarioRules.calcularEstadoActual(horarioSemanal = horario, excepcionHoy = excepcionHoy)
         
-        when (estado) {
-            EstadoTienda.ABIERTO -> {
+        val context = holder.itemView.context
+        when (estado.tipo) {
+            EstadoTipo.ABIERTO -> {
+                holder.layoutAbiertoAhora.visibility = View.VISIBLE
                 holder.layoutAbiertoAhora.setBackgroundResource(R.drawable.bg_verde_suave_redondo)
                 holder.dotStatus.setBackgroundResource(R.drawable.circulo_verde)
-                holder.txtStatus.text = "Abierto ahora"
-                holder.txtStatus.setTextColor(holder.itemView.context.getColor(R.color.black)) // O un verde oscuro si tienes
+                holder.txtStatus.text = estado.mensaje
+                holder.txtStatus.setTextColor(context.getColor(R.color.black))
             }
-            EstadoTienda.CIERRA_PRONTO -> {
+            EstadoTipo.CIERRA_PRONTO -> {
+                holder.layoutAbiertoAhora.visibility = View.VISIBLE
                 holder.layoutAbiertoAhora.setBackgroundResource(R.drawable.bg_naranja_suave_redondo)
                 holder.dotStatus.setBackgroundResource(R.drawable.circulo_naranja)
-                holder.txtStatus.text = "Cierra pronto"
-                holder.txtStatus.setTextColor(holder.itemView.context.getColor(R.color.black))
+                holder.txtStatus.text = estado.mensaje
+                holder.txtStatus.setTextColor(context.getColor(R.color.black))
             }
-            else -> holder.layoutAbiertoAhora.visibility = View.GONE
-        }
-    }
-
-    enum class EstadoTienda { ABIERTO, CIERRA_PRONTO, CERRADO }
-
-    private fun obtenerEstadoHorario(horario: HorarioTienda): EstadoTienda {
-        if (horario.cerrado) return EstadoTienda.CERRADO
-
-        val calendar = Calendar.getInstance()
-        val localeEs = Locale("es")
-        val diaActual = calendar.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, localeEs)
-            ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(localeEs) else it.toString() } ?: ""
-        
-        if (horario.dia.lowercase() != diaActual.lowercase()) return EstadoTienda.CERRADO
-        if (horario.veinticuatroHoras) return EstadoTienda.ABIERTO
-
-        return try {
-            val sdf = SimpleDateFormat("h:mm a", Locale.US)
-            val horaActual = sdf.parse(sdf.format(calendar.time))
-            val apertura = sdf.parse(horario.horaApertura)
-            val cierre = sdf.parse(horario.horaCierre)
-
-            if (horaActual != null && apertura != null && cierre != null) {
-                val abierto = if (cierre.before(apertura)) {
-                    horaActual.after(apertura) || horaActual.before(cierre)
-                } else {
-                    horaActual.after(apertura) && horaActual.before(cierre)
-                }
-
-                if (abierto) {
-                    // Lógica para "Cierra pronto" (menos de 60 min)
-                    val diff = cierre.time - horaActual.time
-                    val diffMinutes = diff / (1000 * 60)
-                    if (diffMinutes in 1..60) EstadoTienda.CIERRA_PRONTO else EstadoTienda.ABIERTO
-                } else EstadoTienda.CERRADO
-            } else EstadoTienda.CERRADO
-        } catch (e: Exception) {
-            EstadoTienda.CERRADO
+            EstadoTipo.PROXIMA_APERTURA -> {
+                holder.layoutAbiertoAhora.visibility = View.VISIBLE
+                holder.layoutAbiertoAhora.setBackgroundResource(R.drawable.bg_chip_gris_suave)
+                holder.dotStatus.setBackgroundResource(R.drawable.bg_status_dot) // Un gris o azul suave
+                holder.txtStatus.text = estado.mensaje
+                holder.txtStatus.setTextColor(context.getColor(R.color.text_secondary_gray))
+            }
+            EstadoTipo.CERRADO -> {
+                holder.layoutAbiertoAhora.visibility = View.GONE
+            }
         }
     }
 }

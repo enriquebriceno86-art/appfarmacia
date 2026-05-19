@@ -53,10 +53,13 @@ import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Catalogo
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteConsumoResolucion
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteConsumoRules
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteIndexado
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.PresentacionProducto
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.SugerenciaPresentacion
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.toMoldeProductos
+import com.app.administradorfarmadon.ActivityInventario.reference.normalizeProductName
+import com.app.administradorfarmadon.ClasesDatabase.DbPaths
 import com.app.administradorfarmadon.ActivityInventario.domain.PresentacionRules
 import com.app.administradorfarmadon.ActivityInventario.domain.ProductoFormData
 import com.app.administradorfarmadon.ActivityInventario.domain.ProductoFormValidator
@@ -984,6 +987,19 @@ class EditarProductodelInventario : AppCompatActivity() {
             ?.takeIf { it.isNotBlank() }
             ?: ProductUtils.obtenerVencimientoGeneralVisible(productoActual).ifBlank { "No definido" }
 
+        val stockMinimoTexto = if (binding.radioPorPaquetes.isChecked) {
+            val valor = binding.editTextStockPresentacion.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val unit = PresentacionesTiendaConfigManager.nombreVisible(obtenerCanonicalPresentacionPrincipalActual())
+                .ifBlank { "caja" }
+            val suffix = if (valor == "1") unit else pluralizarTexto(unit)
+            "$valor $suffix"
+        } else {
+            val valor = binding.editTextStock.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val unit = binding.editTextUnidadBase.text?.toString()?.trim().orEmpty().ifBlank { "Unidad" }
+            val suffix = if (valor == "1") unit else pluralizarTexto(unit)
+            "$valor $suffix"
+        }
+
         return ProductSummaryComposeSnapshot(
             imageUrl = imagenUrlActual,
             imageUri = imagenUri?.toString() ?: cameraImageUri?.toString(),
@@ -993,7 +1009,7 @@ class EditarProductodelInventario : AppCompatActivity() {
             vendibleChip = "Vendible: $stockVendible",
             fisicoChip = "Físico: ${stockFisico.coerceAtLeast(0)}",
             vence = "Vence: $vencimiento",
-            stockMinimo = "Stock mín: ${inventarioState.stockMinActual}"
+            stockMinimo = "Stock mín: $stockMinimoTexto"
         )
     }
 
@@ -1670,34 +1686,53 @@ class EditarProductodelInventario : AppCompatActivity() {
             "observaciones" to submit.observaciones.trim()
         )
 
-        val productoRef = FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .child(indiceOriginal)
+        val rootRef = FirebaseDatabase.getInstance().reference
+        val totalUpdates = mutableMapOf<String, Any?>()
+        val prodActual = obtenerProductoActualSeguro()
+        
+        // 1. Datos del producto
+        totalUpdates["$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/cantidadinicial"] = stockNuevo.toString()
+        
+        // 2. Datos del lote
+        updates.forEach { (k, v) ->
+            totalUpdates["$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/lotes/$clave/$k"] = v
+            totalUpdates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave/$k"] = v
+        }
+        totalUpdates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave/loteId"] = clave
+        totalUpdates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave/lotePath"] =
+            "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave"
+
+        // 3. Índice plano de lotes (V17.46)
+        val numLote = (updates["numero"] as? String)?.trim()?.uppercase()
+        if (numLote != null && numLote.isNotBlank()) {
+            val keyLote = ProductUtils.encodeLotKey(numLote)
+            val registroLote = LoteIndexado(
+                numero = numLote,
+                productoId = indiceOriginal,
+                productoNombre = prodActual.nombre.trim(),
+                loteId = clave,
+                lotePath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave",
+                vencimiento = (updates["vencimiento"] as? String).orEmpty()
+            )
+            totalUpdates["${DbPaths.INVENTARIO_LOTES_POR_NUMERO}/$keyLote"] = registroLote
+        }
 
         mostrarCarga(true, titulo = "Guardando cambios", mensaje = "Actualizando lote...")
-        productoRef.child("cantidadinicial").setValue(stockNuevo.toString())
+        rootRef.updateChildren(totalUpdates)
             .addOnSuccessListener {
-                productoRef.child("lotes").child(clave).updateChildren(updates)
-                    .addOnSuccessListener {
-                        actualizarCamposStockDespuesDeAjuste(
-                            stockDespues = stockNuevo,
-                            fuePorPresentacion = false,
-                            unidadesPorPresentacionSeleccionada = 1
-                        )
-                        actualizarResumenTarjetasEdicion()
-                        mostrarCarga(false)
-                        Toast.makeText(this, "Lote actualizado", Toast.LENGTH_SHORT).show()
-                        onSuccess()
-                    }
-                    .addOnFailureListener {
-                        mostrarCarga(false)
-                        Toast.makeText(this, "No se pudo actualizar el lote", Toast.LENGTH_LONG).show()
-                    }
+                actualizarCamposStockDespuesDeAjuste(
+                    stockDespues = stockNuevo,
+                    fuePorPresentacion = false,
+                    unidadesPorPresentacionSeleccionada = 1
+                )
+                actualizarResumenTarjetasEdicion()
+                mostrarCarga(false)
+                Toast.makeText(this, "Lote actualizado", Toast.LENGTH_SHORT).show()
+                onSuccess()
             }
             .addOnFailureListener {
                 mostrarCarga(false)
-                Toast.makeText(this, "No se pudo sincronizar el stock del producto", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "No se pudo sincronizar el lote", Toast.LENGTH_LONG).show()
             }
         return true
     }
@@ -1745,12 +1780,20 @@ class EditarProductodelInventario : AppCompatActivity() {
             binding.editTextUnidadBase.text?.toString()?.trim().orEmpty().ifBlank { "Unidad" }
         )
         val stockActual = binding.editTextCantidad.text?.toString()?.trim().orEmpty().ifBlank { "0" }
-        val stockMinimo = if (binding.radioPorPaquetes.isChecked) {
-            binding.editTextStockPresentacion.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+        
+        val stockMinimoTexto = if (binding.radioPorPaquetes.isChecked) {
+            val valor = binding.editTextStockPresentacion.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val unit = PresentacionesTiendaConfigManager.nombreVisible(obtenerCanonicalPresentacionPrincipalActual())
+                .ifBlank { "caja" }
+            val suffix = if (valor == "1") unit else pluralizarTexto(unit)
+            "$valor $suffix"
         } else {
-            binding.editTextStock.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val valor = binding.editTextStock.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val suffix = if (valor == "1") unidadBase else pluralizarTexto(unidadBase)
+            "$valor $suffix"
         }
-        binding.tvInventarioSummary.text = "Unidad: $unidadBase\nStock: $stockActual • Mínimo: $stockMinimo"
+        
+        binding.tvInventarioSummary.text = "Unidad: $unidadBase\nStock: $stockActual • Mínimo: $stockMinimoTexto"
 
         val resumenPresentaciones = when {
             !binding.switchPresentaciones.isChecked || listaPresentaciones.isEmpty() -> "Sin presentaciones"
@@ -1762,7 +1805,7 @@ class EditarProductodelInventario : AppCompatActivity() {
         }
         binding.tvPresentacionesSummary.text = resumenPresentaciones
         binding.root.findViewById<TextView>(R.id.tvNombreProductoPresentaciones)?.text = nombre
-        binding.tvHeroStockMinimo.text = "Stock mín: $stockMinimo"
+        //binding.tvHeroStockMinimo.text = "Stock mín: $stockMinimo"
 
         val productoActual = try {
             productosEditTextGet()
@@ -4795,17 +4838,42 @@ class EditarProductodelInventario : AppCompatActivity() {
                 val clave = sanitizarClaveLote(numero)
                 val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(java.util.Date())
                 val lote = LoteProducto(numero = numero, vencimiento = vencimiento, cantidad = cantidad, fecha = hoy)
-                FirebaseDatabase.getInstance()
-                    .getReference(PATH_INVENTARIO)
-                    .child(PATH_PRODUCTOS)
-                    .child(indiceOriginal)
-                    .child("lotes")
-                    .child(clave)
-                    .setValue(lote)
+                
+                // V17.46: Actualización atómica con índice de lotes
+                val rootRef = FirebaseDatabase.getInstance().reference
+                val prodActual = obtenerProductoActualSeguro()
+                val updates = mutableMapOf<String, Any?>()
+                
+                // 1. Ruta del lote dentro del producto
+                updates["$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/lotes/$clave"] = lote
+                updates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave"] = lote
+                updates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave/loteId"] = clave
+                updates["${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave/lotePath"] =
+                    "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave"
+                
+                // 2. Índice plano de lotes
+                val numLote = numero.trim().uppercase()
+                if (numLote.isNotBlank()) {
+                    val keyLote = ProductUtils.encodeLotKey(numLote)
+                    val registroLote = LoteIndexado(
+                        numero = numLote,
+                        productoId = indiceOriginal,
+                        productoNombre = prodActual.nombre.trim(),
+                        loteId = clave,
+                        lotePath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$clave",
+                        vencimiento = vencimiento
+                    )
+                    updates["${DbPaths.INVENTARIO_LOTES_POR_NUMERO}/$keyLote"] = registroLote
+                }
+
+                mostrarCarga(true, titulo = "Guardando", mensaje = "Registrando nuevo lote...")
+                rootRef.updateChildren(updates)
                     .addOnSuccessListener {
+                        mostrarCarga(false)
                         Toast.makeText(this, "Lote agregado", Toast.LENGTH_SHORT).show()
                     }
                     .addOnFailureListener {
+                        mostrarCarga(false)
                         Toast.makeText(this, "No se pudo agregar el lote", Toast.LENGTH_SHORT).show()
                     }
             }
@@ -5949,53 +6017,76 @@ class EditarProductodelInventario : AppCompatActivity() {
         }
 
         mostrarDialogoProgresoStock("Registrando ingreso de stock...")
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .child(indiceOriginal)
-            .child("cantidadinicial")
-            .setValue(stockDespues.toString())
+        
+        // V17.46: Refactorización a operación atómica para incluir el índice de lotes
+        val rootRef = FirebaseDatabase.getInstance().reference
+        val updatesMap = mutableMapOf<String, Any?>()
+        val prodActual = obtenerProductoActualSeguro()
+        
+        // 1. Actualización de stock total
+        updatesMap["$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/cantidadinicial"] = stockDespues.toString()
+
+        // 2. Gestión de Lote
+        if (numeroLoteLimpio.isNotBlank()) {
+            val claveLote = sanitizarClaveLote(numeroLoteLimpio)
+            val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(java.util.Date())
+            val cantidadAnteriorLote = loteExistente?.cantidad ?: 0.0
+            val costoUnitarioAnterior = loteExistente?.costoCompraUnitario ?: 0.0
+            val cantidadNuevaLote = cantidadAnteriorLote + deltaUnidades.toDouble()
+            val costoPromedioLote = if (cantidadNuevaLote > 0) {
+                ((cantidadAnteriorLote * costoUnitarioAnterior) + costoIngresoTotal) / cantidadNuevaLote
+            } else {
+                costoUnitarioIngreso
+            }
+
+            val lotPath = "$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/lotes/$claveLote"
+            val separatedLotPath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$claveLote"
+            updatesMap["$lotPath/numero"] = numeroLoteLimpio
+            updatesMap["$separatedLotPath/numero"] = numeroLoteLimpio
+            updatesMap["$separatedLotPath/loteId"] = claveLote
+            updatesMap["$separatedLotPath/lotePath"] = separatedLotPath
+            
+            if (loteExistente == null) {
+                updatesMap["$lotPath/vencimiento"] = vencimientoLoteLimpio
+                updatesMap["$lotPath/fecha"] = hoy
+                updatesMap["$separatedLotPath/vencimiento"] = vencimientoLoteLimpio
+                updatesMap["$separatedLotPath/fecha"] = hoy
+                if (lotesRegistrados.isEmpty() && vencimientoLoteLimpio.isNotBlank()) {
+                    updatesMap["$PATH_INVENTARIO/$PATH_PRODUCTOS/$indiceOriginal/vencimiento"] = vencimientoLoteLimpio
+                }
+            } else if (loteExistente.vencimiento.isBlank() && vencimientoLoteLimpio.isNotBlank()) {
+                updatesMap["$lotPath/vencimiento"] = vencimientoLoteLimpio
+                updatesMap["$separatedLotPath/vencimiento"] = vencimientoLoteLimpio
+            }
+            
+            updatesMap["$lotPath/costoCompraUnitario"] = costoPromedioLote
+            updatesMap["$lotPath/costoUltimoIngreso"] = costoIngresoTotal
+            updatesMap["$lotPath/costoUltimoIngresoUnitario"] = costoUnitarioIngreso
+            updatesMap["$lotPath/cantidad"] = com.google.firebase.database.ServerValue.increment(deltaUnidades.toDouble())
+            updatesMap["$separatedLotPath/costoCompraUnitario"] = costoPromedioLote
+            updatesMap["$separatedLotPath/costoUltimoIngreso"] = costoIngresoTotal
+            updatesMap["$separatedLotPath/costoUltimoIngresoUnitario"] = costoUnitarioIngreso
+            updatesMap["$separatedLotPath/cantidad"] = com.google.firebase.database.ServerValue.increment(deltaUnidades.toDouble())
+
+            // 3. Índice plano de lotes
+            val numLoteLimpioKey = ProductUtils.encodeLotKey(numeroLoteLimpio)
+            val registroLote = LoteIndexado(
+                numero = numeroLoteLimpio.uppercase(),
+                productoId = indiceOriginal,
+                productoNombre = prodActual.nombre.trim(),
+                loteId = claveLote,
+                lotePath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/$indiceOriginal/$claveLote",
+                vencimiento = if (loteExistente != null) loteExistente.vencimiento else vencimientoLoteLimpio
+            )
+            updatesMap["${DbPaths.INVENTARIO_LOTES_POR_NUMERO}/$numLoteLimpioKey"] = registroLote
+            
+            // Nota: El movimiento de lote se guarda después del éxito de la transacción para mantener la lógica original.
+        }
+
+        rootRef.updateChildren(updatesMap)
             .addOnSuccessListener {
-                // Guardar lote si se proporcionó número de lote
                 if (numeroLoteLimpio.isNotBlank()) {
                     val claveLote = sanitizarClaveLote(numeroLoteLimpio)
-                    val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        .format(java.util.Date())
-                    val cantidadAnteriorLote = loteExistente?.cantidad ?: 0.0
-                    val costoUnitarioAnterior = loteExistente?.costoCompraUnitario ?: 0.0
-                    val cantidadNuevaLote = cantidadAnteriorLote + deltaUnidades.toDouble()
-                    val costoPromedioLote = if (cantidadNuevaLote > 0) {
-                        ((cantidadAnteriorLote * costoUnitarioAnterior) + costoIngresoTotal) / cantidadNuevaLote
-                    } else {
-                        costoUnitarioIngreso
-                    }
-                    val loteRef = FirebaseDatabase.getInstance()
-                        .getReference(PATH_INVENTARIO)
-                        .child(PATH_PRODUCTOS)
-                        .child(indiceOriginal)
-                        .child("lotes")
-                        .child(claveLote)
-                    loteRef.child("numero").setValue(numeroLoteLimpio)
-                    if (loteExistente == null) {
-                        loteRef.child("vencimiento").setValue(vencimientoLoteLimpio)
-                        loteRef.child("fecha").setValue(hoy)
-                        if (lotesRegistrados.isEmpty() && vencimientoLoteLimpio.isNotBlank()) {
-                            FirebaseDatabase.getInstance()
-                                .getReference(PATH_INVENTARIO)
-                                .child(PATH_PRODUCTOS)
-                                .child(indiceOriginal)
-                                .child("vencimiento")
-                                .setValue(vencimientoLoteLimpio)
-                        }
-                    } else if (loteExistente.vencimiento.isBlank() && vencimientoLoteLimpio.isNotBlank()) {
-                        loteRef.child("vencimiento").setValue(vencimientoLoteLimpio)
-                    }
-                    loteRef.child("costoCompraUnitario").setValue(costoPromedioLote)
-                    loteRef.child("costoUltimoIngreso").setValue(costoIngresoTotal)
-                    loteRef.child("costoUltimoIngresoUnitario").setValue(costoUnitarioIngreso)
-                    loteRef.child("cantidad").setValue(
-                        com.google.firebase.database.ServerValue.increment(deltaUnidades.toDouble())
-                    )
                     guardarMovimientoEnLote(
                         claveLote = claveLote,
                         tipo = "entrada",
@@ -7790,6 +7881,7 @@ class EditarProductodelInventario : AppCompatActivity() {
                     mostrarCarga(false)
                     return@addOnSuccessListener
                 }
+                cargarRelacionesProductoSeparadas(producto) { producto ->
                 productoOriginalParaAuditoria = producto.copiaParaAuditoria()
                 codigoOriginal = producto.codigo ?: ""
                 basePorUnidad = producto.basePorUnidad
@@ -7901,12 +7993,64 @@ class EditarProductodelInventario : AppCompatActivity() {
                 if (intent.getBooleanExtra("auto_ingreso_stock", false)) {
                     binding.root.post { mostrarDialogoIngresoStock() }
                 }
+                }
             }
             .addOnFailureListener { e ->
                 mostrarCarga(false)
                 mostrarDialogoProductoNoDisponible(
                     "No se pudo cargar el producto. ${e.message ?: "Inténtalo nuevamente."}"
                 )
+            }
+    }
+
+    private fun cargarRelacionesProductoSeparadas(
+        productoBase: MoldeProductos,
+        onLoaded: (MoldeProductos) -> Unit
+    ) {
+        val productoId = productoBase.indice.ifBlank { indiceOriginal }
+        if (productoId.isBlank()) {
+            onLoaded(productoBase)
+            return
+        }
+
+        val rootRef = FirebaseDatabase.getInstance().getReference(PATH_INVENTARIO)
+        rootRef.child("ProductoPresentaciones")
+            .child(productoId)
+            .get()
+            .addOnSuccessListener { presentacionesSnapshot ->
+                val presentacionesSeparadas = presentacionesSnapshot.children.mapNotNull { item ->
+                    item.getValue(PresentacionProducto::class.java)
+                }
+                val presentacionesFinales = if (presentacionesSeparadas.isNotEmpty()) {
+                    presentacionesSeparadas.toMutableList()
+                } else {
+                    productoBase.presentaciones
+                }
+
+                rootRef.child("ProductoLotes")
+                    .child(productoId)
+                    .get()
+                    .addOnSuccessListener { lotesSnapshot ->
+                        val lotesSeparados = lotesDesdeSnapshot(lotesSnapshot)
+                        val lotesFinales = if (lotesSeparados.isNotEmpty()) {
+                            lotesSeparados
+                        } else {
+                            productoBase.lotes
+                        }
+
+                        onLoaded(
+                            productoBase.copy(
+                                presentaciones = presentacionesFinales,
+                                lotes = lotesFinales
+                            )
+                        )
+                    }
+                    .addOnFailureListener {
+                        onLoaded(productoBase.copy(presentaciones = presentacionesFinales))
+                    }
+            }
+            .addOnFailureListener {
+                onLoaded(productoBase)
             }
     }
 
@@ -8328,7 +8472,7 @@ class EditarProductodelInventario : AppCompatActivity() {
                 }
                 binding.radioPorUnidades.text = getString(R.string.avisar_por_unidad_base)
                 binding.radioPorPaquetes.text = getString(R.string.avisar_por_presentacion_principal)
-                tilCantPaquetes?.hint = "Cantidad de cajas"
+                tilCantPaquetes?.hint = "Cant de cajas"
                 tilUnidadesPorPaquete?.hint = "${sufijo}s por caja"
                 tilStockMinPaquetes?.hint = getString(R.string.stock_minimo_presentacion_principal_hint)
                 // Eliminar presentación auto-creada (Frasco/Paquete/Caja) si existía
@@ -10011,6 +10155,8 @@ class EditarProductodelInventario : AppCompatActivity() {
         // Normalización de Stock
         val cantidadFinal: String
         val stockMinimoFinal: String
+        val stockMinimoContenedores: Int
+        val unidadStockMinimo: String
 
         if (binding.radioPorPaquetes.isChecked) {
             val contenedores = binding.editCantidadPresentacion.text.toString().toIntOrNull() ?: 0
@@ -10029,9 +10175,14 @@ class EditarProductodelInventario : AppCompatActivity() {
                 cantidadFinal = totalEnUnidadBase.toString()
                 stockMinimoFinal = totalMinEnUnidadBase.toString()
             }
+
+            stockMinimoContenedores = stockMinContenedores
+            unidadStockMinimo = PresentacionesTiendaConfigManager.nombreVisible(presentacionPrincipal)
         } else {
             cantidadFinal = binding.editTextCantidad.text.toString().trim()
             stockMinimoFinal = binding.editTextStock.text.toString().trim()
+            stockMinimoContenedores = 0
+            unidadStockMinimo = unidadBase
         }
 
         return MoldeProductos().apply {
@@ -10042,6 +10193,8 @@ class EditarProductodelInventario : AppCompatActivity() {
             this.preciodecompra = binding.editTextCompra.text.toString().trim().replace(",", ".")
             this.cantidadinicial = cantidadFinal
             this.stockminimo = stockMinimoFinal
+            this.stockMinimoContenedores = stockMinimoContenedores
+            this.unidadStockMinimo = unidadStockMinimo
             this.unidadbase = unidadBaseOriginalInmutable.ifBlank { unidadBase }
             this.tipoBaseInventario = PresentacionRules.normalizarTipoBaseInventario(
                 tipoBaseInventarioOriginal,

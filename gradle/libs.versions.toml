@@ -1,5 +1,5 @@
 [versions]
-agp = "9.1.0"
+agp = "9.2.1"
 kotlin = "2.3.10"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -16,6 +16,10 @@ googleGmsGoogleServices = "4.4.4"
 material3 = "1.4.0"
 # Esta es la pieza clave: el BoM controla todas las versiones de Firebase
 firebaseBom = "33.10.0"
+animation = "1.11.1"
+barcodeScanning = "17.3.0"
+textRecognition = "16.0.1"
+camerax = "1.5.0-alpha06"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +39,12 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-database = { group = "com.google.firebase", name = "firebase-database" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+androidx-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
+barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "barcodeScanning" }
+text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "textRecognition" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

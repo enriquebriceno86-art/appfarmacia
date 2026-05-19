@@ -282,8 +282,9 @@ class MainActivity : AppCompatActivity() {
             )
             // Antes de abrir la app, verificamos si hay una sesión activa en otro dispositivo
             guardarUsuarioRecordado(user.usuario)
-            SesionUnicaManager.obtenerSesionActivaUnaVez(user.id) { info ->
+            SesionUnicaManager.obtenerSesionActivaUnaVez(user.id) { lectura ->
                 mostrarProgreso(false)
+                val info = (lectura as? SesionUnicaManager.LecturaSesionResultado.ConSesion)?.info
                 if (info != null && !SesionUnicaManager.sesionEstaExpirada(info)) {
                     // Hay una sesión activa — avisar antes de patearla
                     val dispositivo = info.dispositivo.ifBlank { "otro dispositivo" }
@@ -301,7 +302,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         .show()
                 } else {
-                    // Sin sesión activa — entramos directo
+                    // Sin sesión activa o error (en caso de error, el flujo de asegurarSesionYEntrar manejará la validación estricta)
                     asegurarSesionYEntrar(user)
                 }
             }
@@ -328,14 +329,19 @@ class MainActivity : AppCompatActivity() {
             idUsuario = user.id,
             nombreUsuario = user.usuario,
             rolUsuario = user.rol
-        ) { exito ->
+        ) { resultado ->
             if (isFinishing || isDestroyed) return@reclamarSesionActiva
             mostrarProgreso(false)
-            if (!exito) {
-                mostrarDialogo(
-                    "No se pudo asegurar la sesion",
-                    "Intenta nuevamente. La app solo puede continuar cuando este dispositivo confirma la sesion activa."
-                )
+            
+            if (resultado !is SesionUnicaManager.ResultadoValidacionSesion.VALIDA) {
+                val mensaje = when (resultado) {
+                    is SesionUnicaManager.ResultadoValidacionSesion.REEMPLAZADA -> 
+                        "Esta cuenta ya tiene una sesion activa en otro dispositivo."
+                    SesionUnicaManager.ResultadoValidacionSesion.SIN_CONEXION,
+                    SesionUnicaManager.ResultadoValidacionSesion.ERROR_TEMPORAL ->
+                        "No se pudo conectar con el servidor para validar la sesion. Verifica tu conexion."
+                }
+                mostrarDialogo("Atención", mensaje)
                 return@reclamarSesionActiva
             }
 
@@ -572,12 +578,20 @@ class MainActivity : AppCompatActivity() {
                     idUsuario = idUsuario,
                     nombreUsuario = nombreUsuario,
                     rolUsuario = rolUsuario
-                ) { exito ->
+                ) { resultado ->
                     if (isFinishing || isDestroyed) return@validarORecuperarSesionLocalUnaVez
-                    if (exito) {
-                        abrirAppConSesionValidada()
-                    } else {
-                        resolverAutoIngresoInvalido()
+                    when (resultado) {
+                        is SesionUnicaManager.ResultadoValidacionSesion.VALIDA -> {
+                            abrirAppConSesionValidada()
+                        }
+                        is SesionUnicaManager.ResultadoValidacionSesion.REEMPLAZADA -> {
+                            resolverAutoIngresoInvalido()
+                        }
+                        else -> {
+                            // Error temporal o sin conexión: permitimos entrar si ya teníamos sesión local
+                            // ya que ActivityFragmentos manejará la reconexión y validación estricta.
+                            abrirAppConSesionValidada()
+                        }
                     }
                 }
             }

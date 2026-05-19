@@ -463,13 +463,6 @@
                         android:inputType="textCapWords" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchQrBilleteraOpcional"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/inter_regular"
-                    android:text="Agregar imagen QR"
-                    android:layout_marginBottom="12dp" />
 
                 <LinearLayout
                     android:id="@+id/layoutQrBilletera"

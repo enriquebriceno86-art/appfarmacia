@@ -116,8 +116,8 @@ object LoteConsumoRules {
             .filter { ProductUtils.esLoteValidoParaConsumo(it.second) }
             .sortedWith(
                 compareBy<Pair<String, LoteProducto>>(
-                    { ProductUtils.diasHastaVencerLote(normalizarVencimiento(it.second.vencimiento)) ?: Int.MAX_VALUE },
-                    { normalizarVencimiento(it.second.vencimiento).ifBlank { "9999-99-99" } },
+                    { ProductUtils.diasHastaVencerLote(ProductUtils.normalizarVencimiento(it.second.vencimiento)) ?: Int.MAX_VALUE },
+                    { ProductUtils.normalizarVencimiento(it.second.vencimiento).ifBlank { "9999-99-99" } },
                     { it.second.fecha.trim().ifBlank { "9999-99-99" } },
                     { it.second.numero.trim().ifBlank { it.first } }
                 )
@@ -133,10 +133,6 @@ object LoteConsumoRules {
             clave.equals(loteNormalizado, ignoreCase = true) ||
                 lote.numero.trim().equals(loteNormalizado, ignoreCase = true)
         }
-    }
-
-    private fun normalizarVencimiento(vencimiento: String): String {
-        return vencimiento.trim().replace("_", "/")
     }
 
     private fun construirTramosConsumo(

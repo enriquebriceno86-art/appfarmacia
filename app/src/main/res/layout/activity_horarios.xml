@@ -25,97 +25,313 @@
             app:titleTextColor="@color/text_primary_pure" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="32dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- 🔴 ESTADO VACÍO -->
-        <LinearLayout
-            android:id="@+id/layoutSinHorarios"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="32dp"
-            android:layout_marginTop="64dp"
-            app:layout_constraintTop_toTopOf="parent">
+            android:layout_height="wrap_content">
 
+            <!-- 🔴 ESTADO VACÍO (Mismo que antes) -->
+            <LinearLayout
+                android:id="@+id/layoutSinHorarios"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="32dp"
+                android:layout_marginTop="32dp"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    app:cardBackgroundColor="@color/surface_white"
+                    app:cardCornerRadius="40dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/border_subtle"
+                    app:strokeWidth="1dp">
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/horariostiendaicon"
+                        app:tint="@color/text_secondary_blue" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Sin horarios configurados"
+                    android:textColor="@color/text_primary_pure"
+                    android:textSize="18sp"
+                    android:fontFamily="@font/inter_medium" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCrearHorario"
+                    android:layout_width="wrap_content"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="24dp"
+                    android:paddingHorizontal="32dp"
+                    android:text="Configurar ahora"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    app:backgroundTint="@color/text_primary_pure"
+                    app:cornerRadius="26dp" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    app:chipSpacingHorizontal="8dp">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipEmptyTemplateLaborales"
+                        style="@style/Widget.Material3.Chip.Assist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lunes a Viernes" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipEmptyTemplate24h"
+                        style="@style/Widget.Material3.Chip.Assist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="24 horas" />
+                </com.google.android.material.chip.ChipGroup>
+            </LinearLayout>
+
+            <!-- 🟢 1. RESUMEN SEMANAL (Sólo métricas) -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="96dp"
-                android:layout_height="96dp"
-                app:cardBackgroundColor="@color/surface_white"
-                app:cardCornerRadius="48dp"
+                android:id="@+id/cardResumenSemanal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
+                app:layout_constraintTop_toTopOf="parent"
                 app:strokeColor="@color/border_subtle"
                 app:strokeWidth="1dp">
 
-                <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/horariostiendaicon"
-                    app:tint="@color/text_secondary_blue" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Resumen Semanal"
+                            android:textColor="@color/text_primary_pure"
+                            android:textSize="14sp"
+                            android:fontFamily="@font/inter_bold" />
+                        <TextView
+                            android:id="@+id/txtDiasConfigurados"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0/7 días"
+                            android:textColor="@color/text_secondary_blue"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:id="@+id/txtCerrados24h"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 cerrados · 0 24h"
+                                android:textColor="@color/text_primary_pure"
+                                android:textSize="13sp"
+                                android:fontFamily="@font/inter_medium" />
+                            <TextView
+                                android:id="@+id/txtRangoHoras"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="--:-- a --:--"
+                                android:textColor="@color/text_secondary_gray"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Sin horarios configurados"
-                android:textColor="@color/text_primary_pure"
-                android:textSize="20sp"
-                android:fontFamily="@font/inter_medium" />
-
-            <TextView
+            <!-- ⚡ 2. PLANTILLAS RÁPIDAS (Sección aparte) -->
+            <LinearLayout
+                android:id="@+id/layoutPlantillasContenedor"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:text="Define los días y horas en los que tu tienda estará abierta al público."
-                android:textColor="@color/text_secondary_blue"
-                android:textSize="14sp" />
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/cardResumenSemanal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCrearHorario"
-                android:layout_width="wrap_content"
-                android:layout_height="56dp"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Configuración Rápida"
+                    android:textColor="@color/text_secondary_gray"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/inter_bold" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:scrollbars="none">
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupTemplates"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleLine="true"
+                        app:chipSpacingHorizontal="8dp">
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipTemplateLaborales"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Lun a Vie" />
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipTemplateFull"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Todos los días" />
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipTemplate24h"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Farmacia 24h" />
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipTemplateCerrarDomingo"
+                            style="@style/Widget.Material3.Chip.Assist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cerrar Domingo" />
+                    </com.google.android.material.chip.ChipGroup>
+                </HorizontalScrollView>
+            </LinearLayout>
+
+            <!-- 🟢 3. LISTA DE HORARIOS (Tarea Principal) -->
+            <LinearLayout
+                android:id="@+id/layoutRecyclerHorariosContenedor"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/layoutPlantillasContenedor">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="20dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Horarios de Atención"
+                        android:textColor="@color/text_primary_pure"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_bold" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAgregarHorarioInline"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Agregar"
+                        app:icon="@drawable/baseline_add_24" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerHorarios"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    android:paddingTop="4dp" />
+            </LinearLayout>
+
+            <!-- 🟠 4. SECCIÓN EXCEPCIONES -->
+            <LinearLayout
+                android:id="@+id/layoutExcepciones"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:layout_marginTop="24dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/layoutRecyclerHorariosContenedor">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Excepciones y Feriados"
+                        android:textColor="@color/text_primary_pure"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_bold" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAgregarExcepcion"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Agregar"
+                        app:icon="@drawable/baseline_add_24" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerExcepciones"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false" />
+            </LinearLayout>
+
+            <!-- 🤖 5. SECCIÓN IA (Al final o colapsada) -->
+            <LinearLayout
+                android:id="@+id/layoutAiContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
                 android:layout_marginTop="32dp"
-                android:paddingHorizontal="32dp"
-                android:text="Configurar ahora"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:fontFamily="@font/inter_medium"
-                app:backgroundTint="@color/text_primary_pure"
-                app:cornerRadius="28dp" />
-        </LinearLayout>
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/layoutExcepciones"
+                app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- 🟢 LISTA DE HORARIOS -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerHorarios"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"
-            android:clipToPadding="false"
-            android:paddingHorizontal="20dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="100dp" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- BOTÓN FLOTANTE -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fabAgregarHorario"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:text="Agregar"
-        android:textColor="@color/white"
-        android:fontFamily="@font/inter_medium"
-        app:icon="@drawable/baseline_add_24"
-        app:iconTint="@color/white"
-        android:visibility="gone"
-        app:backgroundTint="@color/text_primary_pure" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -273,16 +273,20 @@ class ActivityFragmentos : AppCompatActivity() {
             val bottomScrim = binding.systemBarBottomScrim
             val bottomNavVisible = bottomNav != null && !esTablet && !imeVisible
 
-            // Bottom inset = max(barra de navegacion, teclado). Si el teclado esta abierto,
-            // su altura es mayor; le damos ese padding al root para que el form se "suba"
-            // y el campo enfocado quede visible sobre el teclado.
-            val bottomInset = if (imeVisible) ime.bottom else sb.bottom
+            // Bottom inset (V4.4): Solo respetamos la barra de navegación del sistema.
+            // No agregamos el padding del teclado (IME) al root para evitar que el layout 
+            // se "squeeziée" o empuje el bottom navigation hacia arriba. 
+            // El sistema (con adjustPan) se encargará de desplazar la vista si es necesario.
+            val bottomInset = sb.bottom
 
             v.setPadding(sb.left, sb.top, sb.right, if (bottomNavVisible) 0 else bottomInset)
 
             if (bottomNav != null) {
+                // El padding interno del BottomNav solo debe ser el de la barra de sistema
                 bottomNav.updatePadding(bottom = if (bottomNavVisible) sb.bottom else 0)
                 if (!esTablet) {
+                    // Ocultamos el BottomNav si el teclado está visible para que no estorbe
+                    // aunque adjustPan lo mantendría abajo, es más limpio ocultarlo.
                     bottomNav.visibility = if (imeVisible || navegacionManualOculta) View.GONE else View.VISIBLE
                 }
             }
@@ -754,15 +758,16 @@ class ActivityFragmentos : AppCompatActivity() {
         if (_binding == null) return
         val sinConexionCalculada = !hayInternetDisponible() || firebaseOffline
         val huboCambioConexion = sinConexion != sinConexionCalculada
+        val puedeEmitirFeedbackConexion = estaAppEnPrimerPlano
         
         // DETECCION DE RECUPERACION: Si antes no habia y ahora si
-        if (huboCambioConexion && !sinConexionCalculada && sinConexion) {
+        if (huboCambioConexion && !sinConexionCalculada && sinConexion && puedeEmitirFeedbackConexion) {
             feedbackVm.notificarInternetRecuperado(null)
         }
 
         sinConexion = sinConexionCalculada
 
-        if (sinConexionCalculada && huboCambioConexion) {
+        if (sinConexionCalculada && huboCambioConexion && puedeEmitirFeedbackConexion) {
             feedbackVm.notificarFalloInternet(null)
         }
 
@@ -810,21 +815,31 @@ class ActivityFragmentos : AppCompatActivity() {
             return
         }
 
-        val completarSesionUnica: (Boolean) -> Unit = fun(exito: Boolean) {
+        val completarSesionUnica: (SesionUnicaManager.ResultadoValidacionSesion) -> Unit = fun(resultado: SesionUnicaManager.ResultadoValidacionSesion) {
             if (intentoActual != intentoSesionUnica) return
             sesionUnicaEnProceso = false
-            if (!exito) {
-                if (sinConexion) return
-                mostrarDialogoValidacionSesionFallida()
-                return
+            
+            when (resultado) {
+                is SesionUnicaManager.ResultadoValidacionSesion.VALIDA -> {
+                    if (sesionUnicaInicializada || cierreSesionForzadaMostrado) return
+                    sesionUnicaInicializada = true
+                    escucharSesionActivaEstrica(idUsuario)
+                    SesionUnicaManager.iniciarHeartbeat(
+                        context = this,
+                        idUsuario = idUsuario
+                    )
+                }
+                is SesionUnicaManager.ResultadoValidacionSesion.REEMPLAZADA -> {
+                    if (sinConexion) return
+                    mostrarDialogoSesionReemplazada(resultado.info)
+                }
+                SesionUnicaManager.ResultadoValidacionSesion.ERROR_TEMPORAL,
+                SesionUnicaManager.ResultadoValidacionSesion.SIN_CONEXION -> {
+                    // No expulsamos por errores de red. Solo marcamos que no está inicializada
+                    // para que el ciclo de reconexión lo intente de nuevo.
+                    sesionUnicaInicializada = false
+                }
             }
-            if (sesionUnicaInicializada || cierreSesionForzadaMostrado) return
-            sesionUnicaInicializada = true
-            escucharSesionActivaEstrica(idUsuario)
-            SesionUnicaManager.iniciarHeartbeat(
-                context = this,
-                idUsuario = idUsuario
-            )
         }
 
         val sessionLocal = SesionUnicaManager.obtenerSessionIdLocal(this)
@@ -889,14 +904,17 @@ class ActivityFragmentos : AppCompatActivity() {
         sesionActivaValueListener = pair?.second
     }
 
-    private fun mostrarDialogoSesionReemplazada(info: SesionUnicaManager.SesionRemotaInfo) {
+    private fun mostrarDialogoSesionReemplazada(info: SesionUnicaManager.SesionRemotaInfo?) {
         if (cierreSesionForzadaMostrado || isFinishing || isDestroyed) return
         cierreSesionForzadaMostrado = true
 
-        val usuario = info.usuario.ifBlank { SessionManager.nombreCajera.ifBlank { "No disponible" } }
-        val dispositivo = info.dispositivo.ifBlank { "Dispositivo no identificado" }
-        val horaIngreso = SesionUnicaManager.formatearHoraIngreso(info)
-        registrarMovimientoSesionReemplazada(info, horaIngreso)
+        val usuario = info?.usuario?.ifBlank { SessionManager.nombreCajera.ifBlank { "No disponible" } } ?: SessionManager.nombreCajera
+        val dispositivo = info?.dispositivo?.ifBlank { "Dispositivo no identificado" } ?: "Otro dispositivo"
+        val horaIngreso = info?.let { SesionUnicaManager.formatearHoraIngreso(it) } ?: "No disponible"
+        
+        if (info != null) {
+            registrarMovimientoSesionReemplazada(info, horaIngreso)
+        }
 
         val mensaje = buildString {
             appendLine("Tu cuenta fue abierta en otro dispositivo y esta sesión se cerrará por seguridad.")
@@ -949,23 +967,6 @@ class ActivityFragmentos : AppCompatActivity() {
                 "sessionIdRemota" to sessionRemota
             )
         )
-    }
-
-    private fun mostrarDialogoValidacionSesionFallida() {
-        if (cierreSesionForzadaMostrado || isFinishing || isDestroyed) return
-        cierreSesionForzadaMostrado = true
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("No se pudo validar la sesión")
-            .setMessage(
-                "Se requiere conexión para validar sesión única por cuenta. " +
-                    "Por seguridad volverás al login."
-            )
-            .setCancelable(false)
-            .setPositiveButton("Entendido") { _, _ ->
-                cerrarSesionLocalYIrLogin()
-            }
-            .show()
     }
 
     private fun detenerEscuchaSesionActiva() {
@@ -1194,14 +1195,36 @@ class ActivityFragmentos : AppCompatActivity() {
     }
 
     private fun reanudarSesionUnicaSiCorresponde() {
-        val sessionLocal = SesionUnicaManager.obtenerSessionIdLocal(this)
+        val sessionLocal = SesionUnicaManager.obtenerSessionIdLocal(this).trim()
         val idUsuario = SessionManager.idCajera.trim()
-        if (sessionLocal.isNotBlank() && idUsuario.isNotBlank()) {
-            // Ya existe una sesion guardada localmente; no generamos una nueva.
-            // Solo retomamos listener y heartbeat sin pisar el session ID remoto.
-            sesionUnicaInicializada = true
-            escucharSesionActivaEstrica(idUsuario)
-            SesionUnicaManager.iniciarHeartbeat(context = this, idUsuario = idUsuario)
+        
+        if (idUsuario.isBlank()) return
+
+        if (sessionLocal.isNotBlank()) {
+            // Ya existe una sesion guardada localmente.
+            // Validamos una vez antes de re-enganchar para asegurar que no nos reemplazaron offline.
+            SesionUnicaManager.validarORecuperarSesionLocalUnaVez(
+                context = this,
+                idUsuario = idUsuario,
+                nombreUsuario = SessionManager.nombreCajera,
+                rolUsuario = SessionManager.rol,
+                onComplete = { resultado ->
+                    when (resultado) {
+                        is SesionUnicaManager.ResultadoValidacionSesion.VALIDA -> {
+                            sesionUnicaInicializada = true
+                            escucharSesionActivaEstrica(idUsuario)
+                            SesionUnicaManager.iniciarHeartbeat(context = this, idUsuario = idUsuario)
+                        }
+                        is SesionUnicaManager.ResultadoValidacionSesion.REEMPLAZADA -> {
+                            // Alguien entró mientras estábamos offline.
+                            mostrarDialogoSesionReemplazada(resultado.info)
+                        }
+                        else -> {
+                            // Error temporal, no hacemos nada, esperaremos al próximo intento/reconexión.
+                        }
+                    }
+                }
+            )
         } else {
             // No hay sesion local disponible, asi que reclamamos una nueva.
             activarSesionUnicaEstrica()
@@ -1378,8 +1401,14 @@ class ActivityFragmentos : AppCompatActivity() {
         if (!snapshot.exists()) return
         val monedaCodigo = snapshot.child("monedaCodigo").getValue(String::class.java).orEmpty().trim()
         val monedaSimbolo = snapshot.child("monedaSimbolo").getValue(String::class.java).orEmpty().trim()
+        val pais = snapshot.child("pais").getValue(String::class.java).orEmpty().trim()
         if (monedaCodigo.isBlank() || monedaSimbolo.isBlank()) return
-        SessionManager.guardarMonedaConfigurada(this, monedaCodigo, monedaSimbolo)
+
+        if (pais.isNotBlank()) {
+            SessionManager.guardarMonedaConfigurada(this, monedaCodigo, monedaSimbolo, pais)
+        } else {
+            SessionManager.guardarMonedaConfigurada(this, monedaCodigo, monedaSimbolo)
+        }
     }
 
     fun setBottomNavigationVisible(visible: Boolean) {

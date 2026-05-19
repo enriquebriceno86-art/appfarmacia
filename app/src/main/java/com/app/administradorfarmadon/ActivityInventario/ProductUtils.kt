@@ -1,8 +1,10 @@
 package com.app.administradorfarmadon.ActivityInventario
 
+import android.util.Base64
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.ClasesDatabase.MonedaHelper
+import com.app.administradorfarmadon.ClasesDatabase.PresentacionHelper
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.YearMonth
@@ -38,8 +40,52 @@ object ProductUtils {
         val mapaIndicesOriginales: IntArray
     )
 
+    /**
+     * Intenta normalizar formatos MM/AA, MM/YYYY, DD/MM/AA, DD/MM/YYYY a MM/AA.
+     * Si no puede normalizarlo, devuelve una cadena vacía para indicar fallo de formato.
+     */
     fun normalizarVencimiento(vencimiento: String): String {
-        return vencimiento.trim().replace("_", "/")
+        val raw = vencimiento.trim().replace("_", "/")
+        if (raw.isBlank()) return ""
+        
+        val clean = raw.replace("/", "").replace("-", "").filter { it.isDigit() }
+        if (clean.length < 4) return ""
+        
+        return when (clean.length) {
+            4 -> { // MMAA (0126) -> 01/26
+                val mm = clean.substring(0, 2)
+                val aa = clean.substring(2, 4)
+                if (mm.toInt() in 1..12) "$mm/$aa" else ""
+            }
+            6 -> { // DDMMYY -> MM/YY o MMYYYY -> MM/YY
+                val last4 = clean.substring(2, 6).toIntOrNull() ?: 0
+                if (last4 > 2020) { // MMYYYY
+                    val mm = clean.substring(0, 2)
+                    val yy = clean.substring(4, 6)
+                    if (mm.toInt() in 1..12) "$mm/$yy" else ""
+                } else { // DDMMYY
+                    val mm = clean.substring(2, 4)
+                    val yy = clean.substring(4, 6)
+                    if (mm.toInt() in 1..12) "$mm/$yy" else ""
+                }
+            }
+            8 -> { // DDMMYYYY
+                val mm = clean.substring(2, 4)
+                val yy = clean.substring(6, 8)
+                if (mm.toInt() in 1..12) "$mm/$yy" else ""
+            }
+            else -> ""
+        }
+    }
+
+    /**
+     * V17.49: Codifica un número de lote de forma reversible y segura para Firebase Keys.
+     * Usa Base64 URL-Safe sin padding para evitar colisiones y caracteres prohibidos (#, ., $, etc).
+     */
+    fun encodeLotKey(lotNumber: String): String {
+        val clean = lotNumber.trim().uppercase()
+        if (clean.isBlank()) return "EMPTY_LOT"
+        return Base64.encodeToString(clean.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
     fun estaLoteBloqueadoParaVenta(lote: LoteProducto): Boolean {
@@ -290,6 +336,35 @@ object ProductUtils {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Normalización exacta que usa CrearProducto para el campo 'normalizedName'.
+     * Mantiene compatibilidad con el contrato de datos del sistema.
+     */
+    fun normalizarNombreContrato(name: String): String {
+        return name
+            .trim()
+            .lowercase(Locale.getDefault())
+            .replace(Regex("\\s+"), " ")
+    }
+
+    /**
+     * Generación de clave exacta que usa CrearProducto para el nodo NombresProductos.
+     */
+    fun generarKeyNombreContrato(normalized: String): String {
+        val sinAcentos = Normalizer
+            .normalize(normalized, Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+
+        return sinAcentos
+            .trim()
+            .lowercase(Locale.ROOT)
+            .replace(Regex("[^a-z0-9_-]"), "_")
+            .replace(Regex("_+"), "_")
+            .trim('_', '-')
+            .ifBlank { "ref_${System.currentTimeMillis()}" }
+            .take(120)
     }
 
     /**
@@ -598,5 +673,103 @@ object ProductUtils {
         }
 
         return 0
+    }
+
+    fun formatearStockVisible(producto: MoldeProductos): String {
+        val info = obtenerInfoStockEstructurada(producto)
+        return if (info.detalle.isNotBlank()) {
+            "${info.principal} de ${info.detalle}"
+        } else {
+            info.principal
+        }
+    }
+
+    data class InfoStockEstructurada(
+        val principal: String,
+        val detalle: String
+    )
+
+    fun obtenerInfoStockEstructurada(producto: MoldeProductos): InfoStockEstructurada {
+        val stockTotal = producto.cantidadinicial.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val unidadBase = producto.unidadbase.trim().ifBlank { "unidades" }
+        val equivalenciaPrincipal = obtenerEquivalenciaPresentacionPrincipal(producto)
+        val nombrePresentacion = producto.presentacionprincipal.trim()
+
+        // Caso base: unidad simple o sin equivalencia util para representar el stock por contenedores
+        if (
+            equivalenciaPrincipal <= 1 ||
+            nombrePresentacion.isBlank() ||
+            !esUnidadContable(unidadBase)
+        ) {
+            return InfoStockEstructurada(
+                principal = "$stockTotal ${formatearUnidadCantidad(unidadBase, stockTotal)}",
+                detalle = ""
+            )
+        }
+
+        val presentacionesCompletas = stockTotal / equivalenciaPrincipal
+        val unidadesSueltas = stockTotal % equivalenciaPrincipal
+
+        if (presentacionesCompletas <= 0 && stockTotal > 0) {
+            return InfoStockEstructurada(
+                principal = "$stockTotal ${formatearUnidadCantidad(unidadBase, stockTotal)}",
+                detalle = ""
+            )
+        }
+
+        val nombrePresentacionUi = nombrePresentacion.lowercase(Locale.getDefault())
+        val principal = formatearCantidadTexto(
+            cantidad = presentacionesCompletas,
+            singular = nombrePresentacionUi,
+            plural = pluralizarTexto(nombrePresentacionUi)
+        )
+
+        val detalle = if (unidadesSueltas > 0) {
+            "$unidadesSueltas ${formatearUnidadCantidad(unidadBase, unidadesSueltas)}"
+        } else {
+            ""
+        }
+
+        return InfoStockEstructurada(principal, detalle)
+    }
+
+    private fun obtenerEquivalenciaPresentacionPrincipal(producto: MoldeProductos): Int {
+        val principal = producto.presentacionprincipal.trim()
+        if (principal.isBlank()) return producto.unidadesPorPresentacionCompra.coerceAtLeast(0)
+
+        val presentacionPrincipal = producto.presentaciones.firstOrNull { presentacion ->
+            PresentacionHelper.sonNombresEquivalentes(presentacion.nombre, principal)
+        }
+
+        return presentacionPrincipal?.cantidad?.takeIf { it > 0 }
+            ?: producto.unidadesPorPresentacionCompra.coerceAtLeast(0)
+    }
+
+    private fun esUnidadContable(unidadBase: String): Boolean {
+        return when (unidadBase.trim().lowercase(Locale.getDefault())) {
+            "", "unidad", "unidades", "und", "uds" -> true
+            else -> false
+        }
+    }
+
+    private fun formatearUnidadCantidad(unidadBase: String, cantidad: Int): String {
+        return when (unidadBase.trim().lowercase(Locale.getDefault())) {
+            "", "unidad", "unidades", "und", "uds" -> if (cantidad == 1) "unidad" else "unidades"
+            else -> unidadBase
+        }
+    }
+
+    private fun formatearCantidadTexto(cantidad: Int, singular: String, plural: String): String {
+        return if (cantidad == 1) "$cantidad $singular" else "$cantidad $plural"
+    }
+
+    private fun pluralizarTexto(texto: String): String {
+        val limpio = texto.trim()
+        if (limpio.isBlank()) return ""
+        return when {
+            limpio.endsWith("s", ignoreCase = true) -> limpio
+            limpio.endsWith("z", ignoreCase = true) -> limpio.dropLast(1) + "ces"
+            else -> "${limpio}s"
+        }
     }
 }

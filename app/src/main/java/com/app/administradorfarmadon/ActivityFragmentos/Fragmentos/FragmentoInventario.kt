@@ -34,7 +34,7 @@ import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.AdapterI
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.AdapterProductosInventariosRecycler
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.toMoldeProductos
-import com.app.administradorfarmadon.ActivityInventario.domain.SmartSearchEngine
+import com.app.administradorfarmadon.ActivityInventario.bulk.BulkImportActivity
 import com.app.administradorfarmadon.ActivitysInicio.AlertasActivity
 import com.app.administradorfarmadon.databinding.DialogAlertasVencimientoBinding
 import com.app.administradorfarmadon.databinding.ItemAlertaLoteBinding
@@ -58,6 +58,12 @@ import android.app.DatePickerDialog
 import com.google.android.material.datepicker.CalendarConstraints
 import com.google.android.material.datepicker.DateValidatorPointBackward
 import com.google.android.material.datepicker.MaterialDatePicker
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -84,8 +90,6 @@ class FragmentoInventario : Fragment() {
 
     private val listaProductos = mutableListOf<MoldeProductos>()
     private val listaCategorias = mutableListOf<String>()
-    private val smartSearchEngine = SmartSearchEngine()
-
     private lateinit var adapter: AdapterProductosInventariosRecycler
     private var adapterAlertas: AdapterInventarioAlertasHorizontal? = null
     private lateinit var movimientosAdapter: AdapterMovimientosInventario
@@ -191,6 +195,10 @@ class FragmentoInventario : Fragment() {
 
         binding.root.findViewById<View>(R.id.btnMovimientosInventario)?.setOnClickListener {
             startActivity(Intent(requireContext(), HistorialMovimientosInventarioActivity::class.java))
+        }
+
+        binding.root.findViewById<View>(R.id.btnImportarMasivo)?.setOnClickListener {
+            startActivity(Intent(requireContext(), BulkImportActivity::class.java))
         }
 
         binding.cardAlertaLotesVencer.setOnClickListener {
@@ -456,6 +464,9 @@ class FragmentoInventario : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@FragmentoInventario.adapter
         }
+
+        // Mejorar el hint del buscador para indicar la búsqueda clínica (V4.1)
+        binding.editBuscarProducto.hint = "Buscar nombre, categoría o síntoma (ej. fiebre)..."
 
         // Carrusel horizontal de productos en alerta — solo en móvil
         if (!esTablet) {
@@ -1108,16 +1119,36 @@ class FragmentoInventario : Fragment() {
     }
 
     private fun iniciarLecturaProductos() {
+        // V16.15: Buscador Remoto - Solo cargamos los primeros 40 por defecto
+        val queryInicial = FirebaseDatabase.getInstance()
+            .getReference("Inventario")
+            .child("Productos")
+            .orderByChild("nombre")
+            .limitToFirst(40)
+
         productosRef = FirebaseDatabase.getInstance().getReference("Inventario").child("Productos")
         productosListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (!isAdded) return
-                listaProductos.clear()
-                for (child in snapshot.children) {
-                    child.toMoldeProductos()?.let { listaProductos.add(it) }
+                
+                lifecycleScope.launch(Dispatchers.Default) {
+                    val tempProductos = mutableListOf<MoldeProductos>()
+                    for (child in snapshot.children) {
+                        child.toMoldeProductos()?.let { tempProductos.add(it) }
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        listaProductos.clear()
+                        listaProductos.addAll(tempProductos)
+                        // Ejecutamos aplicarFiltro sin query para aplicar los chips/categorias iniciales
+                        mostrarResultadosRemotos()
+                        marcarProductosInicialesListos()
+                        
+                        if (movimientosListener == null) {
+                            iniciarLecturaMovimientos()
+                        }
+                    }
                 }
-                aplicarEstadoInventarioCargado()
-                marcarProductosInicialesListos()
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -1125,13 +1156,121 @@ class FragmentoInventario : Fragment() {
                 marcarProductosInicialesListos()
             }
         }
-        productosRef?.addValueEventListener(productosListener!!)
+        // Usamos addListenerForSingleValueEvent para la carga inicial
+        queryInicial.addListenerForSingleValueEvent(productosListener as ValueEventListener)
     }
 
-    private fun aplicarEstadoInventarioCargado() {
-        aplicarFiltro(binding.editBuscarProducto.text.toString())
-        mostrarAlertaInventario(listaProductos)
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    private fun aplicarFiltro(textoBusqueda: String = "") {
+        if (_binding == null) return
+        val query = textoBusqueda.trim()
+        
+        // V16.15: Lógica de Búsqueda Remota por Peticion
+        searchJob?.cancel()
+        searchJob = lifecycleScope.launch {
+            if (query.length < 2) {
+                if (query.isEmpty()) {
+                    iniciarLecturaProductos()
+                }
+                return@launch
+            }
+            
+            delay(500) // Debounce
+            
+            val remoteQuery = FirebaseDatabase.getInstance()
+                .getReference("Inventario")
+                .child("Productos")
+                .orderByChild("nombre")
+                .startAt(query)
+                .endAt(query + "\uf8ff")
+                .limitToFirst(50)
+
+            remoteQuery.get().addOnSuccessListener { snapshot ->
+                lifecycleScope.launch(Dispatchers.Default) {
+                    val resultados = mutableListOf<MoldeProductos>()
+                    for (child in snapshot.children) {
+                        child.toMoldeProductos()?.let { resultados.add(it) }
+                    }
+                    withContext(Dispatchers.Main) {
+                        listaProductos.clear()
+                        listaProductos.addAll(resultados)
+                        mostrarResultadosRemotos(query)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun mostrarResultadosRemotos(query: String = "") {
+        if (_binding == null) return
+        
+        // Aplicamos los filtros secundarios (Categoría, Estado Chips) sobre los resultados en listaProductos
+        val filtradosFinales = listaProductos.filter { producto ->
+            
+            val coincideChip = when (filtroActual) {
+                "BAJO_STOCK" -> {
+                    (producto.cantidadinicial.toIntOrNull() ?: 0) <=
+                        (producto.stockminimo.toIntOrNull() ?: 0)
+                }
+                "SUFICIENTE" -> {
+                    (producto.cantidadinicial.toIntOrNull() ?: 0) >
+                        (producto.stockminimo.toIntOrNull() ?: 0)
+                }
+                "VENCIDOS" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
+                    .any { ProductUtils.estaVencido(it) }
+                "AGOTADO_O_VENCE" -> {
+                    val agotado = (producto.cantidadinicial.toIntOrNull() ?: 0) <= 0
+                    val vencidoOPorVencer = ProductUtils.obtenerVencimientosParaEvaluacion(producto)
+                        .let { lista ->
+                            lista.any { ProductUtils.estaVencido(it) } ||
+                                lista.mapNotNull { ProductUtils.diasHastaVencerLote(it) }
+                                    .any { it in 0..90 }
+                        }
+                    agotado || vencidoOPorVencer
+                }
+                "PROXIMOS_VENCER" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
+                    .mapNotNull { ProductUtils.diasHastaVencerLote(it) }
+                    .any { it in 0..90 }
+                else -> true
+            }
+
+            val coincideCategoria = if (categoriaSeleccionada == "Todas las categorías") {
+                true
+            } else {
+                producto.categoria == categoriaSeleccionada
+            }
+
+            coincideChip && coincideCategoria
+        }
+
+        val hayFiltrosActivos = query.isNotEmpty() ||
+                filtroActual != "TODOS" ||
+                categoriaSeleccionada != "Todas las categorías"
+
+        actualizarEstadoVacio(
+            filtradosFinales.isEmpty(),
+            hayFiltrosActivos,
+            query
+        )
+        
+        adapter.updateList(filtradosFinales)
+        
+        val soloProductos = filtradosFinales
+        actualizarCarruselAlertas(soloProductos)
+        if (requireContext().isTablet()) {
+            actualizarContadoresChipsEstado()
+            actualizarAlertaStockBajoTablet()
+        }
+        
+        if (query.isNotEmpty() && soloProductos.isNotEmpty()) {
+            mostrarAlertaInventario(soloProductos)
+        }
         actualizarPrioridadInventario()
+
+        if (filtradosFinales.isNotEmpty()) {
+            binding.recyclerView.scrollToPosition(0)
+        }
     }
 
     private fun mostrarAlertaInventario(productos: List<MoldeProductos>) {
@@ -1183,32 +1322,27 @@ class FragmentoInventario : Fragment() {
     }
 
     private fun iniciarLecturaMovimientos() {
+        val hoy = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         movimientosRef = FirebaseDatabase.getInstance()
             .getReference(DbPaths.ROOT_MOVIMIENTOS)
             .child("movimientosInventario")
+            .child(hoy) // V16.14: Solo descargamos movimientos de HOY por defecto
+            
         movimientosListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (!isAdded || _binding == null) return
 
-                val movimientos = mutableListOf<MovimientoInventarioUi>()
-
-                for (fechaSnapshot in snapshot.children) {
-                    val fechaKey = fechaSnapshot.key.orEmpty() // "yyyy-MM-dd"
-                    for (movimientoSnapshot in fechaSnapshot.children) {
+                lifecycleScope.launch(Dispatchers.Default) {
+                    val movimientos = mutableListOf<MovimientoInventarioUi>()
+                    for (movimientoSnapshot in snapshot.children) {
                         val indiceProducto = movimientoSnapshot.child("indiceProducto")
                             .getValue(String::class.java)
                             .orEmpty()
-
-                        val titulo = movimientoSnapshot.child("titulo")
-                            .getValue(String::class.java)
-                            .orEmpty()
-                        val descripcion = movimientoSnapshot.child("descripcion")
-                            .getValue(String::class.java)
-                            .orEmpty()
+                        val titulo = movimientoSnapshot.child("titulo").getValue(String::class.java).orEmpty()
+                        val descripcion = movimientoSnapshot.child("descripcion").getValue(String::class.java).orEmpty()
 
                         if (titulo.isBlank() && descripcion.isBlank()) continue
 
-                        // Parseo robusto: Firebase puede devolver Long, Double o String
                         val tsRaw = movimientoSnapshot.child("timestamp").value
                         val timestamp = when (tsRaw) {
                             is Long -> tsRaw
@@ -1221,92 +1355,39 @@ class FragmentoInventario : Fragment() {
                         movimientos.add(
                             MovimientoInventarioUi(
                                 indiceProducto = indiceProducto,
-                                tipo = movimientoSnapshot.child("tipo")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
+                                tipo = movimientoSnapshot.child("tipo").getValue(String::class.java).orEmpty(),
                                 titulo = titulo,
                                 descripcion = descripcion,
-                                hora = movimientoSnapshot.child("hora")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
-                                nombreUsuario = movimientoSnapshot.child("nombreUsuario")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
-                                referenciaId = movimientoSnapshot.child("referenciaId")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
-                                cantidad = movimientoSnapshot.child("cantidad").value
-                                    ?.toString()
-                                    ?.toIntOrNull(),
-                                stockAntes = movimientoSnapshot.child("stockAntes").value
-                                    ?.toString()
-                                    ?.toIntOrNull(),
-                                stockDespues = movimientoSnapshot.child("stockDespues").value
-                                    ?.toString()
-                                    ?.toIntOrNull(),
+                                hora = movimientoSnapshot.child("hora").getValue(String::class.java).orEmpty(),
+                                nombreUsuario = movimientoSnapshot.child("nombreUsuario").getValue(String::class.java).orEmpty(),
+                                referenciaId = movimientoSnapshot.child("referenciaId").getValue(String::class.java).orEmpty(),
+                                cantidad = movimientoSnapshot.child("cantidad").value?.toString()?.toIntOrNull(),
+                                stockAntes = movimientoSnapshot.child("stockAntes").value?.toString()?.toIntOrNull(),
+                                stockDespues = movimientoSnapshot.child("stockDespues").value?.toString()?.toIntOrNull(),
                                 timestamp = timestamp,
-                                nombreProducto = movimientoSnapshot.child("metadata")
-                                    .child("nombreProducto")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
-                                presentacion = movimientoSnapshot.child("metadata")
-                                    .child("presentacion")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
-                                cantidadMovimiento = movimientoSnapshot.child("metadata")
-                                    .child("cantidadIngresada")
-                                    .value
-                                    ?.toString()
-                                    ?.toIntOrNull()
-                                    ?: movimientoSnapshot.child("metadata")
-                                        .child("cantidadEgresada")
-                                        .value
-                                        ?.toString()
-                                        ?.toIntOrNull(),
-                                unidadMovimiento = movimientoSnapshot.child("metadata")
-                                    .child("unidadIngreso")
-                                    .getValue(String::class.java)
-                                    .orEmpty()
-                                    .ifBlank {
-                                        movimientoSnapshot.child("metadata")
-                                            .child("unidadEgreso")
-                                            .getValue(String::class.java)
-                                            .orEmpty()
-                                    }
-                                    .ifBlank {
-                                        movimientoSnapshot.child("metadata")
-                                            .child("unidadAjuste")
-                                            .getValue(String::class.java)
-                                            .orEmpty()
-                                    },
-                                unidadesPorMovimiento = movimientoSnapshot.child("metadata")
-                                    .child("unidadesPorIngreso")
-                                    .value
-                                    ?.toString()
-                                    ?.toIntOrNull()
-                                    ?: movimientoSnapshot.child("metadata")
-                                        .child("unidadesPorEgreso")
-                                        .value
-                                        ?.toString()
-                                        ?.toIntOrNull()
-                                    ?: movimientoSnapshot.child("metadata")
-                                        .child("unidadesPorAjuste")
-                                        .value
-                                        ?.toString()
-                                        ?.toIntOrNull(),
-                                motivo = movimientoSnapshot.child("motivo")
-                                    .getValue(String::class.java)
-                                    .orEmpty(),
+                                nombreProducto = movimientoSnapshot.child("metadata").child("nombreProducto").getValue(String::class.java).orEmpty(),
+                                presentacion = movimientoSnapshot.child("metadata").child("presentacion").getValue(String::class.java).orEmpty(),
+                                cantidadMovimiento = movimientoSnapshot.child("metadata").child("cantidadIngresada").value?.toString()?.toIntOrNull() 
+                                    ?: movimientoSnapshot.child("metadata").child("cantidadEgresada").value?.toString()?.toIntOrNull(),
+                                unidadMovimiento = movimientoSnapshot.child("metadata").child("unidadIngreso").getValue(String::class.java).orEmpty()
+                                    .ifBlank { movimientoSnapshot.child("metadata").child("unidadEgreso").getValue(String::class.java).orEmpty() }
+                                    .ifBlank { movimientoSnapshot.child("metadata").child("unidadAjuste").getValue(String::class.java).orEmpty() },
+                                unidadesPorMovimiento = movimientoSnapshot.child("metadata").child("unidadesPorIngreso").value?.toString()?.toIntOrNull()
+                                    ?: movimientoSnapshot.child("metadata").child("unidadesPorEgreso").value?.toString()?.toIntOrNull()
+                                    ?: movimientoSnapshot.child("metadata").child("unidadesPorAjuste").value?.toString()?.toIntOrNull(),
+                                motivo = movimientoSnapshot.child("motivo").getValue(String::class.java).orEmpty(),
                                 detalleLotes = movimientoSnapshot.obtenerDetalleLotesMovimientoTexto(),
-                                fechaPath = fechaKey
+                                fechaPath = hoy
                             )
                         )
                     }
-                }
 
-                todosLosMovimientos = movimientos.sortedByDescending { it.timestamp }
-                aplicarFiltroFecha()
-                marcarMovimientosInicialesListos()
+                    withContext(Dispatchers.Main) {
+                        todosLosMovimientos = movimientos.sortedByDescending { it.timestamp }
+                        aplicarFiltroFecha()
+                        marcarMovimientosInicialesListos()
+                    }
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -1322,6 +1403,10 @@ class FragmentoInventario : Fragment() {
     private fun actualizarUiMovimientos(recientes: List<MovimientoInventarioUi>) {
         val b = _binding ?: return
         movimientosRecientes = recientes
+        
+        // UX Mobile: Historial solo si hay movimientos reales
+        b.btnMovimientosInventario?.isVisible = todosLosMovimientos.isNotEmpty()
+
         val hayMovimientos = recientes.isNotEmpty()
         val etiquetaPeriodo = when (filtroFechaMovimientos) {
             FiltroFecha.HOY -> "hoy"
@@ -1360,79 +1445,6 @@ class FragmentoInventario : Fragment() {
         dialogTvMovimientosVacio?.isVisible = !hayMovimientos
         dialogTvSubtituloMovimientos?.text = textoSubtitulo
         dialogTvResumenMovimientos?.text = textoBadge
-    }
-
-    private fun aplicarFiltro(textoBusqueda: String = "") {
-        if (_binding == null) return
-        
-        // 1. Primero obtenemos los resultados de la búsqueda inteligente si hay texto
-        val query = textoBusqueda.trim()
-        val resultadosSmart = if (query.isEmpty()) {
-            listaProductos.map { SmartSearchEngine.SearchResult(it, SmartSearchEngine.MatchType.NONE) }
-        } else {
-            smartSearchEngine.search(query, listaProductos)
-        }
-
-        // 2. Luego aplicamos los filtros secundarios (Categoría, Estado Chips) sobre esos resultados
-        val filtradosFinales = resultadosSmart.filter { res ->
-            val producto = res.product
-            
-            val coincideChip = when (filtroActual) {
-                "BAJO_STOCK" -> {
-                    (producto.cantidadinicial.toIntOrNull() ?: 0) <=
-                        (producto.stockminimo.toIntOrNull() ?: 0)
-                }
-                "SUFICIENTE" -> {
-                    (producto.cantidadinicial.toIntOrNull() ?: 0) >
-                        (producto.stockminimo.toIntOrNull() ?: 0)
-                }
-                "VENCIDOS" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                    .any { ProductUtils.estaVencido(it) }
-                "AGOTADO_O_VENCE" -> {
-                    val agotado = (producto.cantidadinicial.toIntOrNull() ?: 0) <= 0
-                    val vencidoOPorVencer = ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                        .let { lista ->
-                            lista.any { ProductUtils.estaVencido(it) } ||
-                                lista.mapNotNull { ProductUtils.diasHastaVencerLote(it) }
-                                    .any { it in 0..90 }
-                        }
-                    agotado || vencidoOPorVencer
-                }
-                "PROXIMOS_VENCER" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                    .mapNotNull { ProductUtils.diasHastaVencerLote(it) }
-                    .any { it in 0..90 }
-                else -> true
-            }
-
-            val coincideCategoria = if (categoriaSeleccionada == "Todas las categorías") {
-                true
-            } else {
-                producto.categoria == categoriaSeleccionada
-            }
-
-            coincideChip && coincideCategoria
-        }
-
-        val hayFiltrosActivos = query.isNotEmpty() ||
-                filtroActual != "TODOS" ||
-                categoriaSeleccionada != "Todas las categorías"
-
-        actualizarEstadoVacio(
-            filtradosFinales.isEmpty(),
-            hayFiltrosActivos
-        )
-        
-        // Enviamos los resultados detallados al adapter para que pueda mostrar los badges de síntomas
-        adapter.updateListWithResults(filtradosFinales)
-        
-        val soloProductos = filtradosFinales.map { it.product }
-        actualizarCarruselAlertas(soloProductos)
-        actualizarHeaderProductosInventario(soloProductos)
-        if (requireContext().isTablet()) actualizarContadoresChipsEstado()
-
-        if (filtradosFinales.isNotEmpty()) {
-            binding.recyclerView.scrollToPosition(0)
-        }
     }
 
     private fun actualizarContadoresChipsEstado() {
@@ -1706,16 +1718,32 @@ class FragmentoInventario : Fragment() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun actualizarEstadoVacio(isEmpty: Boolean, hayFiltrosActivos: Boolean) {
+    private fun actualizarEstadoVacio(isEmpty: Boolean, hayFiltrosActivos: Boolean, query: String = "") {
         val b = _binding ?: return
-        val estadoVacio = InventarioSummaryRules.construirEstadoVacio(isEmpty, hayFiltrosActivos)
-        val inventarioRealmenteVacio = listaProductos.isEmpty()
+        val estadoVacio = InventarioSummaryRules.construirEstadoVacio(isEmpty, hayFiltrosActivos, query)
+        val numProductos = listaProductos.size
+        val inventarioRealmenteVacio = numProductos == 0
         val mostrarBotonCrearInicial = inventarioRealmenteVacio && !hayFiltrosActivos
 
         b.layoutEmptySearch.isVisible = estadoVacio.mostrarVacio
         b.recyclerView.isVisible = estadoVacio.mostrarLista
         b.btnAgregarPrimerProducto?.isVisible = mostrarBotonCrearInicial
         b.floatingbotoncrearproducto.isVisible = !inventarioRealmenteVacio
+        
+        // UX Mobile: Reaparición progresiva de controles
+        val mostrarBusqueda = numProductos > 0
+        val mostrarFiltros = numProductos > 3
+        val mostrarAccionesSecundarias = numProductos > 5
+
+        b.cardbuscador.isVisible = mostrarBusqueda
+        b.btnFiltroEstado?.isVisible = mostrarFiltros
+        b.btnFiltroCategoria?.isVisible = mostrarFiltros
+        b.btnImportarMasivo?.isVisible = mostrarAccionesSecundarias
+        b.btnInfoColores?.isVisible = mostrarAccionesSecundarias
+
+        // Historial: mostrar solo si existen movimientos reales
+        b.btnMovimientosInventario?.isVisible = todosLosMovimientos.isNotEmpty()
+
         // Ocultar el título "Productos" cuando no hay nada que mostrar
         b.root.findViewById<TextView>(R.id.tvTituloProductosInventario)?.isVisible =
             estadoVacio.mostrarLista
