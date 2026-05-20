@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Normalizer
 import java.util.Locale
 
@@ -39,6 +40,9 @@ class CategorySuggestionViewModel : ViewModel() {
     private var latestTypeSuggestionKey: String? = null
     private var latestCorrectionRequestId = 0L
     private var latestSearchRequestId = 0L
+    private var latestBarcodeRequestId = 0L
+    private var latestBarcodeKey: String? = null
+    private var jobBarcode: Job? = null
 
     // V17.7: Caché de sesión para sugerencias silenciosas (Nombre -> Categoría)
     private val cacheSugerenciasSilenciosas = mutableMapOf<String, String>()
@@ -215,6 +219,7 @@ class CategorySuggestionViewModel : ViewModel() {
         private fun significantTokens(text: String): List<String> {
             return text
                 .replace(Regex("(\\d+(?:[.,]\\d+)?)([a-zA-Z%]+)"), "$1 $2")
+                .replace(Regex("[^\\p{L}\\p{N}%]+"), " ")
                 .split(Regex("\\s+"))
                 .map { it.trim().trim('.', ',', '-', '_') }
                 .filter { token ->
@@ -228,7 +233,11 @@ class CategorySuggestionViewModel : ViewModel() {
         private val genericIdentityTokens = setOf(
             "agua", "mesa", "embotellada", "mineral", "leche", "formula", "lactea",
             "infantil", "bebes", "bebe", "polvo", "producto", "marca", "generico",
-            "tableta", "tabletas", "capsula", "capsulas", "jarabe", "crema", "gel"
+            "tableta", "tabletas", "tablet", "tablets", "capsula", "capsulas",
+            "capsule", "capsules", "jarabe", "crema", "gel", "unidad", "unidades",
+            "pieza", "piezas", "frasco", "frascos", "pack", "caja", "cajas",
+            "suplemento", "suplementos", "supplement", "supplements", "dietary",
+            "daily", "multi", "vitaminico", "vitaminicos", "vitamin", "vitamins"
         )
 
         private val measurementTokens = setOf(
@@ -573,8 +582,10 @@ class CategorySuggestionViewModel : ViewModel() {
         jobTipo?.cancel()
         ultimaConsultaKey = null
         latestTypeSuggestionKey = null
+        latestBarcodeKey = null
         latestSearchRequestId++
         latestCorrectionRequestId++
+        latestBarcodeRequestId++
         _state.value = CategorySuggestionUiState()
     }
 
@@ -591,5 +602,132 @@ class CategorySuggestionViewModel : ViewModel() {
 
     private fun normalizar(name: String): String {
         return normalizeProductName(name)
+    }
+
+    fun identificarBarcode(barcode: String, imageBase64: String?, categoriasExistentes: List<String>) {
+        val normalizedBarcode = barcode.trim()
+        if (normalizedBarcode.isBlank()) {
+            latestBarcodeKey = null
+            _state.value = _state.value.copy(
+                barcodeAiResult = null,
+                estaIdentificandoBarcode = false,
+                barcodeAiRequestId = ++latestBarcodeRequestId,
+                barcodeMismatchDetected = false,
+                barcodeMismatchOriginalName = null
+            )
+            return
+        }
+
+        val current = _state.value
+        // V18.2: Si es el mismo código, pero ahora traemos imagen y antes no, permitimos re-identificar
+        val yaIdentificadoSinImagen = latestBarcodeKey == normalizedBarcode && current.barcodeAiResult?.codigo == normalizedBarcode
+        val forzarReidentificarConImagen = imageBase64 != null && yaIdentificadoSinImagen && current.barcodeAiResult.estado == "NO_IDENTIFICADO"
+
+        if (!forzarReidentificarConImagen && 
+            latestBarcodeKey == normalizedBarcode &&
+            (current.estaIdentificandoBarcode || current.barcodeAiResult?.codigo == normalizedBarcode)
+        ) {
+            return
+        }
+
+        jobBarcode?.cancel()
+        val requestId = ++latestBarcodeRequestId
+        latestBarcodeKey = normalizedBarcode
+
+        _state.value = _state.value.copy(
+            estaIdentificandoBarcode = true,
+            barcodeAiResult = null,
+            barcodeAiRequestId = requestId
+        )
+
+        jobBarcode = viewModelScope.launch {
+            val result = withTimeoutOrNull(15_000) {
+                CategorySuggestionRepository.identificarProductoPorBarcode(normalizedBarcode, imageBase64, categoriasExistentes)
+            } ?: BarcodeAiResult(
+                estado = "NO_IDENTIFICADO",
+                codigo = normalizedBarcode,
+                nombre = "",
+                categoria = "",
+                tipoControl = "DESCONOCIDO",
+                requiereReceta = false,
+                razon = "Tiempo de espera agotado o error de conexión."
+            )
+            if (requestId == latestBarcodeRequestId) {
+                _state.value = _state.value.copy(
+                    barcodeAiResult = result,
+                    estaIdentificandoBarcode = false
+                )
+            }
+        }
+    }
+
+    /**
+     * V18.8: Verifica si un nombre de producto escrito por el usuario coincide 
+     * con la identidad real del código de barras escaneado.
+     */
+    fun verificarIntegridadBarcode(barcode: String, nombreActual: String) {
+        val current = _state.value
+        val resultIA = current.barcodeAiResult ?: return
+        if (resultIA.estado != "IDENTIFICADO") return
+        if (resultIA.nombre.isNullOrBlank()) return
+
+        val tokensOriginal = barcodeIdentityTokens(resultIA.nombre)
+        val tokensNew = barcodeIdentityTokens(nombreActual)
+        val hasStrongMatch = tokensOriginal.any { original ->
+            tokensNew.any { candidate ->
+                original == candidate ||
+                    (original.length >= 5 && candidate.length >= 5 &&
+                        (original.startsWith(candidate) || candidate.startsWith(original)))
+            }
+        }
+
+        if (hasStrongMatch) {
+            limpiarConflictoBarcode()
+            return
+        }
+
+        _state.value = _state.value.copy(
+            barcodeMismatchDetected = true,
+            barcodeMismatchOriginalName = resultIA.nombre
+        )
+    }
+
+    fun limpiarConflictoBarcode() {
+        val current = _state.value
+        if (!current.barcodeMismatchDetected && current.barcodeMismatchOriginalName == null) return
+
+        _state.value = current.copy(
+            barcodeMismatchDetected = false,
+            barcodeMismatchOriginalName = null
+        )
+    }
+
+    private fun barcodeIdentityTokens(text: String): List<String> {
+        val genericTokens = setOf(
+            "agua", "mesa", "embotellada", "mineral", "leche", "formula", "lactea",
+            "infantil", "bebes", "bebe", "polvo", "producto", "marca", "generico",
+            "tableta", "tabletas", "tablet", "tablets", "capsula", "capsulas",
+            "capsule", "capsules", "jarabe", "crema", "gel", "unidad", "unidades",
+            "pieza", "piezas", "frasco", "frascos", "pack", "caja", "cajas",
+            "suplemento", "suplementos", "supplement", "supplements", "dietary",
+            "daily", "multi", "vitaminico", "vitaminicos", "vitamin", "vitamins"
+        )
+        val measurementTokens = setOf(
+            "mg", "mcg", "g", "gr", "kg", "ml", "cl", "l", "lt", "litro", "litros", "ui", "iu", "%"
+        )
+
+        return text
+            .lowercase()
+            .replace(Regex("(\\d+(?:[.,]\\d+)?)([a-zA-Z%]+)"), "$1 $2")
+            .replace(Regex("[^\\p{L}\\p{N}%]+"), " ")
+            .split(Regex("\\s+"))
+            .map { it.trim() }
+            .filter { token ->
+                token.length > 2 &&
+                    token.toDoubleOrNull() == null &&
+                    token !in genericTokens &&
+                    token !in measurementTokens
+            }
+            .distinct()
     }
 }

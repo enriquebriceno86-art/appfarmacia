@@ -2,6 +2,24 @@ package com.app.administradorfarmadon.ActivityInventario.reference
 
 import com.squareup.moshi.Json
 
+data class BarcodeAiResult(
+    val estado: String, // IDENTIFICADO | NO_IDENTIFICADO
+    val codigo: String = "",
+    val nombre: String? = "",
+    val categoria: String? = "",
+    val tipoControl: String? = "DESCONOCIDO", // UNIDAD | PESO | LIQUIDO | DESCONOCIDO
+    val requiereReceta: Boolean = false,
+    val razon: String? = ""
+)
+
+/**
+ * V18.2: Resultado del escaneo de barcode con imagen adjunta.
+ */
+data class BarcodeScanResult(
+    val code: String,
+    val imageBase64: String?
+)
+
 /**
  * Resultado limpio de una sugerencia generada por IA.
  *
@@ -201,7 +219,9 @@ data class ManualTypeSuggestion(
     val confianza: ConfianzaIA,
     val motivo: String = "",
     val productName: String = "",
-    val category: String = ""
+    val category: String = "",
+    val requiereReceta: Boolean? = null,
+    val razonReceta: String = ""
 )
 
 data class CategorySuggestionUiState(
@@ -222,7 +242,16 @@ data class CategorySuggestionUiState(
 
     // V16.10: Soporte para sugerencia silenciosa de tipo
     val sugerenciaTipoManual: ManualTypeSuggestion? = null,
-    val estaCargandoTipo: Boolean = false
+    val estaCargandoTipo: Boolean = false,
+
+    // V18.0: Barcode AI
+    val barcodeAiResult: BarcodeAiResult? = null,
+    val estaIdentificandoBarcode: Boolean = false,
+    val barcodeAiRequestId: Long = 0L,
+    
+    // V18.8: Validación de Integridad
+    val barcodeMismatchDetected: Boolean = false,
+    val barcodeMismatchOriginalName: String? = null
 )
 
 // ─── Modelos crudos de la API de Gemini (generateContent) ────────────────────
@@ -230,12 +259,14 @@ data class CategorySuggestionUiState(
 data class GeminiRequest(
     val contents: List<GeminiContent>,
     val generationConfig: GeminiGenerationConfig,
-    @Json(name = "system_instruction") val systemInstruction: GeminiContent? = null,
+    @param:Json(name = "system_instruction") val systemInstruction: GeminiContent? = null,
     val tools: List<GeminiTool>? = null
 )
 
 data class GeminiTool(
-    @Json(name = "google_search_retrieval")
+    @param:Json(name = "google_search")
+    val googleSearch: Map<String, Any>? = null,
+    @param:Json(name = "google_search_retrieval")
     val googleSearchRetrieval: Map<String, Any>? = null
 )
 
@@ -251,8 +282,8 @@ data class GeminiPart(
 
 data class GeminiGenerationConfig(
     val temperature: Double = 0.2,
-    @Json(name = "responseMimeType") val responseMimeType: String = "application/json",
-    @Json(name = "responseSchema") val responseSchema: GeminiSchema? = null
+    @param:Json(name = "responseMimeType") val responseMimeType: String? = "application/json",
+    @param:Json(name = "responseSchema") val responseSchema: GeminiSchema? = null
 )
 
 data class GeminiSchema(

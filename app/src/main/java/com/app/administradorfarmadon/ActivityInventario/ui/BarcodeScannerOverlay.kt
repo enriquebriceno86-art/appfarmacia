@@ -36,12 +36,16 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import android.graphics.*
+import android.util.Base64
+import com.app.administradorfarmadon.ActivityInventario.reference.BarcodeScanResult
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
 @androidx.camera.core.ExperimentalGetImage
 @Composable
 fun BarcodeScannerOverlay(
-    onBarcodeDetected: (String) -> Unit,
+    onBarcodeDetected: (BarcodeScanResult) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -101,14 +105,23 @@ fun BarcodeScannerOverlay(
 
                         val mediaImage = imageProxy.image
                         if (mediaImage != null) {
+                            val scanRect = buildBarcodeScanRect(imageProxy.width, imageProxy.height)
+                            imageProxy.setCropRect(scanRect)
                             val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                             scanner.process(image)
                                 .addOnSuccessListener { barcodes ->
                                     if (isDetected) return@addOnSuccessListener
                                     for (barcode in barcodes) {
+                                        if (!barcode.isInsideScanRect(scanRect)) continue
                                         barcode.rawValue?.let { value ->
                                             if (value.isNotBlank()) {
                                                 isDetected = true
+
+                                                // V18.2: Capturar frame para Gemini Vision
+                                                val bitmap = imageProxy.toBitmap()
+                                                val rotated = rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees.toFloat())
+                                                val base64 = rotated.toBase64()
+
                                                 // Pitido clásico de escáner
                                                 try {
                                                     val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
@@ -116,7 +129,7 @@ fun BarcodeScannerOverlay(
                                                 } catch (e: Exception) {
                                                     Log.e("Scanner", "Error playing beep", e)
                                                 }
-                                                onBarcodeDetected(value)
+                                                onBarcodeDetected(BarcodeScanResult(value, base64))
                                                 return@addOnSuccessListener
                                             }
                                         }
@@ -256,4 +269,39 @@ fun BarcodeScannerOverlay(
             }
         }
     }
+}
+
+/**
+ * V18.2: Utilidades de conversión para captura de frames en el escáner.
+ */
+private fun rotateBitmap(source: Bitmap, angle: Float): Bitmap {
+    if (angle == 0f) return source
+    val matrix = Matrix()
+    matrix.postRotate(angle)
+    return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+}
+
+private fun Bitmap.toBase64(): String {
+    val outputStream = ByteArrayOutputStream()
+    // Redimensionar si es muy grande para ahorrar ancho de banda
+    val scaled = if (width > 640 || height > 640) {
+        val scale = 640f / Math.max(width, height)
+        Bitmap.createScaledBitmap(this, (width * scale).toInt(), (height * scale).toInt(), true)
+    } else this
+    
+    scaled.compress(Bitmap.CompressFormat.JPEG, 60, outputStream)
+    return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+}
+
+private fun buildBarcodeScanRect(width: Int, height: Int): Rect {
+    val boxWidth = (width * 0.74f).toInt()
+    val boxHeight = (height * 0.34f).toInt()
+    val left = (width - boxWidth) / 2
+    val top = (height - boxHeight) / 2
+    return Rect(left, top, left + boxWidth, top + boxHeight)
+}
+
+private fun Barcode.isInsideScanRect(scanRect: Rect): Boolean {
+    val box = boundingBox ?: return true
+    return scanRect.contains(box.centerX(), box.centerY())
 }

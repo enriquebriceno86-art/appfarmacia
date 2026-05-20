@@ -104,6 +104,7 @@ class CrearProducto : AppCompatActivity() {
     private var createProductSuccessSummary by mutableStateOf<ProductCreatedSummary?>(null)
     private var createProductShowReference by mutableStateOf(false)
     private var createProductReferenceDismissed by mutableStateOf(false)
+    private var showNoBarcodeConfirmDialog by mutableStateOf(false)
     private val createProductCategoryOptions = mutableStateListOf<String>()
     private val createProductExistingNormalizedNames = mutableStateListOf<String>()
     private var ultimoProductoCreadoCompose: MoldeProductos? = null
@@ -123,7 +124,6 @@ class CrearProducto : AppCompatActivity() {
     private var lotConflictSeverity by mutableStateOf(0) 
     private var marginRulesLoadStarted = false
     private var savedPresentationsLoadStarted = false
-    private var aiWarmupStarted = false
     // Fix (M5): recuerda el último (nombre|categoria) por el que ya se pidió
     // la búsqueda de referencia para evitar lanzar requests duplicados cuando
     // el usuario va y vuelve entre pasos sin cambiar esos campos.
@@ -199,6 +199,21 @@ class CrearProducto : AppCompatActivity() {
             val categorySuggestionState by categorySuggestionViewModel.state.collectAsState()
             val labelScannerState by labelScannerViewModel.state.collectAsState()
 
+            // V18.0: Sincronizar estado de identificación de barcode
+            LaunchedEffect(
+                categorySuggestionState.estaIdentificandoBarcode,
+                categorySuggestionState.barcodeAiResult,
+                categorySuggestionState.barcodeMismatchDetected,
+                categorySuggestionState.barcodeMismatchOriginalName
+            ) {
+                createProductUiState = createProductUiState.copy(
+                    isIdentifyingBarcode = categorySuggestionState.estaIdentificandoBarcode,
+                    barcodeAiResult = categorySuggestionState.barcodeAiResult,
+                    barcodeMismatchDetected = categorySuggestionState.barcodeMismatchDetected,
+                    barcodeMismatchOriginalName = categorySuggestionState.barcodeMismatchOriginalName
+                )
+            }
+
             // V16.10: Observamos la sugerencia de tipo para aplicación AUTOMÁTICA si la confianza es ALTA
             // V17.82: Restaurada la auto-selección silenciosa para un flujo sin fricciones.
             LaunchedEffect(categorySuggestionState.sugerenciaTipoManual) {
@@ -228,6 +243,14 @@ class CrearProducto : AppCompatActivity() {
                             actualizarCreateProductState(
                                 createProductUiState.copy(
                                     controlType = mappedType,
+                                    requiresPrescription = if (
+                                        createProductUiState.categorySelectedFromAi &&
+                                        suggestion.requiereReceta != null
+                                    ) {
+                                        suggestion.requiereReceta
+                                    } else {
+                                        createProductUiState.requiresPrescription
+                                    },
                                     errors = createProductUiState.errors - "controlType"
                                 )
                             )
@@ -354,6 +377,25 @@ class CrearProducto : AppCompatActivity() {
                                 pendingCameraAction = "BARCODE"
                                 permissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }
+                        },
+                        onIdentificarBarcode = { barcode, image ->
+                            categorySuggestionViewModel.identificarBarcode(barcode, image, createProductCategoryOptions.toList())
+                        },
+                        onCheckBarcodeIntegrity = { barcode, nombre ->
+                            categorySuggestionViewModel.verificarIntegridadBarcode(barcode, nombre)
+                        },
+                        onClearBarcodeIntegrityConflict = {
+                            categorySuggestionViewModel.limpiarConflictoBarcode()
+                        },
+                        showNoBarcodeConfirmDialog = showNoBarcodeConfirmDialog,
+                        onDismissNoBarcodeConfirm = {
+                            showNoBarcodeConfirmDialog = false
+                        },
+                        onConfirmNoBarcodeContinue = {
+                            showNoBarcodeConfirmDialog = false
+                            createProductUiState = createProductUiState.copy(
+                                currentStep = CreateProductStep.LOTE_INICIAL
+                            )
                         }
                     )
 
@@ -361,14 +403,16 @@ class CrearProducto : AppCompatActivity() {
                         // Usamos el scanner con OptIn (V17.90)
                         @OptIn(androidx.camera.core.ExperimentalGetImage::class)
                         com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay(
-                            onBarcodeDetected = { code ->
-                                feedbackController.ventaExitosa(null) // Sonido/vibración suave
+                            onBarcodeDetected = { result ->
+                                
+                                // V18.2: Usamos el resultado con imagen
                                 actualizarCreateProductState(
                                     createProductUiState.copy(
-                                        barcode = code,
+                                        barcode = result.code,
                                         isBarcodeScanning = false,
                                         isBarcodeManualMode = false
-                                    )
+                                    ),
+                                    imageBase64 = result.imageBase64
                                 )
                             },
                             onDismiss = {
@@ -419,7 +463,6 @@ class CrearProducto : AppCompatActivity() {
             // Solo lo esencial para el Paso 1 (Ligero)
             PresentacionesTiendaConfigManager.precargar()
             obtenerCategoriasDeProductos()
-            precalentarIaDespuesDelPrimerFrame()
         }
     }
 
@@ -461,16 +504,6 @@ class CrearProducto : AppCompatActivity() {
         ).apply { topMargin = 8 })
 
         setContentView(root)
-    }
-
-    private fun precalentarIaDespuesDelPrimerFrame() {
-        if (aiWarmupStarted || !aiInventoryEnabled) return
-        aiWarmupStarted = true
-        window.decorView.postDelayed({
-            if (!isFinishing && !isDestroyed) {
-                categorySuggestionViewModel.warmup()
-            }
-        }, 900L)
     }
 
     private fun asegurarReglasMargenCargadas() {
@@ -565,12 +598,47 @@ class CrearProducto : AppCompatActivity() {
         finish()
     }
 
-    private fun actualizarCreateProductState(nuevoEstado: CreateProductState) {
+    private fun actualizarCreateProductState(nuevoEstado: CreateProductState, imageBase64: String? = null) {
         val estadoAnterior = createProductUiState
-        createProductUiState = nuevoEstado
+
+        // V19.0: OPTIMIZACIÓN - Solo recalculamos presentaciones si el controlType cambió REALMENTE
+        val estadoConPresentaciones = if (nuevoEstado.controlType != estadoAnterior.controlType && nuevoEstado.controlType != null) {
+            nuevoEstado.copy(
+                presentations = sugerirPresentacionesIniciales(nuevoEstado.controlType),
+                mainPresentationId = "",
+                draftPresentationName = "",
+                addPresentationExpanded = false
+            )
+        } else {
+            nuevoEstado
+        }
+
+        // V19.0: OPTIMIZACIÓN - Solo normalizamos el mainPresentationId si la lista de presentaciones cambió
+        val finalEstado = if (estadoConPresentaciones.presentations != estadoAnterior.presentations || estadoConPresentaciones.mainPresentationId != estadoAnterior.mainPresentationId) {
+            val list = estadoConPresentaciones.presentations
+            val currentMainId = estadoConPresentaciones.mainPresentationId
+            val nextMainId = when {
+                list.isEmpty() -> ""
+                list.any { it.id == currentMainId } -> currentMainId
+                else -> list.first().id
+            }
+            estadoConPresentaciones.copy(mainPresentationId = nextMainId)
+        } else {
+            estadoConPresentaciones
+        }
+
+        createProductUiState = finalEstado
 
         if (estadoAnterior.barcode != createProductUiState.barcode) {
-            programarValidacionBarcodeCompose(createProductUiState.barcode)
+            // V18.0: Limpiar estados IA al cambiar código
+            createProductUiState = createProductUiState.copy(
+                barcodeAiResult = null,
+                isIdentifyingBarcode = false,
+                barcodeAiApplied = false,
+                barcodeAiError = null,
+                scannedImageBase64 = imageBase64
+            )
+            programarValidacionBarcodeCompose(createProductUiState.barcode, imageBase64)
         }
 
         // Persistir cualquier nueva presentacion guardada por el usuario
@@ -581,42 +649,6 @@ class CrearProducto : AppCompatActivity() {
             }
         }
         nuevasPresentaciones.forEach { guardarPresentacionEnDb(it) }
-
-        val estadoNormalizado = if (
-            nuevoEstado.controlType != createProductUiState.controlType &&
-            nuevoEstado.controlType != null
-        ) {
-            nuevoEstado.copy(
-                presentations = sugerirPresentacionesIniciales(
-                    nuevoEstado.controlType
-                ),
-                mainPresentationId = "",
-                draftPresentationName = "",
-                addPresentationExpanded = false
-            )
-        } else {
-            nuevoEstado
-        }
-
-        // Fix (M3): se eliminó la llamada a `normalizarPresentacionesSegunLote`.
-        // Esa función dependía de `state.receivedPresentation`, un campo
-        // heredado del flujo XML que el flujo Compose actual nunca setea,
-        // así que siempre devolvía la lista sin cambios y solo generaba
-        // recomposiciones inútiles. La normalización de `mainPresentationId`
-        // se mantiene aquí para garantizar que apunte a una presentación
-        // existente.
-        val presentacionesNormalizadas = estadoNormalizado.presentations
-        val mainIdNormalizado = when {
-            presentacionesNormalizadas.isEmpty() -> ""
-            presentacionesNormalizadas.any { it.id == estadoNormalizado.mainPresentationId } ->
-                estadoNormalizado.mainPresentationId
-            else -> presentacionesNormalizadas.first().id
-        }
-
-        createProductUiState = estadoNormalizado.copy(
-            presentations = presentacionesNormalizadas,
-            mainPresentationId = mainIdNormalizado
-        )
 
         // V16.10: Si cambia el nombre o la categoría, pedimos sugerencia de tipo (Asistente Silencioso)
         // V16.12: La sugerencia de tipo SOLO se dispara si la categoría fue elegida desde IA (Sugerencia)
@@ -862,27 +894,33 @@ class CrearProducto : AppCompatActivity() {
         return sanitizarNombreArchivo(normalizedName)
     }
 
-    private fun programarValidacionBarcodeCompose(barcode: String) {
+    private fun programarValidacionBarcodeCompose(barcode: String, imageBase64: String? = null) {
         createProductBarcodeValidationJob?.cancel()
 
         val value = barcode.trim()
+        val requestId = ++currentBarcodeRequestId
         
         // V3.30: Limpiar duplicado previo inmediatamente al cambiar el código
         createProductUiState = createProductUiState.copy(
             errors = createProductUiState.errors - "barcode",
             duplicateProductFound = if (createProductUiState.duplicateProductFound?.codigo == value) 
-                                      createProductUiState.duplicateProductFound else null
+                                      createProductUiState.duplicateProductFound else null,
+            scannedImageBase64 = imageBase64
         )
         isCheckingBarcodeRemote = true
 
         if (value.isBlank()) {
             isCheckingBarcodeRemote = false
+            categorySuggestionViewModel.identificarBarcode("", null, emptyList())
             return
         }
 
         createProductBarcodeValidationJob = lifecycleScope.launch {
             delay(500)
-            val requestId = ++currentBarcodeRequestId
+            if (createProductUiState.barcode.trim() != value) {
+                isCheckingBarcodeRemote = false
+                return@launch
+            }
             
             FirebaseDatabase.getInstance()
                 .getReference(PATH_INVENTARIO)
@@ -898,6 +936,9 @@ class CrearProducto : AppCompatActivity() {
                             if (productId != null) {
                                 buscarProductoPorIdYMostrarDuplicado(productId)
                             }
+                        } else if (aiInventoryEnabled && !createProductUiState.forceManualProductEntry && !createProductUiState.barcodeAiApplied) {
+                            // V18.2: Si no existe, invocar identificación IA (Vision si hay imagen)
+                            categorySuggestionViewModel.identificarBarcode(value, imageBase64, createProductCategoryOptions.toList())
                         }
                     }
                 }
@@ -1108,6 +1149,9 @@ class CrearProducto : AppCompatActivity() {
 
         createProductLotValidationJob = lifecycleScope.launch {
             delay(600)
+            if (createProductUiState.lotNumber.trim().uppercase() != loteLimpio) {
+                return@launch
+            }
             isCheckingLotRemote = true
             val requestId = ++currentLotRequestId // V17.49: Capturamos ID de esta petición
             lotConflictInfo = null
@@ -1170,20 +1214,27 @@ class CrearProducto : AppCompatActivity() {
 
         // V17.83: Validación de avance inteligente (Eliminación de choques por debounce)
         if (estadoActual.currentStep == CreateProductStep.PRODUCTO) {
-            // Verificamos presencia física de datos. Ignoramos estados transitorios de validación de red
-            // para garantizar un salto de pantalla instantáneo y fluido.
-            if (estadoActual.name.trim().isBlank() || estadoActual.category.trim().isBlank() || estadoActual.controlType == null) {
+            if (!puedeAvanzarPasoProducto(estadoActual)) {
+                validarPasoCreateProduct(CreateProductStep.PRODUCTO)
+                val firstProductError = createProductUiState.errors
+                    .filter { it.key in setOf("name", "category", "controlType", "barcode") }
+                    .values
+                    .firstOrNull()
+
+                if (!firstProductError.isNullOrBlank()) {
+                    Toast.makeText(this, firstProductError, Toast.LENGTH_SHORT).show()
+                }
                 return
             }
-            // Solo frenamos si hay un duplicado CONFIRMADO en la caché local o servidor
-            if (existeNombreDuplicadoCompose(estadoActual.name)) {
-                Toast.makeText(this, "Ya existe un producto con este nombre.", Toast.LENGTH_SHORT).show()
+
+            if (estadoActual.barcode.trim().isBlank()) {
+                showNoBarcodeConfirmDialog = true
                 return
             }
         } else if (!validarPasoCreateProduct(estadoActual.currentStep)) {
             // V17.67: Obtener los errores específicos del paso actual para el Toast
             val relevantKeys = when (estadoActual.currentStep) {
-                CreateProductStep.PRODUCTO -> setOf("name", "category", "controlType")
+                CreateProductStep.PRODUCTO -> setOf("name", "category", "controlType", "barcode")
                 CreateProductStep.LOTE_INICIAL -> setOf(
                     "lotNumber", "expirationDate", "stockEntryMode", 
                     "receivedUnits", "boxesReceived", "unitsPerBox", 
@@ -1609,6 +1660,9 @@ class CrearProducto : AppCompatActivity() {
         if (!estado.errors["name"].isNullOrBlank()) return false
         if (!estado.errors["barcode"].isNullOrBlank()) return false
 
+        // V18.9: Bloqueo estricto de integridad si el nombre no coincide con el código
+        if (estado.barcodeMismatchDetected) return false
+
         return true
     }
 
@@ -1706,6 +1760,12 @@ class CrearProducto : AppCompatActivity() {
                     errors["controlType"] = "Selecciona el tipo de control"
                 } else {
                     errors.remove("controlType")
+                }
+
+                if (estado.barcodeMismatchDetected) {
+                    errors["barcode"] = "El código de barras no coincide con el nombre del producto."
+                } else if (estado.errors["barcode"].isNullOrBlank()) {
+                    errors.remove("barcode")
                 }
             }
 
@@ -1915,7 +1975,7 @@ class CrearProducto : AppCompatActivity() {
         return errors.none { entry ->
             when (step) {
                 CreateProductStep.PRODUCTO ->
-                    entry.key in setOf("name", "category", "controlType")
+                    entry.key in setOf("name", "category", "controlType", "barcode")
 
                 CreateProductStep.LOTE_INICIAL ->
                     entry.key in setOf(

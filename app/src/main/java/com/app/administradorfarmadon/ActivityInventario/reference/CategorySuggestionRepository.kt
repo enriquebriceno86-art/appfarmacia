@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
  */
 object CategorySuggestionRepository {
 
-    private const val MODEL = "gemini-2.0-flash"
+    private const val MODEL = "gemini-2.5-flash"
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
     private const val PATH_DECISIONES = "Inventario/DecisionesCategoria"
 
@@ -335,6 +335,120 @@ object CategorySuggestionRepository {
                 .child(decisionId)
                 .setValue(payload)
         }
+    }
+
+    suspend fun identificarProductoPorBarcode(
+        barcode: String,
+        imageBase64: String?,
+        categoriasExistentes: List<String>
+    ): BarcodeAiResult? {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank()) return null
+
+        val categoriasTexto = if (categoriasExistentes.isEmpty()) "[]"
+        else categoriasExistentes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+
+        val systemInstruction = """
+           Eres un identificador experto de productos por código de barras para una aplicación de farmacia y abarrotes.
+    
+    INSTRUCCIONES DE BÚSQUEDA (Google Search):
+    - Utiliza los resultados de la herramienta de búsqueda para encontrar el nombre comercial real, marca y presentación del código de barras provisto.
+    - REGLA DE DOMINIO: Solo acepta productos que correspondan a farmacia, botica, suplementos, abarrotes, higiene, cuidado personal, bebés o limpieza.
+    - Si la búsqueda arroja categorías totalmente ajenas (como muebles, electrónica, herramientas, ropa), considera que el código está mal indexado en la web y responde "estado": "NO_IDENTIFICADO".
+
+    REGLAS DE SALIDA:
+    - Responde ÚNICAMENTE con un JSON válido, sin texto extra ni formato markdown.
+    - estado: "IDENTIFICADO" si los resultados de búsqueda web o la imagen muestran coincidencia clara con un producto del dominio permitido. "NO_IDENTIFICADO" si no hay resultados o pertenecen a otro rubro.
+    - nombre: Nombre comercial completo + marca + dosis/presentación (ej: Glicinato de Magnesio Member's Mark 180 Tabletas).
+    - categoria: Una categoría lógica que describa el producto. Prioriza usar una de la lista si se te provee.
+    - tipoControl: "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO".
+    - requiereReceta: true | false (los suplementos vitamínicos o abarrotes son false).
+    - razon: Explicación muy corta del resultado o del porqué se descartó.
+""".trimIndent()
+
+        val userPrompt = """
+            Código detectado: "$barcode"
+            Categorías existentes: $categoriasTexto
+            Identifica el producto. Se adjunta imagen de la etiqueta si está disponible.
+        """.trimIndent()
+
+        val parts = mutableListOf<GeminiPart>()
+        parts.add(GeminiPart(text = userPrompt))
+        if (!imageBase64.isNullOrBlank()) {
+            parts.add(GeminiPart(inlineData = GeminiInlineData(mimeType = "image/jpeg", data = imageBase64)))
+        }
+
+        val barcodeSchema = GeminiSchema(
+            type = "OBJECT",
+            properties = mapOf(
+                "estado" to GeminiSchemaProperty("STRING"),
+                "codigo" to GeminiSchemaProperty("STRING"),
+                "nombre" to GeminiSchemaProperty("STRING"),
+                "categoria" to GeminiSchemaProperty("STRING"),
+                "tipoControl" to GeminiSchemaProperty("STRING"),
+                "requiereReceta" to GeminiSchemaProperty("BOOLEAN"),
+                "razon" to GeminiSchemaProperty("STRING")
+            ),
+            required = listOf(
+                "estado",
+                "codigo",
+                "nombre",
+                "categoria",
+                "tipoControl",
+                "requiereReceta",
+                "razon"
+            )
+        )
+
+        val request = GeminiRequest(
+            contents = listOf(GeminiContent(parts = parts)),
+            generationConfig = GeminiGenerationConfig(
+                temperature = 0.0,
+                responseMimeType = "application/json",
+                responseSchema = barcodeSchema
+            ),
+            systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstruction))),
+            tools = null
+        )
+
+        return runCatching {
+            val response = api.generateContent(model = MODEL, apiKey = apiKey, request = request)
+            val content = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                ?.extractJsonObject()
+                ?: return null
+            
+            // V18.2: Logcat del resultado IA por barcode (Gemini 2.5 Flash Vision)
+            Log.d("BarcodeAI", "Gemini Response JSON: $content")
+            
+            val parsed: BarcodeAiResult? = moshi.adapter(BarcodeAiResult::class.java)
+                .lenient()
+                .fromJson(content)
+                ?.let { result ->
+                    result.copy(
+                        codigo = result.codigo.ifBlank { barcode },
+                        nombre = result.nombre.orEmpty(),
+                        categoria = result.categoria.orEmpty(),
+                        tipoControl = result.tipoControl.orEmpty().ifBlank { "DESCONOCIDO" },
+                        razon = result.razon.orEmpty()
+                    )
+                }
+            Log.d("BarcodeAI", "Parsed Result: $parsed")
+            
+            parsed
+        }.onFailure {
+            Log.e("BarcodeAI", "Error identificando barcode con Gemini Vision", it)
+        }.getOrNull()
+    }
+
+    private fun String.extractJsonObject(): String {
+        val trimmed = trim()
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+        val start = trimmed.indexOf('{')
+        val end = trimmed.lastIndexOf('}')
+        return if (start >= 0 && end >= start) trimmed.substring(start, end + 1) else trimmed
     }
 
     private suspend fun consultarDeepSeekRapido(
@@ -1090,13 +1204,18 @@ Prohibido: Medicamentos,Farmacia,Salud,Productos,Varios,Otros,General.
             - UNIDAD: se cuenta por piezas (pastillas, cajas, sobres, tubos).
             - PESO: se mide por gramos/kilos (polvos a granel).
             - LIQUIDO: se mide por ml/litros (frascos de jarabe, gotas).
+            
+            Determina también si normalmente requiere receta médica:
+            - r=true si es medicamento de venta bajo receta.
+            - r=false si es suplemento, alimento, bebida, cosmético o venta libre.
+            - Si dudas, usa r=false y explica brevemente.
 
             Confianza:
             - ALTA: 100% seguro del tipo por el nombre o categoría específica.
             - MEDIA: Probable, pero podría ser otro (ej: polvos que se venden por sobre o por peso).
             - BAJA: Ambiguo.
 
-            Responde ÚNICAMENTE JSON: {"t":"UNIDAD|PESO|LIQUIDO", "c":"ALTA|MEDIA|BAJA", "m":"motivo breve"}
+            Responde ÚNICAMENTE JSON: {"t":"UNIDAD|PESO|LIQUIDO", "c":"ALTA|MEDIA|BAJA", "m":"motivo breve", "r":true|false, "rr":"motivo receta breve"}
         """.trimIndent()
 
         val request = DeepSeekChatRequest(
@@ -1133,7 +1252,9 @@ Prohibido: Medicamentos,Farmacia,Salud,Productos,Varios,Otros,General.
                 },
                 motivo = parsed.m,
                 productName = productName,
-                category = category
+                category = category,
+                requiereReceta = parsed.r,
+                razonReceta = parsed.rr
             )
         }.getOrNull()
     }
@@ -1141,6 +1262,8 @@ Prohibido: Medicamentos,Farmacia,Salud,Productos,Varios,Otros,General.
     private data class ManualTypeAnswer(
         @Json(name = "t") val t: String = "UNIDAD",
         @Json(name = "c") val c: String = "BAJA",
-        @Json(name = "m") val m: String = ""
+        @Json(name = "m") val m: String = "",
+        @Json(name = "r") val r: Boolean? = null,
+        @Json(name = "rr") val rr: String = ""
     )
 }

@@ -41,13 +41,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Opacity
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Grass
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,7 +92,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -130,8 +137,11 @@ val CreateTextPrimary = Color(0xFF111827)
 val CreateTextSecondary = Color(0xFF667085)
 val CreateRed = Color(0xFFD92D20)
 val CreateOrange = Color(0xFFE17B00)
-val CreateBlue = Color(0xFF2E90FA)
-val CreateBlueSoft = Color(0xFFEFF8FF)
+val CreateBlue = Color(0xFF15A05C)
+val CreateBlueSoft = Color(0xFFF1FBF5)
+val CreateAiFocus = Color(0xFFF6C343)
+val CreateAiFocusSoft = Color(0xFFFFF7D6)
+val CreateInfoGraySoft = Color(0xFFF8FAFC)
 
 private enum class ExpirationStatusKind {
     VIGENTE,
@@ -289,6 +299,13 @@ data class CreateProductState(
     val lotNumber: String = "",
     val expirationDate: String = "",
 
+    val forceManualProductEntry: Boolean = false,
+    val barcodeAiResult: com.app.administradorfarmadon.ActivityInventario.reference.BarcodeAiResult? = null,
+    val isIdentifyingBarcode: Boolean = false,
+    val barcodeAiError: String? = null,
+    val barcodeAiApplied: Boolean = false,
+    val scannedImageBase64: String? = null,
+
     // Campos viejos: los dejamos para no romper otras funciones existentes.
     val receivedPresentation: String = "",
     val receivedQuantity: String = "",
@@ -334,7 +351,9 @@ data class CreateProductState(
     val stockEntryConfigured: Boolean = false,
     val showStockEntryDialog: Boolean = false,
     val keywords: List<String> = emptyList(), // Palabras sugeridas por IA
-    val selectedKeywords: Set<String> = emptySet() // Palabras elegidas por el usuario
+    val selectedKeywords: Set<String> = emptySet(), // Palabras elegidas por el usuario
+    val barcodeMismatchDetected: Boolean = false,
+    val barcodeMismatchOriginalName: String? = null
 )
 
 @Composable
@@ -386,7 +405,13 @@ fun CreateProductScreen(
     onDismissNameCorrection: (String, String) -> Unit = { _, _ -> },
     onSearchIA: (Boolean) -> Unit = {},
     aiInventoryEnabled: Boolean = true,
-    onAddStockToExistingProduct: (MoldeProductos) -> Unit = {}
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit = {},
+    onIdentificarBarcode: (String, String?) -> Unit = { _, _ -> },
+    onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
+    onClearBarcodeIntegrityConflict: () -> Unit = {},
+    showNoBarcodeConfirmDialog: Boolean = false,
+    onDismissNoBarcodeConfirm: () -> Unit = {},
+    onConfirmNoBarcodeContinue: () -> Unit = {}
 ) {
     // Fix: se eliminaron lecturas y cálculos que se descartaban sin asignarse.
     // Solo se conserva la detección real de teclado, que sí se usa abajo para
@@ -395,6 +420,50 @@ fun CreateProductScreen(
     val imeBottom = WindowInsets.ime.getBottom(density)
     val navigationBottom = WindowInsets.navigationBars.getBottom(density)
     val keyboardVisible = imeBottom > navigationBottom
+    val scope = rememberCoroutineScope()
+
+    // V18.7: Lógica para la notificación flotante de "Todo listo" (Blindada contra validaciones de red)
+    val isStepValid = state.name.isNotBlank() &&
+            state.category.isNotBlank() &&
+            state.controlType != null &&
+            !state.barcodeMismatchDetected &&
+            state.duplicateProductFound == null &&
+            state.errors.isEmpty() &&
+            !state.isValidatingNameRemote && // Evita que se adelante mientras Firebase valida el nombre
+            !isCheckingBarcodeRemote        // Evita que se adelante mientras Firebase valida el código
+    var showReadyMessage by remember { mutableStateOf(false) }
+    var hasShownReadyForCurrentValid by remember { mutableStateOf(false) }
+    
+    // V18.9: Estado temporal para el efecto de "regresar atrás" al limpiar código
+    var isReturningToInitial by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isStepValid, state.currentStep) {
+        if (state.currentStep != CreateProductStep.PRODUCTO) {
+            showReadyMessage = false
+            return@LaunchedEffect
+        }
+
+        if (isStepValid) {
+            if (!hasShownReadyForCurrentValid) {
+                showReadyMessage = true
+                hasShownReadyForCurrentValid = true
+            }
+        } else {
+            showReadyMessage = false
+            hasShownReadyForCurrentValid = false
+        }
+    }
+
+    // V18.9: El diálogo de conflicto ahora es persistente y obliga a una acción correctiva.
+    // Se elimina el auto-cierre para garantizar la integridad de los datos.
+    /*
+    LaunchedEffect(state.barcodeMismatchDetected) {
+        if (state.barcodeMismatchDetected) {
+            delay(5000)
+            onStateChange(state.copy(barcodeMismatchDetected = false))
+        }
+    }
+    */
 
     Box(
         modifier = Modifier
@@ -446,23 +515,66 @@ fun CreateProductScreen(
                         onNext = onNext,
                         onPrevious = onPrevious,
                         onSave = onSave,
+                        loading = loading,
                         categorySuggestionState = categorySuggestionState,
                         onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                         onSwitchToManualCategory = onSwitchToManualCategory,
-                        onBackToAiCategory = onBackToAiCategory
+                        onBackToAiCategory = onBackToAiCategory,
+                        onSearchIA = onSearchIA,
+                        aiInventoryEnabled = aiInventoryEnabled,
+                        onAddStockToExistingProduct = onAddStockToExistingProduct,
+                        onRequestBarcodeScan = onRequestBarcodeScan,
+                        isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+                        onIdentificarBarcode = onIdentificarBarcode,
+                        onRequestLabelScan = onRequestLabelScan,
+                        onCheckBarcodeIntegrity = onCheckBarcodeIntegrity,
+                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
                     )
                 } else {
+                    // V18.5: Determinamos si estamos en el flujo de IA por código de barras.
+                    // En este modo, la card central tiene el control y ocultamos el botón "Siguiente" inferior.
+                    val isAiBarcodeFlow = aiInventoryEnabled &&
+                            state.currentStep == CreateProductStep.PRODUCTO &&
+                            !state.forceManualProductEntry &&
+                            !state.barcodeAiApplied
+
                     Scaffold(
                         containerColor = CreateBackground,
                         bottomBar = {
-                            if (!keyboardVisible) {
-                                BottomStepActions(
-                                    step = state.currentStep,
-                                    nextLabel = nextLabel,
-                                    nextEnabled = nextEnabled,
-                                    onNext = if (state.currentStep == CreateProductStep.RESUMEN) onSave else onNext,
-                                    onPrevious = onPrevious
-                                )
+                            if (!keyboardVisible && !isAiBarcodeFlow) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    // V18.7: Notificación de "Todo listo" sobre el botón Siguiente
+                                    AnimatedVisibility(
+                                        visible = showReadyMessage && state.currentStep == CreateProductStep.PRODUCTO,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                    ) {
+                                        Surface(
+                                            color = CreateGreenSoft,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.1f))
+                                        ) {
+                                            Text(
+                                                text = "¡TODO LISTO PARA CONTINUAR! ✓",
+                                                color = CreateGreen,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                                textAlign = TextAlign.Center,
+                                                letterSpacing = 1.sp
+                                            )
+                                        }
+                                    }
+
+                                    BottomStepActions(
+                                        step = state.currentStep,
+                                        nextLabel = nextLabel,
+                                        nextEnabled = nextEnabled,
+                                        onNext = if (state.currentStep == CreateProductStep.RESUMEN) onSave else onNext,
+                                        onPrevious = onPrevious,
+                                        loading = loading
+                                    )
+                                }
                             }
                         }
                     ) { innerPadding ->
@@ -497,7 +609,12 @@ fun CreateProductScreen(
                                         aiInventoryEnabled = aiInventoryEnabled,
                                         onAddStockToExistingProduct = onAddStockToExistingProduct,
                                         onRequestBarcodeScan = onRequestBarcodeScan,
-                                        isCheckingBarcodeRemote = isCheckingBarcodeRemote
+                                        isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+                                        onIdentificarBarcode = onIdentificarBarcode,
+                                        onNext = onNext,
+                                        onRequestLabelScan = onRequestLabelScan,
+                                        onCheckBarcodeIntegrity = onCheckBarcodeIntegrity,
+                                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
                                     )
 
                                     CreateProductStep.LOTE_INICIAL -> InitialLotStep(
@@ -529,7 +646,272 @@ fun CreateProductScreen(
             }
         }
 
-        if (loading) {
+        // --- DIÁLOGO PERSISTENTE DE ALERTA DE INTEGRIDAD ---
+        if (state.barcodeMismatchDetected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = CreateRed,
+                    shape = RoundedCornerShape(24.dp),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.QrCodeScanner,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "Conflicto de Identidad",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "El nombre no parece coincidir con el código de barras escaneado.",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        state.barcodeMismatchOriginalName?.let { original ->
+                            Surface(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "El código pertenece a: $original",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Botones de acción forzada para resolver el conflicto
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { 
+                                    onClearBarcodeIntegrityConflict()
+                                    onStateChange(state.copy(
+                                        barcodeMismatchDetected = false,
+                                        barcodeMismatchOriginalName = null
+                                    ))
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Mantener código y corregir nombre", fontWeight = FontWeight.Bold)
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            isReturningToInitial = true
+                                            delay(350)
+                                            onClearBarcodeIntegrityConflict()
+                                            onStateChange(state.copy(
+                                                barcode = "",
+                                                name = "",
+                                                category = "",
+                                                controlType = null,
+                                                requiresPrescription = false,
+                                                barcodeMismatchDetected = false,
+                                                barcodeMismatchOriginalName = null,
+                                                scannedImageBase64 = null,
+                                                barcodeAiResult = null,
+                                                barcodeAiError = null,
+                                                barcodeAiApplied = false,
+                                                duplicateProductFound = null,
+                                                forceManualProductEntry = false,
+                                                errors = state.errors - setOf("barcode", "name", "category", "controlType")
+                                            ))
+                                            delay(500)
+                                            isReturningToInitial = false
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Limpiar código")
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            isReturningToInitial = true
+                                            delay(350)
+                                            onClearBarcodeIntegrityConflict()
+                                            onStateChange(state.copy(
+                                                barcode = "",
+                                                name = "",
+                                                category = "",
+                                                controlType = null,
+                                                requiresPrescription = false,
+                                                barcodeMismatchDetected = false,
+                                                barcodeMismatchOriginalName = null,
+                                                scannedImageBase64 = null,
+                                                barcodeAiResult = null,
+                                                barcodeAiError = null,
+                                                barcodeAiApplied = false,
+                                                duplicateProductFound = null,
+                                                forceManualProductEntry = false,
+                                                errors = state.errors - setOf("barcode", "name", "category", "controlType")
+                                            ))
+                                            delay(450)
+                                            isReturningToInitial = false
+                                            onRequestBarcodeScan()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Escanear otro")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showNoBarcodeConfirmDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.28f))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.White,
+                    shape = RoundedCornerShape(30.dp),
+                    shadowElevation = 16.dp,
+                    border = BorderStroke(1.dp, CreateOrange.copy(alpha = 0.22f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(58.dp),
+                            color = CreateOrangeSoft,
+                            shape = CircleShape
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = CreateOrange,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Continuar sin codigo",
+                            color = CreateTextPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "Puedes crear este producto sin codigo de barras. Luego no se encontrara por escaner, pero podras agregarlo despues desde su ficha.",
+                            color = CreateTextSecondary,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = CreateOrangeSoft.copy(alpha = 0.72f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, CreateOrange.copy(alpha = 0.16f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = CreateOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Recomendado: escanea si el producto tiene etiqueta.",
+                                    color = CreateTextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismissNoBarcodeConfirm,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, CreateBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = CreateTextSecondary
+                                )
+                            ) {
+                                Text("Volver", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = onConfirmNoBarcodeContinue,
+                                modifier = Modifier
+                                    .weight(1.15f)
+                                    .height(54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CreateOrange,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Continuar", fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (loading || isReturningToInitial) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = Color.White.copy(alpha = 0.96f)
@@ -545,7 +927,7 @@ fun CreateProductScreen(
                     )
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        text = "Guardando producto...",
+                        text = if (isReturningToInitial) "Regresando al asistente IA..." else "Guardando producto...",
                         color = CreateTextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
@@ -567,12 +949,22 @@ private fun CreateProductTabletSidebarLayout(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onSave: () -> Unit,
+    loading: Boolean = false,
     // Sugerencia IA propagada también en tablet para consistencia móvil/tablet.
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState =
         com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
     onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit = {},
     onSwitchToManualCategory: () -> Unit = {},
-    onBackToAiCategory: () -> Unit = {}
+    onBackToAiCategory: () -> Unit = {},
+    onSearchIA: (Boolean) -> Unit = {},
+    aiInventoryEnabled: Boolean = true,
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit = {},
+    onRequestBarcodeScan: () -> Unit = {},
+    isCheckingBarcodeRemote: Boolean = false,
+    onIdentificarBarcode: (String, String?) -> Unit = { _, _ -> },
+    onRequestLabelScan: () -> Unit = {},
+    onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
+    onClearBarcodeIntegrityConflict: () -> Unit = {}
 ) {
     val currentStep = state.currentStep
     val isLast = currentStep == CreateProductStep.RESUMEN
@@ -591,16 +983,33 @@ private fun CreateProductTabletSidebarLayout(
                 ) {
                     OutlinedButton(
                         onClick = if (isFirst) onBack else onPrevious,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !loading
                     ) {
                         Text(if (isFirst) "Cancelar" else "Atras")
                     }
                     Button(
                         onClick = if (isLast) onSave else onNext,
                         modifier = Modifier.weight(2f),
-                        enabled = saveEnabled
+                        enabled = saveEnabled && !loading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CreateGreen,
+                            contentColor = Color.White,
+                            disabledContainerColor = CreateBorder,
+                            disabledContentColor = CreateTextSecondary.copy(alpha = 0.5f)
+                        )
                     ) {
-                        Text(if (isLast) "Guardar producto" else "Siguiente")
+                        if (loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Procesando...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text(if (isLast) "Guardar producto" else "Siguiente")
+                        }
                     }
                 }
             }
@@ -731,7 +1140,17 @@ private fun CreateProductTabletSidebarLayout(
                             categorySuggestionState = categorySuggestionState,
                             onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                             onSwitchToManualCategory = onSwitchToManualCategory,
-                            onBackToAiCategory = onBackToAiCategory
+                            onBackToAiCategory = onBackToAiCategory,
+                            onSearchIA = onSearchIA,
+                            aiInventoryEnabled = aiInventoryEnabled,
+                            onAddStockToExistingProduct = onAddStockToExistingProduct,
+                            onRequestBarcodeScan = onRequestBarcodeScan,
+                            isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+                            onIdentificarBarcode = onIdentificarBarcode,
+                            onNext = onNext,
+                            onRequestLabelScan = onRequestLabelScan,
+                            onCheckBarcodeIntegrity = onCheckBarcodeIntegrity,
+                            onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
                         )
                         CreateProductStep.LOTE_INICIAL -> InitialLotStep(
                             state = state,
@@ -926,6 +1345,15 @@ fun ProductStepContent(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // --- NUEVO: Ocultar teclado suavemente al hacer scroll ---
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
+    // ---------------------------------------------------------
+
     LaunchedEffect(step) {
         focusManager.clearFocus(force = true)
         keyboardController?.hide()
@@ -935,13 +1363,7 @@ fun ProductStepContent(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    focusManager.clearFocus(force = true)
-                    keyboardController?.hide()
-                }
-            },
+            .imePadding(),
         state = listState,
         contentPadding = PaddingValues(bottom = contentBottomPadding),
         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -953,6 +1375,620 @@ fun ProductStepContent(
         item(key = "body_${step.name}") {
             body()
         }
+    }
+}
+
+@Composable
+fun AiBarcodeProductStep(
+    state: CreateProductState,
+    onStateChange: (CreateProductState) -> Unit,
+    onRequestBarcodeScan: () -> Unit,
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit,
+    onIdentificarBarcode: (String, String?) -> Unit,
+    isCheckingBarcodeRemote: Boolean,
+    onNext: () -> Unit,
+    onRequestLabelScan: () -> Unit
+) {
+    val resetAndScanAgain = {
+        onStateChange(
+            state.copy(
+                barcode = "",
+                name = "",
+                category = "",
+                controlType = null,
+                requiresPrescription = false,
+                forceManualProductEntry = false,
+                scannedImageBase64 = null,
+                barcodeAiResult = null,
+                barcodeAiError = null,
+                barcodeAiApplied = false,
+                duplicateProductFound = null,
+                barcodeMismatchDetected = false,
+                barcodeMismatchOriginalName = null,
+                errors = state.errors - setOf("barcode", "name", "category", "controlType")
+            )
+        )
+        onRequestBarcodeScan()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        val result = state.barcodeAiResult
+        val hasDuplicate = state.duplicateProductFound != null
+
+        when {
+            // 1. Producto existente detectado por Firebase
+            hasDuplicate -> {
+                state.duplicateProductFound?.let { producto ->
+                    DuplicateProductCard(
+                        producto = producto,
+                        onAddStock = { onAddStockToExistingProduct(producto) }
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = resetAndScanAgain,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Escanear otro", color = CreateTextSecondary)
+                        }
+
+                        OutlinedButton(
+                            onClick = { onStateChange(state.copy(forceManualProductEntry = true)) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Ajustar", color = CreateTextSecondary)
+                        }
+                    }
+                }
+            }
+
+            // 2. Resultado ya aplicado (resumen compacto o ir a manual)
+            state.barcodeAiApplied -> {
+                ProductAppliedSummaryCard(
+                    state = state,
+                    onEditManual = { onStateChange(state.copy(barcodeAiApplied = false, forceManualProductEntry = true)) },
+                    onScanOther = resetAndScanAgain
+                )
+            }
+
+            // 3. Identificando...
+            state.isIdentifyingBarcode || isCheckingBarcodeRemote -> {
+                IdentifyingBarcodeCard(barcode = state.barcode)
+            }
+
+            // 4. Resultado IA disponible
+            result != null -> {
+                if (result.estado == "IDENTIFICADO") {
+                    BarcodeIdentifiedCard(
+                        result = result,
+                        onApply = {
+                            val mappedType = when (result.tipoControl) {
+                                "UNIDAD" -> CreateProductControlType.UNIDAD
+                                "PESO" -> CreateProductControlType.PESO
+                                "LIQUIDO" -> CreateProductControlType.LIQUIDO
+                                else -> null
+                            }
+
+                            if (mappedType != null) {
+                                onStateChange(state.copy(
+                                    name = result.nombre.orEmpty(),
+                                    category = result.categoria.orEmpty(),
+                                    controlType = mappedType,
+                                    requiresPrescription = result.requiereReceta,
+                                    barcode = result.codigo.ifBlank { state.barcode },
+                                    barcodeAiApplied = true,
+                                    currentStep = CreateProductStep.LOTE_INICIAL,
+                                    errors = state.errors - setOf("name", "category", "controlType", "barcode")
+                                ))
+                                // V18.5: Avance automático al Paso 2 tras aplicar datos exitosos de la IA
+                            } else {
+                                // Si el tipo es DESCONOCIDO, forzar manual para que el usuario elija
+                                onStateChange(state.copy(
+                                    name = result.nombre.orEmpty(),
+                                    category = result.categoria.orEmpty(),
+                                    requiresPrescription = result.requiereReceta,
+                                    forceManualProductEntry = true,
+                                    errors = state.errors + ("controlType" to "✨ La IA hizo su magia, solo confirma cómo se controla este producto.")
+                                ))
+                            }
+                        },
+                        onScanOther = resetAndScanAgain,
+                        onEditManual = { 
+                            val mappedType = when (result.tipoControl) {
+                                "UNIDAD" -> CreateProductControlType.UNIDAD
+                                "PESO" -> CreateProductControlType.PESO
+                                "LIQUIDO" -> CreateProductControlType.LIQUIDO
+                                else -> null
+                            }
+                            onStateChange(state.copy(
+                                name = result.nombre.orEmpty(),
+                                category = result.categoria.orEmpty(),
+                                controlType = mappedType,
+                                requiresPrescription = result.requiereReceta,
+                                forceManualProductEntry = true
+                            )) 
+                        }
+                    )
+                } else {
+                    BarcodeNotIdentifiedCard(
+                        barcode = state.barcode,
+                        onScanOther = resetAndScanAgain,
+                        onEditManual = { onStateChange(state.copy(forceManualProductEntry = true)) },
+                        onRequestLabelScan = onRequestLabelScan
+                    )
+                }
+            }
+
+            // 5. Estado inicial o código vacío
+            state.barcode.isBlank() -> {
+                InitialScanCard(
+                    onStartScan = onRequestBarcodeScan
+                )
+            }
+
+            // 6. Error de red o validación del código.
+            state.errors["barcode"] != null -> {
+                BarcodeValidationErrorCard(
+                    message = state.errors["barcode"].orEmpty(),
+                    onRetry = resetAndScanAgain,
+                    onAdjust = { onStateChange(state.copy(forceManualProductEntry = true)) }
+                )
+            }
+
+            // 7. Código nuevo sin resultado todavía (esperando).
+            else -> {
+                IdentifyingBarcodeCard(barcode = state.barcode)
+                LaunchedEffect(state.barcode, state.errors["barcode"]) {
+                    if (!state.isIdentifyingBarcode &&
+                        state.barcodeAiResult == null &&
+                        state.errors["barcode"] == null
+                    ) {
+                        onIdentificarBarcode(state.barcode, state.scannedImageBase64)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InitialScanCard(onStartScan: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.outline_barcode_scanner_24),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = CreateGreen
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Escanea el código del producto",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = CreateTextPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Identificaremos el producto automáticamente para ahorrarte tiempo.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = CreateTextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onStartScan,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+            ) {
+                Text("Escanear código")
+            }
+        }
+    }
+}
+
+@Composable
+fun IdentifyingBarcodeCard(barcode: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(color = CreateGreen, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Identificando producto...",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Código: $barcode",
+                style = MaterialTheme.typography.bodySmall,
+                color = CreateTextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+fun BarcodeValidationErrorCard(
+    message: String,
+    onRetry: () -> Unit,
+    onAdjust: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFFF5F5),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                color = CreateRed.copy(alpha = 0.12f),
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.QrCodeScanner,
+                        contentDescription = null,
+                        tint = CreateRed,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "No pudimos validar el código",
+                color = CreateRed,
+                fontWeight = FontWeight.Black,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = message,
+                color = CreateTextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Text("Reintentar", color = CreateTextSecondary)
+                }
+
+                Button(
+                    onClick = onAdjust,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = CreateRed),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Ajustar")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BarcodeIdentifiedCard(
+    result: com.app.administradorfarmadon.ActivityInventario.reference.BarcodeAiResult,
+    onApply: () -> Unit,
+    onScanOther: () -> Unit,
+    onEditManual: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(30.dp),
+        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = CreateGreenSoft,
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.12f))
+                ) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = CreateGreen,
+                        modifier = Modifier.padding(10.dp).size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Producto identificado",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = CreateGreen
+                    )
+                    Text(
+                        text = "Revisa y aplica los datos sugeridos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CreateTextSecondary
+                    )
+                }
+                Surface(
+                    color = CreateGreen.copy(alpha = 0.09f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = "IA",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = CreateGreen
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = CreateGreenSoft.copy(alpha = 0.46f),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.12f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = result.nombre.orEmpty().ifBlank { "Producto sin nombre confirmado" },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = CreateTextPrimary,
+                        lineHeight = 28.sp
+                    )
+
+                    Text(
+                        text = "Codigo ${result.codigo}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CreateTextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BarcodeInfoPill("Categoria", result.categoria.orEmpty(), CreateGreen, CreateGreenSoft)
+                        BarcodeInfoPill("Control", result.tipoControl.orEmpty(), CreateGreen, CreateGreenSoft)
+                        BarcodeInfoPill(
+                            "Receta",
+                            if (result.requiereReceta) "Requiere" else "No requiere",
+                            CreateTextPrimary,
+                            CreateBackground
+                        )
+                    }
+                }
+            }
+
+            val isTypeUnknown = result.tipoControl !in listOf("UNIDAD", "PESO", "LIQUIDO")
+
+            Button(
+                onClick = onApply,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+            ) {
+                Text(
+                    text = if (isTypeUnknown) "Completar tipo de control" else "Aplicar datos",
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onScanOther,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Text("Otro", color = CreateTextSecondary)
+                }
+                OutlinedButton(
+                    onClick = onEditManual,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Text("Ajustar", color = CreateTextSecondary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarcodeInfoPill(
+    label: String,
+    value: String,
+    color: Color,
+    background: Color
+) {
+    Surface(
+        color = background.copy(alpha = 0.82f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.14f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = color.copy(alpha = 0.78f),
+                letterSpacing = 0.4.sp
+            )
+            Text(
+                text = value.ifBlank { "Sin dato" },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = CreateTextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+@Composable
+fun BarcodeNotIdentifiedCard(
+    barcode: String,
+    onScanOther: () -> Unit,
+    onEditManual: () -> Unit,
+    onRequestLabelScan: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFEF2F2),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color(0xFFFEE2E2))
+    ) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Label,
+                contentDescription = null,
+                tint = CreateRed,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "No pude identificarlo por código",
+                fontWeight = FontWeight.Bold,
+                color = CreateRed,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                "El código $barcode no arrojó resultados claros.",
+                style = MaterialTheme.typography.bodySmall,
+                color = CreateTextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onEditManual,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = CreateRed),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Crear con ayuda")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = onRequestLabelScan,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.5f))
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.Label,
+                    contentDescription = null,
+                    tint = CreateRed,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Escanear etiqueta o foto", color = CreateRed)
+            }
+
+            TextButton(onClick = onScanOther) {
+                Text("Escanear otro código", color = CreateTextSecondary)
+            }
+        }
+    }
+}
+
+@Composable
+fun ProductAppliedSummaryCard(state: CreateProductState, onEditManual: () -> Unit, onScanOther: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = CreateGreen, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Datos cargados correctamente", fontWeight = FontWeight.SemiBold, color = CreateTextPrimary)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(state.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(state.category, style = MaterialTheme.typography.bodySmall, color = CreateTextSecondary)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onScanOther, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
+                    Text("Cambiar", fontSize = 12.sp)
+                }
+                Button(onClick = onEditManual, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
+                    Text("Ajustar", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = CreateTextSecondary)
+        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = CreateTextPrimary)
     }
 }
 
@@ -977,7 +2013,12 @@ fun ProductBasicStep(
     aiInventoryEnabled: Boolean = true,
     onAddStockToExistingProduct: (MoldeProductos) -> Unit = {},
     onRequestBarcodeScan: () -> Unit = {},
-    isCheckingBarcodeRemote: Boolean = false
+    isCheckingBarcodeRemote: Boolean = false,
+    onIdentificarBarcode: (String, String?) -> Unit = { _, _ -> },
+    onNext: () -> Unit = {},
+    onRequestLabelScan: () -> Unit = {},
+    onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
+    onClearBarcodeIntegrityConflict: () -> Unit = {}
 ) {
     val nameRequester = remember { BringIntoViewRequester() }
     val categoryRequester = remember { BringIntoViewRequester() }
@@ -1002,7 +2043,69 @@ fun ProductBasicStep(
         }
     }
 
+    var isWaitingForAi by remember { mutableStateOf(false) }
+
+    // Modo manual silencioso: al dejar de escribir el nombre, precarga una categoría.
+    LaunchedEffect(state.name, state.category, state.categorySelectedFromAi, state.duplicateProductFound) {
+        isWaitingForAi = false
+        if (
+            state.name.length >= 3 &&
+            state.category.isBlank() &&
+            !state.categorySelectedFromAi &&
+            state.duplicateProductFound == null
+        ) {
+            isWaitingForAi = true
+            delay(500)
+            onSearchIA(false)
+            isWaitingForAi = false
+        }
+    }
+
+    // V18.8: Validación de Integridad (Nombre vs Código) con Debounce
+    LaunchedEffect(state.name, state.barcode, state.barcodeAiApplied) {
+        if (state.name.length > 5 && state.barcode.isNotBlank() && !state.barcodeAiApplied) {
+            delay(1000)
+            onCheckBarcodeIntegrity(state.barcode, state.name)
+        }
+    }
+
     val hasDuplicateProduct = state.duplicateProductFound != null
+    val aiBarcodeResult = state.barcodeAiResult
+    val aiControlType = when (aiBarcodeResult?.tipoControl) {
+        "UNIDAD" -> CreateProductControlType.UNIDAD
+        "PESO" -> CreateProductControlType.PESO
+        "LIQUIDO" -> CreateProductControlType.LIQUIDO
+        else -> null
+    }
+    val shouldShowAiPrescriptionInfo =
+        state.forceManualProductEntry &&
+            aiBarcodeResult?.estado == "IDENTIFICADO" &&
+            !state.barcodeAiApplied &&
+            !state.typeSelectedManually &&
+            state.name.trim().stripAccents().equals(aiBarcodeResult.nombre.orEmpty().trim().stripAccents(), ignoreCase = true) &&
+            state.category.trim().stripAccents().equals(aiBarcodeResult.categoria.orEmpty().trim().stripAccents(), ignoreCase = true) &&
+            state.controlType == aiControlType
+    val manualAiPrescriptionSuggestion = categorySuggestionState.sugerenciaTipoManual
+        ?.takeIf { suggestion ->
+            state.categorySelectedFromAi &&
+                state.name.trim().stripAccents().equals(suggestion.productName.trim().stripAccents(), ignoreCase = true) &&
+                state.category.trim().stripAccents().equals(suggestion.category.trim().stripAccents(), ignoreCase = true)
+        }
+        ?.requiereReceta
+
+    if (aiInventoryEnabled && !state.forceManualProductEntry && !state.barcodeAiApplied) {
+        AiBarcodeProductStep(
+            state = state,
+            onStateChange = onStateChange,
+            onRequestBarcodeScan = onRequestBarcodeScan,
+            onAddStockToExistingProduct = onAddStockToExistingProduct,
+            onIdentificarBarcode = onIdentificarBarcode,
+            isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+            onNext = onNext,
+            onRequestLabelScan = onRequestLabelScan
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -1010,43 +2113,123 @@ fun ProductBasicStep(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // --- SECCIÓN: IDENTIFICACIÓN ---
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = "IDENTIFICACIÓN DEL PRODUCTO",
-                color = CreateTextSecondary.copy(alpha = 0.7f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.2.sp
-            )
-            
-            BarcodeSection(
-                barcode = state.barcode,
-                isManualMode = state.isBarcodeManualMode,
-                isChecking = isCheckingBarcodeRemote,
-                error = state.errors["barcode"],
-                onStartScan = {
-                    onStateChange(state.copy(duplicateProductFound = null))
-                    onRequestBarcodeScan()
-                },
-                onManualMode = { onStateChange(state.copy(isBarcodeManualMode = true, duplicateProductFound = null)) },
-                onBarcodeChange = { 
-                    onStateChange(state.copy(barcode = it, duplicateProductFound = null, errors = state.errors - "barcode")) 
-                },
-                onConfirmManual = { 
-                    onStateChange(state.copy(isBarcodeManualMode = false))
-                },
-                onClear = { 
-                    onStateChange(state.copy(
-                        barcode = "", 
-                        isBarcodeManualMode = false, 
-                        duplicateProductFound = null, 
-                        errors = state.errors - "barcode"
-                    )) 
-                }
-            )
-        }
+        // --- SECCIÓN: IDENTIFICACIÓN (CÓDIGO DE BARRAS) ---
+        // Se extrae para optimizar la recomposición cuando el código cambia.
+        BarcodeManagementSection(
+            state = state,
+            isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+            onStateChange = onStateChange,
+            onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict,
+            onRequestBarcodeScan = onRequestBarcodeScan,
+            onAddStockToExistingProduct = onAddStockToExistingProduct
+        )
 
+        // --- SECCIÓN: NOMBRE DEL PRODUCTO ---
+        // Se extrae para que el tipeado del nombre no afecte a las secciones de red pesadas.
+        ProductNameSection(
+            state = state,
+            nameRequester = nameRequester,
+            onStateChange = onStateChange,
+            onClearAsistManual = onClearAsistManual
+        )
+
+        // --- SECCIÓN: CATEGORÍA Y TIPO DE CONTROL ---
+        // Maneja la sincronización con Gemini y el despliegue del selector de tipo.
+        CategorySelectionSection(
+            state = state,
+            categoryRequester = categoryRequester,
+            categoryOptions = categoryOptions,
+            categorySuggestionState = categorySuggestionState,
+            isWaitingForAi = isWaitingForAi,
+            onStateChange = onStateChange,
+            onAcceptCategorySuggestion = onAcceptCategorySuggestion,
+            onSwitchToManualCategory = onSwitchToManualCategory,
+            onBackToAiCategory = onBackToAiCategory,
+            onClearAsistManual = onClearAsistManual,
+            onControlTypeChange = { controlType ->
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+                onStateChange(state.copy(
+                    controlType = controlType,
+                    typeSelectedManually = true,
+                    presentations = sugerirPresentacionesIniciales(controlType, ""),
+                    mainPresentationId = "",
+                    errors = state.errors - "controlType"
+                ))
+                scope.launch {
+                    delay(400)
+                    requirementsRequester.bringIntoView()
+                }
+            }
+        )
+
+        // --- SECCIÓN: REQUISITOS (RECETA MÉDICA) ---
+        // Oculta hasta que los datos base estén listos.
+        ProductRequirementsSection(
+            state = state,
+            requirementsRequester = requirementsRequester,
+            shouldShowAiPrescriptionInfo = shouldShowAiPrescriptionInfo,
+            aiPrescriptionSuggestion = manualAiPrescriptionSuggestion,
+            onStateChange = onStateChange
+        )
+    }
+}
+
+/**
+ * Encapsula toda la lógica de gestión de códigos de barras (escaneo, manual y duplicados).
+ * Su extracción evita recomposiciones masivas cuando se detecta un conflicto de integridad.
+ */
+@Composable
+private fun BarcodeManagementSection(
+    state: CreateProductState,
+    isCheckingBarcodeRemote: Boolean,
+    onStateChange: (CreateProductState) -> Unit,
+    onClearBarcodeIntegrityConflict: () -> Unit,
+    onRequestBarcodeScan: () -> Unit,
+    onAddStockToExistingProduct: (MoldeProductos) -> Unit
+) {
+    val hasDuplicateProduct = state.duplicateProductFound != null
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+
+        // --- AQUÍ ESTÁ EL CAMBIO ---
+        // Quitamos el 'if' restrictivo para que siempre se vea el escáner
+        BarcodeSection(
+            barcode = state.barcode,
+            isManualMode = state.isBarcodeManualMode,
+            isChecking = isCheckingBarcodeRemote,
+            error = state.errors["barcode"],
+            onStartScan = {
+                onClearBarcodeIntegrityConflict()
+                onStateChange(state.copy(
+                    barcode = "",
+                    barcodeAiResult = null,
+                    barcodeAiApplied = false,
+                    forceManualProductEntry = true, // Mantenemos el modo manual
+                    isBarcodeManualMode = false,
+                    duplicateProductFound = null,
+                    errors = state.errors - setOf("barcode", "name", "category", "controlType")
+                ))
+                onRequestBarcodeScan()
+            },
+            onManualMode = { onStateChange(state.copy(isBarcodeManualMode = true, duplicateProductFound = null)) },
+            onBarcodeChange = { onStateChange(state.copy(barcode = it, duplicateProductFound = null, errors = state.errors - "barcode")) },
+            onConfirmManual = { onStateChange(state.copy(isBarcodeManualMode = false)) },
+            onClear = {
+                onClearBarcodeIntegrityConflict()
+                onStateChange(state.copy(
+                    barcode = "",
+                    barcodeAiResult = null,
+                    barcodeAiApplied = false,
+                    forceManualProductEntry = true,
+                    isBarcodeManualMode = false,
+                    duplicateProductFound = null,
+                    errors = state.errors - "barcode"
+                ))
+            }
+        )
+
+        // Tarjeta de duplicado: solo aparece si realmente hay un duplicado
         AnimatedVisibility(visible = hasDuplicateProduct) {
             state.duplicateProductFound?.let { producto ->
                 DuplicateProductCard(
@@ -1055,154 +2238,192 @@ fun ProductBasicStep(
                 )
             }
         }
+    }
+}
 
-        // --- SECCIÓN: DETALLES BASE ---
-        AnimatedVisibility(
-            visible = state.barcode.isNotBlank() && !hasDuplicateProduct,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "DETALLES DEL PRODUCTO",
-                    color = CreateTextSecondary.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.2.sp
-                )
+/**
+ * Maneja únicamente el campo de texto del nombre del producto.
+ * Optimiza la fluidez del teclado al aislar los cambios de 'state.name'.
+ */
+@Composable
+private fun ProductNameSection(
+    state: CreateProductState,
+    nameRequester: BringIntoViewRequester,
+    onStateChange: (CreateProductState) -> Unit,
+    onClearAsistManual: () -> Unit
+) {
+    val hasDuplicateProduct = state.duplicateProductFound != null
 
-                AppTextField(
-                    modifier = Modifier.bringIntoViewRequester(nameRequester),
-                    label = "Nombre del producto *",
-                    value = state.name,
-                    error = state.errors["name"],
-                    placeholder = "Ej. Ibuprofeno 500mg",
-                    leadingIcon = Icons.Outlined.Inventory2,
-                    onValueChange = { input ->
-                        if (input.isBlank()) {
-                            onStateChange(state.copy(
-                                name = "",
-                                category = "",
-                                controlType = null,
-                                requiresPrescription = false,
-                                categorySelectedFromAi = false,
-                                duplicateProductFound = null,
-                                errors = state.errors - setOf("name", "category", "controlType")
-                            ))
-                            onClearAsistManual()
-                        } else {
-                            onStateChange(state.copy(
-                                name = input, 
-                                duplicateProductFound = null, 
-                                errors = state.errors - "name"
-                            ))
-                        }
-                        onSearchIA(false)
+    AnimatedVisibility(
+        visible = !hasDuplicateProduct,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Re-instanciar el BarcodeSection aquí si no hay duplicado (según lógica original)
+            // Nota: Se podría optimizar aún más sacándolo de este AnimatedVisibility
+            // pero mantenemos la estructura original solicitada.
+
+            AppTextField(
+                modifier = Modifier.bringIntoViewRequester(nameRequester),
+                label = "NOMBRE DEL PRODUCTO",
+                value = state.name,
+                error = state.errors["name"],
+                placeholder = "Escribe el nombre o marca...",
+                leadingIcon = Icons.AutoMirrored.Outlined.Label,
+                trailingIcon = if (state.name.length >= 3) {
+                    { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
+                } else null,
+                onValueChange = { input ->
+                    if (input.isBlank()) {
+                        onStateChange(state.copy(
+                            name = "",
+                            category = "",
+                            controlType = null,
+                            requiresPrescription = false,
+                            categorySelectedFromAi = false,
+                            duplicateProductFound = null,
+                            errors = state.errors - setOf("name", "category", "controlType")
+                        ))
+                        onClearAsistManual()
+                    } else {
+                        onStateChange(state.copy(
+                            name = input, 
+                            duplicateProductFound = null, 
+                            errors = state.errors - "name"
+                        ))
                     }
-                )
-
-                if (state.name.isNotBlank()) {
-                    CategoryAutocompleteField(
-                        modifier = Modifier.bringIntoViewRequester(categoryRequester),
-                        value = state.category,
-                        options = categoryOptions,
-                        error = state.errors["category"],
-                        controlType = state.controlType,
-                        controlTypeError = state.errors["controlType"],
-                        suggestionState = categorySuggestionState,
-                        onAcceptSuggestion = onAcceptCategorySuggestion,
-                        onSwitchToManual = onSwitchToManualCategory,
-                        onBackToAi = onBackToAiCategory,
-                        onValueChange = {
-                            onStateChange(
-                                state.copy(
-                                    category = it,
-                                    errors = state.errors - "category",
-                                    categorySelectedFromAi = false
-                                )
-                            )
-                        },
-                        onCategorySelectedFromSuggestion = {
-                            onStateChange(
-                                state.copy(
-                                    category = it,
-                                    errors = state.errors - "category",
-                                    categorySelectedFromAi = true
-                                )
-                            )
-                            onClearAsistManual()
-                        },
-                        onControlTypeChange = { controlType ->
-                            // Acción premium: ocultar teclado, limpiar foco y bajar scroll
-                            keyboardController?.hide()
-                            focusManager.clearFocus(force = true)
-
-                            onStateChange(
-                                state.copy(
-                                    controlType = controlType,
-                                    typeSelectedManually = true,
-                                    presentations = sugerirPresentacionesIniciales(controlType, ""),
-                                    mainPresentationId = "",
-                                    errors = state.errors - "controlType"
-                                )
-                            )
-
-                            // Scroll suave hacia los requisitos
-                            scope.launch {
-                                delay(400) // Tiempo para que la sección aparezca
-                                requirementsRequester.bringIntoView()
-                            }
-                        }
-                    )
                 }
-            }
+            )
         }
+    }
+}
 
-        // --- SECCIÓN: CONFIGURACIÓN ---
-        val mostrarCamposSecundarios =
-            !hasDuplicateProduct &&
-            state.name.isNotBlank() &&
-            state.category.isNotBlank() &&
-            state.controlType != null
+/**
+ * Gestiona el campo de categoría, el asistente de Gemini y el selector de tipo.
+ * Es la sección con mayor carga lógica del Paso 1.
+ */
+@Composable
+private fun CategorySelectionSection(
+    state: CreateProductState,
+    categoryRequester: BringIntoViewRequester,
+    categoryOptions: List<String>,
+    categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState,
+    isWaitingForAi: Boolean,
+    onStateChange: (CreateProductState) -> Unit,
+    onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit,
+    onSwitchToManualCategory: () -> Unit,
+    onBackToAiCategory: () -> Unit,
+    onClearAsistManual: () -> Unit,
+    onControlTypeChange: (CreateProductControlType) -> Unit
+) {
+    val hasDuplicateProduct = state.duplicateProductFound != null
 
-        AnimatedVisibility(
-            visible = mostrarCamposSecundarios,
-            enter = fadeIn() + slideInVertically { it / 6 },
-            exit = fadeOut() + slideOutVertically { -it / 6 }
+    if (!hasDuplicateProduct && state.name.isNotBlank()) {
+        CategoryAutocompleteField(
+            modifier = Modifier.bringIntoViewRequester(categoryRequester),
+            value = state.category,
+            productName = state.name,
+            options = categoryOptions,
+            error = state.errors["category"],
+            controlType = state.controlType,
+            controlTypeError = state.errors["controlType"],
+            isWaitingForAi = isWaitingForAi,
+            suggestionState = categorySuggestionState,
+            onAcceptSuggestion = onAcceptCategorySuggestion,
+            onSwitchToManual = onSwitchToManualCategory,
+            onBackToAi = onBackToAiCategory,
+            categorySelectedFromAi = state.categorySelectedFromAi,
+            onValueChange = {
+                onStateChange(state.copy(
+                    category = it,
+                    errors = state.errors - "category",
+                    categorySelectedFromAi = false
+                ))
+            },
+            onCategorySelectedFromSuggestion = { selectedCategory ->
+                onStateChange(state.copy(
+                    category = selectedCategory,
+                    categorySelectedFromAi = true,
+                    typeSelectedManually = false,
+                    controlType = null,
+                    errors = state.errors - "category"
+                ))
+                onClearAsistManual()
+            },
+            onControlTypeChange = onControlTypeChange
+        )
+    }
+}
+
+/**
+ * Sección final de requisitos adicionales como receta médica.
+ * Solo aparece cuando los datos base son válidos.
+ */
+@Composable
+private fun ProductRequirementsSection(
+    state: CreateProductState,
+    requirementsRequester: BringIntoViewRequester,
+    shouldShowAiPrescriptionInfo: Boolean,
+    aiPrescriptionSuggestion: Boolean?,
+    onStateChange: (CreateProductState) -> Unit
+) {
+    val hasDuplicateProduct = state.duplicateProductFound != null
+    val mostrarCamposSecundarios =
+        !hasDuplicateProduct &&
+        state.name.isNotBlank() &&
+        state.category.isNotBlank() &&
+        state.controlType != null
+
+    AnimatedVisibility(
+        visible = mostrarCamposSecundarios,
+        enter = fadeIn() + slideInVertically { it / 6 },
+        exit = fadeOut() + slideOutVertically { -it / 6 }
+    ) {
+        Column(
+            modifier = Modifier.bringIntoViewRequester(requirementsRequester),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.bringIntoViewRequester(requirementsRequester),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Text(
+                text = "REQUISITOS",
+                color = CreateTextSecondary.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.2.sp
+            )
+            
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(1.dp, CreateBorder)
             ) {
-                Text(
-                    text = "REQUISITOS",
-                    color = CreateTextSecondary.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.2.sp
-                )
-                
-                Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(22.dp),
-                    border = BorderStroke(1.dp, CreateBorder)
-                ) {
-                    CompactSwitchRow(
-                        title = "Requiere receta médica",
-                        subtitle = "Solicita receta al momento de vender",
-                        checked = state.requiresPrescription,
-                        onCheckedChange = {
-                            onStateChange(state.copy(requiresPrescription = it))
+                if (shouldShowAiPrescriptionInfo) {
+                    AiPrescriptionInfoRow(requiresPrescription = state.requiresPrescription)
+                } else {
+                    Column {
+                        CompactSwitchRow(
+                            title = "¿Requiere receta médica?",
+                            subtitle = "Actívalo si solicitas receta al vender",
+                            checked = state.requiresPrescription,
+                            onCheckedChange = {
+                                onStateChange(state.copy(requiresPrescription = it))
+                            }
+                        )
+                        if (aiPrescriptionSuggestion != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(CreateBorder.copy(alpha = 0.55f))
+                            )
+                            AiPrescriptionInfoRow(requiresPrescription = aiPrescriptionSuggestion)
                         }
-                    )
+                    }
                 }
-
-                // Espacio extra para forzar un scroll más profundo (20% adicional)
-                // Esto eleva la sección de requisitos para que no quede pegada abajo.
-                Spacer(modifier = Modifier.height(100.dp))
             }
-        }
 
+            Spacer(modifier = Modifier.height(100.dp))
+        }
     }
 }
 
@@ -3704,71 +4925,106 @@ fun ProductTypeSelector(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            CreateProductControlType.values().forEach { controlType ->
+            CreateProductControlType.entries.forEach { controlType ->
                 val isSelected = selected == controlType
                 val isAiSuggested = showSuggestionBadge && suggestedType == controlType
-                
+
+                // --- 1. ANIMACIÓN MEJORADA (Escala y Color) ---
+                val pulseScale = remember { Animatable(1f) }
+                val surfaceColor = remember { androidx.compose.animation.Animatable(Color.White) }
+
+                LaunchedEffect(isSelected, isAiSuggested) {
+                    if (isSelected && isAiSuggested) {
+                        // Pausa inteligente: Esperamos que el teclado baje y la vista se acomode
+                        delay(300)
+
+                        // Fase 1: Se ilumina con foco IA amarillo y crece
+                        launch {
+                            surfaceColor.animateTo(
+                                targetValue = CreateAiFocusSoft,
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 200)
+                            )
+                        }
+                        pulseScale.animateTo(1.08f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessLow))
+
+                        // Fase 2: Vuelve a blanco y a su tamaño normal suavemente
+                        delay(150)
+                        launch {
+                            surfaceColor.animateTo(
+                                targetValue = Color.White,
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 400)
+                            )
+                        }
+                        pulseScale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessLow))
+                    } else {
+                        // Si se selecciona manualmente, no hay animación de IA
+                        surfaceColor.snapTo(Color.White)
+                        pulseScale.snapTo(1f)
+                    }
+                }
+
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(100.dp)
+                        .height(110.dp)
+                        .graphicsLayer {
+                            scaleX = pulseScale.value
+                            scaleY = pulseScale.value
+                        }
                         .clickable { onSelected(controlType) },
-                    color = if (isSelected) CreateGreenSoft else Color.White,
-                    shape = RoundedCornerShape(24.dp),
+                    color = surfaceColor.value, // --- 2. APLICAMOS EL COLOR ANIMADO ---
+                    shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(
                         width = if (isSelected) 2.dp else 1.dp,
                         color = if (isSelected) CreateGreen else CreateBorder
-                    ),
-                    shadowElevation = if (isSelected) 4.dp else 0.dp
+                    )
                 ) {
-
                     Box(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(
-                                text = when(controlType) {
-                                    CreateProductControlType.UNIDAD -> "\uD83D\uDC8A"
-                                    CreateProductControlType.PESO -> "⚖\uFE0F"
-                                    CreateProductControlType.LIQUIDO -> "\uD83E\uDDEA"
+                            Icon(
+                                imageVector = when(controlType) {
+                                    CreateProductControlType.UNIDAD -> Icons.Outlined.Inventory2
+                                    CreateProductControlType.PESO -> Icons.Outlined.MonitorWeight
+                                    CreateProductControlType.LIQUIDO -> Icons.Outlined.Opacity
                                 },
-                                fontSize = 28.sp
+                                contentDescription = null,
+                                tint = if (isSelected) CreateGreen else CreateTextSecondary,
+                                modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = controlType.label,
-                                color = when {
-                                    isSelected -> CreateGreen
-                                    isAiSuggested -> CreateBlue
-                                    else -> CreateTextPrimary
-                                },
-                                fontWeight = FontWeight.ExtraBold,
+                                color = if (isSelected) CreateGreen else CreateTextPrimary,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
                         }
 
-                        if (isAiSuggested) {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = CreateGreen,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .size(18.dp)
+                                    .background(Color.White, CircleShape)
+                            )
+                        }
+
+                        if (isAiSuggested && !isSelected) {
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .offset(x = 10.dp, y = 2.dp)
-                                    .rotate(35f)
-                                    .background(
-                                        color = if (isSelected) CreateGreen else CreateBlue,
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 10.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "SUGERIDO",
-                                    color = Color.White,
-                                    fontSize = 7.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
+                                    .padding(8.dp)
+                                    .background(CreateAiFocus, CircleShape)
+                                    .size(8.dp)
+                            )
                         }
                     }
                 }
@@ -3778,14 +5034,14 @@ fun ProductTypeSelector(
         // Panel de información inteligente (aparece al seleccionar)
         AnimatedVisibility(
             visible = selected != null,
-            enter = expandVertically() + fadeIn(),
+            enter = fadeIn() + expandVertically(),
             exit = shrinkVertically() + fadeOut()
         ) {
             selected?.let { type ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFFF8F9FB),
-                    shape = RoundedCornerShape(20.dp),
+                    color = CreateInfoGraySoft,
+                    shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, CreateBorder)
                 ) {
                     Row(
@@ -3793,13 +5049,17 @@ fun ProductTypeSelector(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            color = Color.White,
+                            color = CreateAiFocusSoft,
                             shape = CircleShape,
-                            modifier = Modifier.size(40.dp),
-                            shadowElevation = 1.dp
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("💡", fontSize = 18.sp)
+                                Icon(
+                                    imageVector = Icons.Outlined.Lightbulb,
+                                    contentDescription = null,
+                                    tint = CreateAiFocus,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
@@ -4191,7 +5451,8 @@ fun BottomStepActions(
     nextLabel: String,
     nextEnabled: Boolean,
     onNext: () -> Unit,
-    onPrevious: () -> Unit
+    onPrevious: () -> Unit,
+    loading: Boolean = false
 ) {
     Surface(shadowElevation = 8.dp, color = Color.White) {
         Row(
@@ -4204,17 +5465,47 @@ fun BottomStepActions(
             if (step != CreateProductStep.PRODUCTO) {
                 OutlinedButton(
                     onClick = onPrevious,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !loading
                 ) {
                     Text("Atras")
                 }
             }
             Button(
                 onClick = onNext,
-                modifier = Modifier.weight(1f),
-                enabled = nextEnabled
+                modifier = Modifier.weight(1f).height(52.dp),
+                enabled = nextEnabled && !loading,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CreateGreen,
+                    contentColor = Color.White,
+                    disabledContainerColor = CreateBorder,
+                    disabledContentColor = CreateTextSecondary.copy(alpha = 0.5f)
+                )
             ) {
-                Text(nextLabel)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Procesando...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    } else {
+                        Text(nextLabel, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -4250,6 +5541,58 @@ private fun SummaryRow(label: String, value: String) {
 
 
 @Composable
+private fun AiPrescriptionInfoRow(requiresPrescription: Boolean) {
+    val title = if (requiresPrescription) {
+        "Este producto requiere receta"
+    } else {
+        "Este producto no requiere receta"
+    }
+    val subtitle = "Te brindamos esta información. Si editas el switch, respetaremos tu decisión."
+    val accent = if (requiresPrescription) CreateOrange else CreateGreen
+    val background = CreateInfoGraySoft
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            color = background,
+            shape = CircleShape,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = CreateTextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                color = CreateTextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun CompactSwitchRow(
     title: String,
     subtitle: String,
@@ -4262,6 +5605,23 @@ private fun CompactSwitchRow(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Surface(
+            color = CreateGreenSoft,
+            shape = CircleShape,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Assignment,
+                    contentDescription = null,
+                    tint = CreateGreen,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -4640,10 +6000,10 @@ private fun AppTextField(
         if (label.isNotBlank()) {
             Text(
                 text = label,
-                color = if (error != null) CreateRed else if (hasFocus) CreateGreen else CreateTextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                letterSpacing = 0.2.sp
+                color = if (error != null) CreateRed else CreateTextSecondary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 11.sp,
+                letterSpacing = 0.8.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -5197,77 +6557,151 @@ private fun parseExpirationToMillis(
 private fun CategoryAutocompleteField(
     modifier: Modifier = Modifier,
     value: String,
+    productName: String = "",
     options: List<String>,
     error: String?,
     controlType: CreateProductControlType?,
     controlTypeError: String?,
+    isWaitingForAi: Boolean = false, // <--- 1. AÑADE EL PARÁMETRO AQUÍ
     onValueChange: (String) -> Unit,
     onControlTypeChange: (CreateProductControlType) -> Unit,
+
     suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
     onAcceptSuggestion: (CategorySuggestion) -> Unit = {},
     onSwitchToManual: () -> Unit = {},
     onBackToAi: () -> Unit = {},
-    onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange
+    onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
+    categorySelectedFromAi: Boolean = false
 ) {
     val status = suggestionState.status
-    val suggestedControlType = remember(suggestionState.sugerenciaTipoManual) {
-        suggestionState.sugerenciaTipoManual
-            ?.takeIf { it.confianza == ConfianzaIA.ALTA }
-            ?.tipo
-            ?.toCreateProductControlTypeOrNull()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // 1. NUEVO: Creamos un requester específico para la tarjeta de carga
+    val loadingRequester = remember { BringIntoViewRequester() }
+
+    val suggestedControlType = remember(suggestionState.sugerenciaTipoManual, value, suggestionState.suggestion, categorySelectedFromAi) {
+        if (categorySelectedFromAi) {
+            // Revisamos primero la sugerencia principal de Gemini
+            val tipoPrincipal = suggestionState.suggestion?.tipoControl?.toCreateProductControlTypeOrNull()
+            if (tipoPrincipal != null) {
+                tipoPrincipal
+            } else {
+                // Si no, caemos en la sugerencia secundaria
+                suggestionState.sugerenciaTipoManual
+                    ?.takeIf { it.confianza == ConfianzaIA.ALTA }
+                    ?.tipo
+                    ?.toCreateProductControlTypeOrNull()
+            }
+        } else null
     }
 
-    val isAiSearching = status == CategorySuggestionStatus.LOADING || 
-                        status == CategorySuggestionStatus.PRELIMINARY
+    // 2. NUEVO: Forzar el scroll hacia la tarjeta cuando el estado cambie a LOADING
+    LaunchedEffect(suggestionState.status) {
+        if (suggestionState.status == CategorySuggestionStatus.LOADING) {
+            delay(150) // Breve pausa para dejar que la animación nazca
+            loadingRequester.bringIntoView()
+        }
+    }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (isAiSearching && value.isBlank()) {
-            // 1. CARGA SUTIL: Solo texto elegante mientras la IA trabaja
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = CreateGreen
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Buscando categoría adecuada...",
-                    color = CreateTextSecondary,
-                    fontSize = 13.sp,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                )
+    Column(
+        modifier = modifier, // 3. NUEVO: Pasamos el modifier principal al contenedor padre
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val isAnalyzing = suggestionState.status == CategorySuggestionStatus.LOADING || isWaitingForAi
+            val isReady = suggestionState.status == CategorySuggestionStatus.READY
+
+            var hasSectionPopped by remember { mutableStateOf(false) }
+            LaunchedEffect(isReady, value.isNotBlank()) {
+                if (isReady || value.isNotBlank()) hasSectionPopped = true
             }
-        } else if (value.isNotBlank() || suggestionState.suggestion != null) {
-            // 2. CAMPO CATEGORÍA: Solo nace cuando hay resultado o el usuario escribe
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Categoría",
-                    color = CreateTextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
 
+            LaunchedEffect(productName) {
+                if (productName.isBlank()) {
+                    hasSectionPopped = false
+                }
+            }
+
+            val showCategorySection = hasSectionPopped && !isAnalyzing
+
+            AnimatedVisibility(
+                visible = showCategorySection,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 CategoryManualEntry(
-                    modifier = modifier,
+                    modifier = Modifier, // 4. NUEVO: Quitamos el modifier de aquí para no duplicar el requester
                     value = value,
                     options = options,
                     error = error,
                     showBackToAi = false,
                     onValueChange = onValueChange,
-                    onCategorySelectedFromSuggestion = onCategorySelectedFromSuggestion,
+                    onCategorySelectedFromSuggestion = { selected ->
+                        onCategorySelectedFromSuggestion(selected)
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                    },
+                    onBackToAi = onBackToAi,
                     suggestionState = suggestionState,
-                    onBackToAi = onBackToAi
+                    label = "CATEGORÍA",
+                    placeholder = "Ej. Analgésicos",
+                    leadingIcon = Icons.Outlined.Grass,
+                    trailingIcon = null,
+                    suppressSuggestions = categorySelectedFromAi
                 )
+            }
 
-                // Selector de tipo de producto
+            // Estado de carga
+            AnimatedVisibility(
+                visible = isAnalyzing,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(loadingRequester), // 5. NUEVO: Añadimos el requester a la tarjeta de carga
+                    color = Color.White,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = CreateGreen,
+                            strokeWidth = 2.5.dp
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Buscando la mejor categoría...",
+                                color = CreateTextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "analizando el nombre",
+                                color = CreateTextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Selector de tipo de producto
+            AnimatedVisibility(
+                visible = value.isNotBlank(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 CreateSectionCard(
-                    title = "Tipo de producto",
-                    subtitle = "¿Cómo se controla el inventario?"
+                    title = "¿Cómo se controla este producto?",
+                    subtitle = "Selecciona según su forma física"
                 ) {
                     ProductTypeSelector(
                         selected = controlType,
@@ -5312,11 +6746,11 @@ private fun AiResultCard(
 
     val tipoLabel = when (suggestion.tipoControl) {
         com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD ->
-            "Se cuenta por unidad"
+            "Parece control por unidad"
         com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO ->
-            "Se mide por peso (g / kg)"
+            "Parece control por peso (g / kg)"
         com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO ->
-            "Se mide por volumen (mL / L)"
+            "Parece control por volumen (mL / L)"
         com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.DESCONOCIDO ->
             null
     }
@@ -5598,37 +7032,50 @@ private fun CategoryManualEntry(
     onValueChange: (String) -> Unit,
     onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
     onBackToAi: () -> Unit,
-    suggestionState: CategorySuggestionUiState = CategorySuggestionUiState()
+    suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
+    label: String = "",
+    placeholder: String = "Ej. Analgesicos",
+    leadingIcon: ImageVector? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    suppressSuggestions: Boolean = false
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var hasCategoryFocus by remember { mutableStateOf(false) }
     
     val suggestionsRequester = remember { BringIntoViewRequester() }
-    val scope = rememberCoroutineScope()
 
-    val suggestions = remember(value, hasCategoryFocus, options, suggestionState.asistenciaManualCategorias, suggestionState.suggestion) {
+    val suggestions = remember(value, hasCategoryFocus, options, suggestionState.asistenciaManualCategorias, suggestionState.suggestion, suppressSuggestions) {
         val normalizedValue = value.trim().stripAccents().lowercase()
-        
-        // Incorporar la sugerencia principal de la IA al principio de la lista
+
+        // Incorporar la sugerencia principal de la IA
         val mainAiResult = suggestionState.suggestion?.categoria
         val aiOptions = (listOfNotNull(mainAiResult) + suggestionState.asistenciaManualCategorias)
             .filter { it.isNotBlank() }
             .distinctBy { it.trim().stripAccents().lowercase() }
 
-        if (!hasCategoryFocus) {
+        // --- MEJORA: Eliminamos la restricción de !hasCategoryFocus ---
+        // Ahora, si la IA tiene un resultado (mainAiResult), se muestra SIEMPRE.
+        // Si no hay IA, mantenemos el comportamiento anterior (esperar foco o valor).
+
+        val shouldShowAiSuggestion = mainAiResult != null
+
+        if (suppressSuggestions) {
             emptyList()
-        } else if (aiOptions.isNotEmpty()) {
+        } else if (shouldShowAiSuggestion) {
             aiOptions.filter {
                 val opt = it.trim().stripAccents().lowercase()
                 normalizedValue.isBlank() || opt.startsWith(normalizedValue)
             }.take(6)
-        } else if (value.isBlank()) {
-            options.take(6)
+        } else if (hasCategoryFocus) {
+            if (value.isBlank()) options.take(6)
+            else options.filter { it.contains(value, ignoreCase = true) }.take(6)
         } else {
-            options.filter { it.contains(value, ignoreCase = true) }.take(6)
+            emptyList()
         }
     }
+
+    val mainAiResult = suggestionState.suggestion?.categoria
 
 
     // Auto-scroll para que el teclado no tape las sugerencias
@@ -5642,20 +7089,37 @@ private fun CategoryManualEntry(
     Column {
         AppTextField(
             modifier = modifier.onFocusChanged { hasCategoryFocus = it.isFocused },
-            label = "",
+            label = label,
             value = value,
             error = error,
-            placeholder = "Ej. Analgesicos",
+            placeholder = placeholder,
+            leadingIcon = leadingIcon,
+            trailingIcon = trailingIcon ?: if (value.isNotBlank() && error == null) {
+                { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
+            } else null,
             onValueChange = onValueChange
         )
 
         // Sugerencias estilo YouTube integradas (nacen del editext)
         AnimatedVisibility(
-            visible = suggestions.isNotEmpty() && hasCategoryFocus,
+            visible = suggestions.isNotEmpty(),
             enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
             exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
         ) {
             Column(modifier = Modifier.bringIntoViewRequester(suggestionsRequester)) {
+                // Etiqueta de sugerencia solicitada: solo si no hay foco y el valor está vacío (modo silencioso)
+                if (!hasCategoryFocus && value.isBlank() && mainAiResult != null && suggestions.contains(mainAiResult)) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "TE SUGERIMOS ESTA CATEGORÍA",
+                        color = CreateTextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -5667,6 +7131,8 @@ private fun CategoryManualEntry(
                 ) {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         suggestions.forEachIndexed { index, option ->
+                            val isAiSuggestion = mainAiResult != null && option.equals(mainAiResult, ignoreCase = true)
+                            
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -5680,17 +7146,17 @@ private fun CategoryManualEntry(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Label,
+                                    imageVector = if (isAiSuggestion) Icons.Outlined.Lightbulb else Icons.AutoMirrored.Outlined.Label,
                                     contentDescription = null,
-                                    tint = CreateTextSecondary.copy(alpha = 0.5f),
+                                    tint = if (isAiSuggestion) CreateGreen else CreateTextSecondary.copy(alpha = 0.5f),
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = option,
-                                    color = CreateTextPrimary,
+                                    color = if (isAiSuggestion) CreateGreen else CreateTextPrimary,
                                     fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = if (isAiSuggestion) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                             if (index < suggestions.size - 1) {
@@ -6484,23 +7950,23 @@ fun DuplicateProductCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFFFF7ED),
+        color = Color.White,
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color(0xFFFFEDD5))
+        border = BorderStroke(1.dp, CreateTextPrimary.copy(alpha = 0.1f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Inventory2,
                     contentDescription = null,
-                    tint = Color(0xFFC2410C),
+                    tint = CreateTextPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Producto ya registrado",
                     style = MaterialTheme.typography.titleSmall,
-                    color = Color(0xFFC2410C),
+                    color = CreateTextPrimary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -6508,13 +7974,13 @@ fun DuplicateProductCard(
             Text(
                 text = "Hemos encontrado '${producto.nombre}' con este mismo código de barras.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9A3412)
+                color = CreateTextPrimary
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onAddStock,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C)),
+                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -6541,17 +8007,9 @@ private fun BarcodeSection(
     val isConfirmed = barcode.isNotBlank() && !isManualMode
 
     Surface(
-        color = if (isConfirmed) CreateBlueSoft.copy(alpha = 0.5f) else Color.White,
-        shape = RoundedCornerShape(28.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = when {
-                isConfirmed && error != null -> CreateRed.copy(alpha = 0.5f)
-                isConfirmed -> CreateBlue.copy(alpha = 0.3f)
-                else -> CreateBorder
-            }
-        ),
-        shadowElevation = if (isConfirmed) 0.dp else 1.dp,
+        color = Color.White,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, CreateBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -6562,105 +8020,169 @@ private fun BarcodeSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            color = CreateBlueSoft,
-                            shape = CircleShape,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Outlined.QrCodeScanner,
-                                    contentDescription = null,
-                                    tint = CreateBlue,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
+                        Icon(
+                            imageVector = Icons.Outlined.QrCodeScanner,
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(24.dp)
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Código de barras",
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Código de barras opcional",
+                            style = MaterialTheme.typography.titleSmall,
                             color = CreateTextPrimary,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
                     if (isChecking) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CreateBlue)
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CreateGreen)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                Button(
-                    onClick = onStartScan,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = CreateBlue),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.QrCodeScanner,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                if (isManualMode) {
+                    AppTextField(
+                        label = "INGRESA EL CÓDIGO",
+                        value = barcode,
+                        error = error,
+                        placeholder = "Ej. 193968381356",
+                        keyboardType = KeyboardType.Number,
+                        leadingIcon = Icons.Outlined.QrCodeScanner,
+                        trailingIcon = {
+                            if (barcode.isNotBlank()) {
+                                IconButton(onClick = onConfirmManual) {
+                                    Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        },
+                        onValueChange = onBarcodeChange,
+                        onImeAction = onConfirmManual
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("Escanear código", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = onStartScan,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.35f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.QrCodeScanner,
+                                contentDescription = null,
+                                tint = CreateGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Escanear", color = CreateGreen, fontWeight = FontWeight.Bold)
+                        }
 
-
-                
-                if (!error.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = error,
-                        color = CreateRed,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
+                        TextButton(
+                            onClick = onManualMode,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                        ) {
+                            Text(
+                                text = "Escribir código",
+                                color = CreateTextSecondary,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
                 }
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.CheckCircle,
-                            contentDescription = null,
-                            tint = CreateBlue,
-                            modifier = Modifier.size(18.dp)
+                    Surface(
+                        color = CreateGreenSoft,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.QrCodeScanner,
+                                contentDescription = null,
+                                tint = CreateGreen,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Código de producto",
+                            color = CreateTextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = barcode,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = CreateBlue,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.sp
+                            color = CreateTextPrimary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
                             onClick = onStartScan,
-                            contentPadding = PaddingValues(horizontal = 12.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Text("Cambiar", color = CreateBlue, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Cambiar",
+                                    color = CreateGreen,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Filled.ChevronRight,
+                                    contentDescription = null,
+                                    tint = CreateGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
+
                         IconButton(onClick = onClear) {
-                            Icon(Icons.Default.Close, contentDescription = "Borrar", tint = CreateRed.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Quitar código",
+                                tint = CreateRed.copy(alpha = 0.6f),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
             }
+            
+            if (!error.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = error,
+                    color = CreateRed,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
+
 
 
 
