@@ -65,28 +65,29 @@ object ProductoResumenInventarioBuilder {
 
     fun construirResumenRapidoStock(
         unidadBaseRaw: String?,
-        stockActual: Int,
-        minimoActual: Int
+        unidadVisual: String?,
+        stockActualBase: Double,
+        minimoActualBase: Double
     ): ResumenRapidoStock {
-        val unidadUiStock = com.app.administradorfarmadon.ClasesDatabase.UnidadBaseHelper.formatear(
-            unidadBaseRaw,
-            stockActual
-        )
-        val unidadUiMin = com.app.administradorfarmadon.ClasesDatabase.UnidadBaseHelper.formatear(
-            unidadBaseRaw,
-            minimoActual
-        )
+        val factor = if (unidadVisual == "kg" || unidadVisual == "L") 1000.0 else 1.0
+        val visualStock = stockActualBase / factor
+        val visualMin = minimoActualBase / factor
+
+        val unitLabel = if (!unidadVisual.isNullOrBlank()) unidadVisual else unidadBaseRaw ?: "unidades"
+        
+        val stockStr = if (visualStock % 1.0 == 0.0) visualStock.toInt().toString() else String.format(Locale.US, "%.2f", visualStock)
+        val minStr = if (visualMin % 1.0 == 0.0) visualMin.toInt().toString() else String.format(Locale.US, "%.2f", visualMin)
 
         val style = when {
-            stockActual <= 0 -> EstadoChipStyle("Sin stock", "#FDECEC", "#B3261E", "#F5C2C7")
-            minimoActual > 0 && stockActual <= minimoActual ->
+            stockActualBase <= 0.0 -> EstadoChipStyle("Sin stock", "#FDECEC", "#B3261E", "#F5C2C7")
+            minimoActualBase > 0.0 && stockActualBase <= minimoActualBase ->
                 EstadoChipStyle("Bajo stock", "#FFF4E5", "#8A4B00", "#FFE0B2")
             else -> EstadoChipStyle("Disponible", "#E8F5EE", "#0F7A3A", "#BFE5CC")
         }
 
         return ResumenRapidoStock(
-            stockTexto = "Stock: $stockActual $unidadUiStock",
-            minimoTexto = "Mínimo: $minimoActual $unidadUiMin",
+            stockTexto = "Stock: $stockStr $unitLabel",
+            minimoTexto = "Mínimo: $minStr $unitLabel",
             style = style
         )
     }

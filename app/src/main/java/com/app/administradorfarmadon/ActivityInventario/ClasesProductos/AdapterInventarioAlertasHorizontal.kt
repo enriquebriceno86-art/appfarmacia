@@ -164,8 +164,10 @@ class AdapterInventarioAlertasHorizontal(
             "frasco", "frascos" -> if (cantidad == 1) "frasco" else "frascos"
             "blister", "blíster", "blisters", "blísteres" -> "blíst."
             "tableta", "tabletas", "tab", "tabs" -> "tabs"
-            "ml" -> "uds"
-            "g" -> "uds"
+            "ml" -> "mL"
+            "l" -> "L"
+            "g" -> "g"
+            "kg" -> "kg"
             else -> UnidadBaseHelper.formatear(unidadBaseRaw, maxOf(cantidad, 1))
         }
     }

@@ -148,16 +148,22 @@ class EditarProductodelInventario : AppCompatActivity() {
             binding.editTextUnidadBase.text?.toString()?.trim().orEmpty().ifBlank { "Unidad" }
         )
 
-        val stockActual = (binding.editTextCantidad.text?.toString()?.trim()?.toIntOrNull() ?: 0)
-            .coerceAtLeast(0)
-            .toString()
+        // V21.7: Sincronización Profesional de Unidades Visuales para Producción
+        // Leemos la unidad visual registrada para escalar el stock mostrado
+        val factor = if (unidadBase == "kg" || unidadBase == "L") 1000.0 else 1.0
+        
+        val baseAmount = binding.editTextCantidad.text?.toString()?.trim()?.toDoubleOrNull() ?: 0.0
+        val visualAmount = baseAmount / factor
+        val stockActual = if (visualAmount % 1.0 == 0.0) visualAmount.toInt().toString() else visualAmount.toString()
 
         val usarPresentacion = binding.radioPorPaquetes.isChecked
 
         val stockMinActual = if (usarPresentacion) {
             binding.editTextStockPresentacion.text?.toString()?.trim().orEmpty().ifBlank { "0" }
         } else {
-            binding.editTextStock.text?.toString()?.trim().orEmpty().ifBlank { "0" }
+            val baseMin = binding.editTextStock.text?.toString()?.trim()?.toDoubleOrNull() ?: 0.0
+            val visualMin = baseMin / factor
+            if (visualMin % 1.0 == 0.0) visualMin.toInt().toString() else visualMin.toString()
         }
 
         val stockMinSuffix = if (usarPresentacion) {
@@ -7064,30 +7070,27 @@ class EditarProductodelInventario : AppCompatActivity() {
 
     private fun actualizarResumenRapidoStock() {
         // Resumen visible arriba: Stock | Mínimo | Estado (en unidad base)
-        val stockActual = (binding.editTextCantidad.text?.toString()?.trim()?.toIntOrNull() ?: 0).coerceAtLeast(0)
-        val minimoActual = obtenerStockMinimoActualEnUnidadBase()
+        val stockActualBase = (binding.editTextCantidad.text?.toString()?.trim()?.toDoubleOrNull() ?: 0.0).coerceAtLeast(0.0)
+        val minimoActualBase = obtenerStockMinimoActualEnUnidadBase().toDouble()
         val lotesActuales = productoOriginalParaAuditoria?.lotes.orEmpty()
-        val disponibilidadVenta = ProductUtils.evaluarDisponibilidadVenta(stockActual.toDouble(), lotesActuales)
-        val stockFisico = disponibilidadVenta.stockFisico
+        val disponibilidadVenta = ProductUtils.evaluarDisponibilidadVenta(stockActualBase, lotesActuales)
+        val stockFisicoBase = disponibilidadVenta.stockFisico.toDouble()
+
+        val unidadBase = binding.editTextUnidadBase.text?.toString().orEmpty()
+        val unidadVisual = if (unidadBase == "kg" || unidadBase == "L") unidadBase else ""
 
         val resumenRapido = ProductoResumenInventarioBuilder.construirResumenRapidoStock(
-            unidadBaseRaw = binding.editTextUnidadBase.text?.toString(),
-            stockActual = stockActual,
-            minimoActual = minimoActual
+            unidadBaseRaw = unidadBase,
+            unidadVisual = unidadVisual,
+            stockActualBase = stockActualBase,
+            minimoActualBase = minimoActualBase
         )
 
-        val unidadUiVendible = UnidadBaseHelper.formatear(
-            binding.editTextUnidadBase.text?.toString(),
-            stockActual
-        )
-        val unidadUiFisico = UnidadBaseHelper.formatear(
-            binding.editTextUnidadBase.text?.toString(),
-            stockFisico
-        )
-        binding.tvResumenStock.text = "Vendible: $stockActual $unidadUiVendible"
-        binding.tvResumenMinimo.text = "Fisico: $stockFisico $unidadUiFisico"
-        binding.tvHeroVendible.text = "Vendible: $stockActual $unidadUiVendible"
-        binding.tvHeroFisico.text = "Físico: $stockFisico $unidadUiFisico"
+        binding.tvResumenStock.text = resumenRapido.stockTexto
+        binding.tvResumenMinimo.text = resumenRapido.minimoTexto
+        binding.tvHeroVendible.text = "Vendible: $stockActualBase" // Mantener compatibilidad visual con labels
+        binding.tvHeroFisico.text = "Físico: $stockFisicoBase"
+
         binding.chipResumenEstadoStock.text = resumenRapido.style.estado
         binding.chipResumenEstadoStock.chipBackgroundColor =
             ColorStateList.valueOf(Color.parseColor(resumenRapido.style.bg))
@@ -8013,45 +8016,35 @@ class EditarProductodelInventario : AppCompatActivity() {
             return
         }
 
-        val rootRef = FirebaseDatabase.getInstance().getReference(PATH_INVENTARIO)
-        rootRef.child("ProductoPresentaciones")
-            .child(productoId)
-            .get()
-            .addOnSuccessListener { presentacionesSnapshot ->
-                val presentacionesSeparadas = presentacionesSnapshot.children.mapNotNull { item ->
-                    item.getValue(PresentacionProducto::class.java)
-                }
-                val presentacionesFinales = if (presentacionesSeparadas.isNotEmpty()) {
-                    presentacionesSeparadas.toMutableList()
-                } else {
-                    productoBase.presentaciones
-                }
-
-                rootRef.child("ProductoLotes")
-                    .child(productoId)
-                    .get()
-                    .addOnSuccessListener { lotesSnapshot ->
-                        val lotesSeparados = lotesDesdeSnapshot(lotesSnapshot)
-                        val lotesFinales = if (lotesSeparados.isNotEmpty()) {
-                            lotesSeparados
-                        } else {
-                            productoBase.lotes
-                        }
-
-                        onLoaded(
-                            productoBase.copy(
-                                presentaciones = presentacionesFinales,
-                                lotes = lotesFinales
-                            )
-                        )
+        val rootRef = FirebaseDatabase.getInstance().reference
+        
+        // V21.7: Carga paralela de relaciones (Presentaciones, Lotes y Ficha Técnica)
+        rootRef.child(DbPaths.INVENTARIO_PRODUCTO_PRESENTACIONES).child(productoId).get()
+            .addOnSuccessListener { presSnap ->
+                val presList = presSnap.children.mapNotNull { it.getValue(PresentacionProducto::class.java) }
+                
+                rootRef.child(DbPaths.INVENTARIO_PRODUCTO_LOTES).child(productoId).get()
+                    .addOnSuccessListener { lotesSnap ->
+                        val lotesMap = lotesDesdeSnapshot(lotesSnap)
+                        
+                        rootRef.child(DbPaths.INVENTARIO_FICHA_TECNICA).child(productoId).get()
+                            .addOnSuccessListener { fichaSnap ->
+                                // Fusionar datos técnicos de la IA
+                                val p = productoBase.copy(
+                                    presentaciones = if (presList.isNotEmpty()) presList.toMutableList() else productoBase.presentaciones,
+                                    lotes = if (lotesMap.isNotEmpty()) lotesMap else productoBase.lotes,
+                                    referenceUseCases = fichaSnap.child("referenceUseCases").children.mapNotNull { it.value?.toString() },
+                                    referenceHowToUse = fichaSnap.child("referenceHowToUse").value?.toString().orEmpty(),
+                                    referenceWarnings = fichaSnap.child("referenceWarnings").children.mapNotNull { it.value?.toString() },
+                                    referenceCommonUse = fichaSnap.child("referenceCommonUse").value?.toString().orEmpty()
+                                )
+                                onLoaded(p)
+                            }
+                            .addOnFailureListener { onLoaded(productoBase.copy(presentaciones = presList.toMutableList(), lotes = lotesMap)) }
                     }
-                    .addOnFailureListener {
-                        onLoaded(productoBase.copy(presentaciones = presentacionesFinales))
-                    }
+                    .addOnFailureListener { onLoaded(productoBase.copy(presentaciones = presList.toMutableList())) }
             }
-            .addOnFailureListener {
-                onLoaded(productoBase)
-            }
+            .addOnFailureListener { onLoaded(productoBase) }
     }
 
     // ---------------------------------------------------------------------------------------------

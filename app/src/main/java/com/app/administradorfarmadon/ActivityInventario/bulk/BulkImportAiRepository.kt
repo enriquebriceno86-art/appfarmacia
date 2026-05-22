@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 object BulkImportAiRepository {
 
-    private const val MODEL = "gemini-2.0-flash"
+    private const val MODEL = "gemini-2.5-flash"
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
 
     private val moshi = Moshi.Builder()

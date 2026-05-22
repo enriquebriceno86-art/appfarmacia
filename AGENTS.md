@@ -7,7 +7,8 @@
 
 ## Reglas
 - No tocar configuración global salvo que se pida
-- Explicar plan antes de editar
+- No borrar de 0 todo por que hubo mala sintiaxis mejor para y preguntar de forma clara antes de borra por error
+- Explicar plan antes de editar si hay confusion
 - Tocar solo archivos necesarios
 
 ## Validación

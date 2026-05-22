@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.animation.core.Spring
 
 import androidx.compose.animation.core.spring
@@ -16,6 +17,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Brush
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState
@@ -25,7 +28,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
@@ -44,35 +46,34 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.AttachMoney
+import androidx.compose.material3.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -103,22 +104,22 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material.icons.outlined.AllInbox
+import androidx.compose.material.icons.outlined.Inventory
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
-import com.app.administradorfarmadon.ActivityInventario.reference.ProductReference
-import com.app.administradorfarmadon.ActivityInventario.reference.ProductReferenceStatus
-import com.app.administradorfarmadon.ActivityInventario.reference.ProductReferenceUiState
-import com.app.administradorfarmadon.ActivityInventario.reference.toSummary
+import androidx.compose.ui.window.DialogProperties
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.R
 import java.time.LocalDate
@@ -142,6 +143,44 @@ val CreateBlueSoft = Color(0xFFF1FBF5)
 val CreateAiFocus = Color(0xFFF6C343)
 val CreateAiFocusSoft = Color(0xFFFFF7D6)
 val CreateInfoGraySoft = Color(0xFFF8FAFC)
+val CreateSurfaceSoft = Color(0xFFF8FAFC)
+val CreateYellow = Color(0xFFF5B820)
+val CreateYellowSoft = Color(0xFFFFF4CC)
+
+// Gradiente Premium para Diálogos (Verde suave a Azul brillante)
+val PremiumGradient = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFFE8F5E9), // Verde muy claro
+        Color(0xFFE0F7FA), // Azul muy claro
+        Color(0xFFB2EBF2), // Azul brillante
+    )
+)
+
+// Gradiente Vivo Tipo Agua (Verde suave a Morado suave)
+val WaterGradient = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFFE8F5E9), // Verde muy claro
+        Color(0xFFF3E5F5), // Morado muy claro
+        Color(0xFFE0F2F1), // Cian agua claro
+    )
+)
+
+// Gradiente de Advertencia (Rojo a Naranja)
+val WarningGradient = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFFD92D20), // Rojo Farmadon
+        Color(0xFFE17B00), // Naranja
+    )
+)
+
+// Gradiente Azul Eléctrico Premium (Moderno)
+val ElectricBlueGradient = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFF1E3A8A), // Azul muy oscuro (Slate)
+        Color(0xFF2563EB), // Azul Eléctrico (Blue 600)
+        Color(0xFF60A5FA), // Azul Claro brillante
+    )
+)
 
 private enum class ExpirationStatusKind {
     VIGENTE,
@@ -214,8 +253,8 @@ enum class CreateProductStockEntryMode(
         helper = "Cada caja contiene una cantidad en unidades base (ej. caja de 60 tabletas)"
     ),
     CAJA_CON_PAQUETES(
-        label = "Caja con frascos / blisters",
-        helper = "Cada caja contiene varios frascos o blisters, y cada uno tiene su cantidad (ej. 10 cajas x 5 frascos x 120 mL)"
+        label = "Caja con frascos / blísteres",
+        helper = "Cada caja contiene varios frascos o blísteres, y cada uno tiene su cantidad (ej. 10 cajas x 5 frascos x 120 mL)"
     )
 }
 
@@ -270,10 +309,15 @@ data class ProductCreatedSummary(
 
 @Immutable
 data class SavedPresentation(
-    val name: String,
-    val equivalenceBase: String, // en unidades base: g, mL o cantidad
-    val controlType: String      // "UNIDAD" | "PESO" | "LIQUIDO"
-)
+    val id: String = "",
+    val name: String = "",
+    val equivalenceBase: String = "", // en unidades base: g, mL o cantidad
+    val controlType: String = ""      // "UNIDAD" | "PESO" | "LIQUIDO"
+) {
+    // Alias para compatibilidad con código antiguo
+    val nombreCanonical: String get() = id
+    val nombreVisible: String get() = name
+}
 
 data class CreateProductState(
     val currentStep: CreateProductStep = CreateProductStep.PRODUCTO,
@@ -283,6 +327,11 @@ data class CreateProductState(
     val isBarcodeScanning: Boolean = false,
     val isLabelScanning: Boolean = false,
     val category: String = "",
+    val location: String = "",
+    val supplierId: String = "",
+    val supplierName: String = "",
+    val suppliers: List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Proveedor> = emptyList(),
+    val showAddSupplierDialog: Boolean = false,
     val controlType: CreateProductControlType? = null,
     val typeSelectedManually: Boolean = false,
     val categorySelectedFromAi: Boolean = false,
@@ -298,6 +347,12 @@ data class CreateProductState(
 
     val lotNumber: String = "",
     val expirationDate: String = "",
+    val lotScanned: Boolean = false,
+    val invoiceNumber: String = "",
+    val invoiceImageBase64: String? = null,
+    val isCapturingInvoice: Boolean = false,
+    val paymentCondition: String = "CONTADO", // CONTADO o CREDITO
+    val paymentDueDate: String = "",
 
     val forceManualProductEntry: Boolean = false,
     val barcodeAiResult: com.app.administradorfarmadon.ActivityInventario.reference.BarcodeAiResult? = null,
@@ -329,7 +384,7 @@ data class CreateProductState(
     // en unidades (`minimumStockText`) se recalcula en vivo.
     val minimumStockPercent: Int = 20,
 
-    // --- NUEVA LÓGICA DE STOCK MÍNIMO POR UNIDADES FÍSICAS DISCRETAS ---
+    // --- NUEVA LOGICA DE STOCK MÍNIMO POR UNIDADES FÍSICAS DISCRETAS ---
     // Cantidad de unidades físicas (frascos o tabletas) para la alerta.
     val minimumStockUnits: Int = 0,
     // Modo de control: INDIVISIBLE (envase) o DIVISIBLE (unidades sueltas).
@@ -344,17 +399,40 @@ data class CreateProductState(
     val draftPresentationCustomMode: Boolean = false,
     val draftPresentationCustomAmount: String = "",
     val draftPresentationCustomUnit: String = "", // "g","kg","mL","L" o "" para UNIDAD
-    // Presentaciones guardadas previamente por el usuario (cargadas desde DB)
-    val savedPresentationOptions: List<SavedPresentation> = emptyList(),
+    val draftPresentationSalePriceText: String = "",
+    val savedPresentations: List<SavedPresentation> = emptyList(),
     val marginRules: List<CategoryMarginRule> = emptyList(),
     val errors: Map<String, String> = emptyMap(),
     val stockEntryConfigured: Boolean = false,
     val showStockEntryDialog: Boolean = false,
-    val keywords: List<String> = emptyList(), // Palabras sugeridas por IA
-    val selectedKeywords: Set<String> = emptySet(), // Palabras elegidas por el usuario
     val barcodeMismatchDetected: Boolean = false,
-    val barcodeMismatchOriginalName: String? = null
+    val barcodeMismatchOriginalName: String? = null,
+    /** Usuario confirmo crear el producto sin codigo de barras. */
+    val productoSinCodigoBarra: Boolean = false,
+    /** V21.10: Producto que causa el conflicto de lote */
+    val lotConflictProduct: MoldeProductos? = null,
+    val showLotConflictDialog: Boolean = false,
+    /** Control visual para el diálogo de stock 100% distribuido */
+    val showStockCompleteDialog: Boolean = false,
+    /** Control visual para el diálogo de error (supera stock) */
+    val showStockErrorDialog: Boolean = false,
+    /** Control visual para el diálogo de advertencia de reinicio del paso 3 */
+    val showStep3ResetDialog: Boolean = false,
+    /** Almacena el modo de entrada pendiente para aplicar tras confirmación */
+    val pendingStockEntryMode: CreateProductStockEntryMode? = null,
+    /** Almacena el tipo de control pendiente para aplicar tras confirmación */
+    val pendingControlType: CreateProductControlType? = null,
+    
+    // V20.0: Información útil del producto
+    val aiUsageInfo: com.app.administradorfarmadon.ActivityInventario.reference.UsageInfoAiResult? = null,
+    val aiUsageInfoFetchedFor: String = "",
+    val isFetchingUsageInfo: Boolean = false,
+
+    // V22.0: Estados para guardado de proveedor
+    val isSavingSupplier: Boolean = false,
+    val supplierSaveSuccess: Boolean = false
 )
+
 
 @Composable
 fun CreateProductScreen(
@@ -363,22 +441,18 @@ fun CreateProductScreen(
     smartHint: SmartProductHint?,
     existingLotNumbers: Set<String> = emptySet(),
     nextEnabled: Boolean,
-    referenceState: ProductReferenceUiState,
-    // Sugerencia de categoría con IA (Gemini).
+    // Sugerencia de categoria con IA (Gemini).
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState =
         com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
-    onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit = {},
     onSwitchToManualCategory: () -> Unit = {},
     onBackToAiCategory: () -> Unit = {},
-    // Escáner OCR de etiqueta (cámara + Gemini Vision).
+    // Escaner OCR de etiqueta (camara + Gemini Vision).
     labelScannerState: com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState =
         com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState(),
     onRequestLabelScan: () -> Unit = {},
     onConsumeLabelScan: () -> Unit = {},
     loading: Boolean,
     successSummary: ProductCreatedSummary?,
-    showReferenceScreen: Boolean,
-    showReferenceSection: Boolean,
     onBack: () -> Unit,
     onStateChange: (CreateProductState) -> Unit,
     onNext: () -> Unit,
@@ -386,11 +460,8 @@ fun CreateProductScreen(
     onSave: () -> Unit,
     onCreateAnother: () -> Unit,
     onViewProduct: () -> Unit,
-    onRetryReference: () -> Unit,
-    onOpenReference: () -> Unit,
-    onDismissReference: () -> Unit,
-    onConfirmReference: (ProductReference) -> Unit,
-    onSkipReference: () -> Unit = onDismissReference,
+    onViewSpecificProduct: (String) -> Unit = {},
+    onSavePresentation: (SavedPresentation) -> Unit = {},
     isCheckingLotRemote: Boolean = false,
     isCheckingBarcodeRemote: Boolean = false,
     lotConflictInfo: String? = null,
@@ -409,6 +480,7 @@ fun CreateProductScreen(
     onIdentificarBarcode: (String, String?) -> Unit = { _, _ -> },
     onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
     onClearBarcodeIntegrityConflict: () -> Unit = {},
+    onSaveSupplier: (String, String) -> Unit = { _, _ -> },
     showNoBarcodeConfirmDialog: Boolean = false,
     onDismissNoBarcodeConfirm: () -> Unit = {},
     onConfirmNoBarcodeContinue: () -> Unit = {}
@@ -422,28 +494,24 @@ fun CreateProductScreen(
     val keyboardVisible = imeBottom > navigationBottom
     val scope = rememberCoroutineScope()
 
-    // V18.7: Lógica para la notificación flotante de "Todo listo" (Blindada contra validaciones de red)
-    val isStepValid = state.name.isNotBlank() &&
-            state.category.isNotBlank() &&
-            state.controlType != null &&
-            !state.barcodeMismatchDetected &&
-            state.duplicateProductFound == null &&
-            state.errors.isEmpty() &&
-            !state.isValidatingNameRemote && // Evita que se adelante mientras Firebase valida el nombre
-            !isCheckingBarcodeRemote        // Evita que se adelante mientras Firebase valida el código
+    // "Todo listo" usa la misma regla que el botón Siguiente (nextEnabled)
+    val canShowReadyMessageForStep = state.currentStep == CreateProductStep.PRODUCTO ||
+        state.currentStep == CreateProductStep.LOTE_INICIAL
+    val isCurrentStepReady = canShowReadyMessageForStep && nextEnabled && !loading
     var showReadyMessage by remember { mutableStateOf(false) }
     var hasShownReadyForCurrentValid by remember { mutableStateOf(false) }
-    
-    // V18.9: Estado temporal para el efecto de "regresar atrás" al limpiar código
+
+    // V18.9: Estado temporal para el efecto de "regresar atrÃ¡s" al limpiar cÃ³digo
     var isReturningToInitial by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isStepValid, state.currentStep) {
-        if (state.currentStep != CreateProductStep.PRODUCTO) {
+    LaunchedEffect(isCurrentStepReady, state.currentStep) {
+        if (!canShowReadyMessageForStep) {
             showReadyMessage = false
+            hasShownReadyForCurrentValid = false
             return@LaunchedEffect
         }
 
-        if (isStepValid) {
+        if (isCurrentStepReady) {
             if (!hasShownReadyForCurrentValid) {
                 showReadyMessage = true
                 hasShownReadyForCurrentValid = true
@@ -471,26 +539,11 @@ fun CreateProductScreen(
             .background(CreateBackground)
     ) {
         when {
-            showReferenceScreen && referenceState.reference != null -> {
-                SmartReferenceSuggestionScreen(
-                    referenceState = referenceState,
-                    onBack = onDismissReference,
-                    onDiscard = onDismissReference,
-                    onSaveReference = onConfirmReference
-                )
-            }
-
             successSummary != null -> {
                 ProductCreatedSuccessScreen(
                     summary = successSummary,
-                    referenceState = referenceState,
-                    showReferenceSection = showReferenceSection,
                     onViewProduct = onViewProduct,
-                    onCreateAnother = onCreateAnother,
-                    onRetryReference = onRetryReference,
-                    onOpenReference = onOpenReference,
-                    onSkipReference = onSkipReference,
-                    onSaveReference = onConfirmReference
+                    onCreateAnother = onCreateAnother
                 )
             }
 
@@ -517,7 +570,6 @@ fun CreateProductScreen(
                         onSave = onSave,
                         loading = loading,
                         categorySuggestionState = categorySuggestionState,
-                        onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                         onSwitchToManualCategory = onSwitchToManualCategory,
                         onBackToAiCategory = onBackToAiCategory,
                         onSearchIA = onSearchIA,
@@ -528,11 +580,16 @@ fun CreateProductScreen(
                         onIdentificarBarcode = onIdentificarBarcode,
                         onRequestLabelScan = onRequestLabelScan,
                         onCheckBarcodeIntegrity = onCheckBarcodeIntegrity,
-                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
+                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict,
+                        isCheckingLotRemote = isCheckingLotRemote,
+                        lotConflictInfo = lotConflictInfo,
+                        lotConflictColor = lotConflictColor,
+                        lotConflictSeverity = lotConflictSeverity,
+                        onSaveSupplier = onSaveSupplier
                     )
                 } else {
-                    // V18.5: Determinamos si estamos en el flujo de IA por código de barras.
-                    // En este modo, la card central tiene el control y ocultamos el botón "Siguiente" inferior.
+                    // V18.5: Determinamos si estamos en el flujo de IA por cÃ³digo de barras.
+                    // En este modo, la card central tiene el control y ocultamos el botÃ³n "Siguiente" inferior.
                     val isAiBarcodeFlow = aiInventoryEnabled &&
                             state.currentStep == CreateProductStep.PRODUCTO &&
                             !state.forceManualProductEntry &&
@@ -542,27 +599,95 @@ fun CreateProductScreen(
                         containerColor = CreateBackground,
                         bottomBar = {
                             if (!keyboardVisible && !isAiBarcodeFlow) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    // V18.7: Notificación de "Todo listo" sobre el botón Siguiente
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // V18.7: NotificaciÃ³n de "Todo listo" sobre el botÃ³n Siguiente
                                     AnimatedVisibility(
-                                        visible = showReadyMessage && state.currentStep == CreateProductStep.PRODUCTO,
+                                        visible = showReadyMessage && canShowReadyMessageForStep,
                                         enter = fadeIn() + expandVertically(),
                                         exit = fadeOut() + shrinkVertically()
                                     ) {
                                         Surface(
-                                            color = CreateGreenSoft,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.1f))
+                                            color = Color.White,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                            shape = RoundedCornerShape(18.dp),
+                                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.18f)),
+                                            shadowElevation = 2.dp
                                         ) {
-                                            Text(
-                                                text = "¡TODO LISTO PARA CONTINUAR! ✓",
-                                                color = CreateGreen,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                                                textAlign = TextAlign.Center,
-                                                letterSpacing = 1.sp
-                                            )
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = CreateGreen,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Todo listo para continuar",
+                                                    color = CreateGreen,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // V19.5: Banner fijo para agregar presentaciones (Paso 3)
+                                    // Solo visible en el paso 3 y si no estÃ¡ ya expandido el formulario.
+                                    val totalStock = calculateTotalBaseStock(state)
+                                    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+                                    val hasStockAvailable = (totalStock - assignedStock) > 0.0
+
+                                    AnimatedVisibility(
+                                        visible = state.currentStep == CreateProductStep.PRESENTACIONES && !state.addPresentationExpanded,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp, vertical = 4.dp)
+                                                .clickable(
+                                                    enabled = hasStockAvailable,
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null,
+                                                    onClick = { onStateChange(state.copy(addPresentationExpanded = true)) }
+                                                ),
+                                            color = if (hasStockAvailable) CreateGreenSoft else CreateInfoGraySoft,
+                                            shape = RoundedCornerShape(18.dp),
+                                            border = BorderStroke(1.5.dp, if (hasStockAvailable) CreateGreen.copy(alpha = 0.22f) else CreateBorder)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (hasStockAvailable) Icons.Default.Add else Icons.Outlined.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = if (hasStockAvailable) CreateGreen else CreateTextSecondary.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text(
+                                                    text = if (hasStockAvailable) "Agregar otra forma de venta" else "Mercancía totalmente distribuida",
+                                                    color = if (hasStockAvailable) CreateGreen else CreateTextSecondary,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 15.sp,
+                                                    letterSpacing = 0.3.sp
+                                                )
+                                            }
                                         }
                                     }
 
@@ -597,7 +722,6 @@ fun CreateProductScreen(
                                         categoryOptions = categoryOptions,
                                         onStateChange = onStateChange,
                                         categorySuggestionState = categorySuggestionState,
-                                        onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                                         onSwitchToManualCategory = onSwitchToManualCategory,
                                         onBackToAiCategory = onBackToAiCategory,
                                         onAsistManualName = onAsistManualName,
@@ -614,7 +738,8 @@ fun CreateProductScreen(
                                         onNext = onNext,
                                         onRequestLabelScan = onRequestLabelScan,
                                         onCheckBarcodeIntegrity = onCheckBarcodeIntegrity,
-                                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
+                                        onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict,
+                                        onSaveSupplier = onSaveSupplier
                                     )
 
                                     CreateProductStep.LOTE_INICIAL -> InitialLotStep(
@@ -626,7 +751,9 @@ fun CreateProductScreen(
                                         onConsumeLabelScan = onConsumeLabelScan,
                                         isCheckingLotRemote = isCheckingLotRemote,
                                         lotConflictInfo = lotConflictInfo,
-                                        lotConflictColor = lotConflictColor
+                                        lotConflictColor = lotConflictColor,
+                                        lotConflictSeverity = lotConflictSeverity,
+                                        onSaveSupplier = onSaveSupplier
                                     )
 
                                     CreateProductStep.PRESENTACIONES -> PresentationsPricesStep(
@@ -641,12 +768,21 @@ fun CreateProductScreen(
                                 }
                             }
                         )
+
+                        if (state.currentStep == CreateProductStep.PRESENTACIONES && state.addPresentationExpanded) {
+                            CreatePresentationDialog(
+                                state = state,
+                                onStateChange = onStateChange,
+                                onSavePresentation = onSavePresentation,
+                                onDismiss = { onStateChange(state.copy(addPresentationExpanded = false)) }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // --- DIÁLOGO PERSISTENTE DE ALERTA DE INTEGRIDAD ---
+        // --- DIALOGO PERSISTENTE DE ALERTA DE INTEGRIDAD ---
         if (state.barcodeMismatchDetected) {
             Box(
                 modifier = Modifier
@@ -679,7 +815,7 @@ fun CreateProductScreen(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "El nombre no parece coincidir con el código de barras escaneado.",
+                            text = "El nombre no parece coincidir con el codigo de barras escaneado.",
                             color = Color.White.copy(alpha = 0.9f),
                             fontSize = 15.sp,
                             textAlign = TextAlign.Center
@@ -690,7 +826,7 @@ fun CreateProductScreen(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
-                                    text = "El código pertenece a: $original",
+                                    text = "El codigo pertenece a: $original",
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     color = Color.White,
                                     fontSize = 13.sp,
@@ -705,18 +841,21 @@ fun CreateProductScreen(
                         // Botones de acción forzada para resolver el conflicto
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
-                                onClick = { 
+                                onClick = {
+                                    val correctedName = state.barcodeMismatchOriginalName.orEmpty()
                                     onClearBarcodeIntegrityConflict()
                                     onStateChange(state.copy(
+                                        name = correctedName.ifBlank { state.name },
                                         barcodeMismatchDetected = false,
-                                        barcodeMismatchOriginalName = null
+                                        barcodeMismatchOriginalName = null,
+                                        errors = state.errors - "barcode" - "name"
                                     ))
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Mantener código y corregir nombre", fontWeight = FontWeight.Bold)
+                                Text("Usar nombre del codigo", fontWeight = FontWeight.Bold)
                             }
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -751,7 +890,7 @@ fun CreateProductScreen(
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Limpiar código")
+                                    Text("Limpiar codigo")
                                 }
 
                                 OutlinedButton(
@@ -911,7 +1050,7 @@ fun CreateProductScreen(
             }
         }
 
-        if (loading || isReturningToInitial) {
+        if (loading || isReturningToInitial || state.isSavingSupplier) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = Color.White.copy(alpha = 0.96f)
@@ -922,16 +1061,770 @@ fun CreateProductScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(
-                        color = CreateGreen,
+                        color = when {
+                            state.isSavingSupplier && state.supplierSaveSuccess -> androidx.compose.ui.graphics.Color(0xFF0E8F63)
+                            state.isSavingSupplier -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+                            else -> CreateGreen
+                        },
                         strokeWidth = 3.dp
                     )
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        text = if (isReturningToInitial) "Regresando al asistente IA..." else "Guardando producto...",
+                        text = when {
+                            state.isSavingSupplier && state.supplierSaveSuccess -> "¡Proveedor guardado!"
+                            state.isSavingSupplier -> "Guardando proveedor..."
+                            isReturningToInitial -> "Regresando al asistente IA..."
+                            else -> "Guardando producto..."
+                        },
                         color = CreateTextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+        }
+
+        if (state.showStockCompleteDialog) {
+            StockUsageCompleteDialog(
+                state = state,
+                onDismiss = { onStateChange(state.copy(showStockCompleteDialog = false)) }
+            )
+        }
+
+        if (state.showStockErrorDialog) {
+            StockLimitErrorDialog(
+                state = state,
+                onDismiss = { onStateChange(state.copy(showStockErrorDialog = false)) }
+            )
+        }
+
+        if (state.showStep3ResetDialog) {
+            val isFromStep1 = state.pendingControlType != null
+
+            Step3ResetWarningDialog(
+                state = state,
+                title = if (isFromStep1) "¡Cambio de Tipo!" else "¡Acción Destructiva!",
+                message = if (isFromStep1)
+                    "Al cambiar el tipo de control (Unidad/Peso/Líquido), se borrarán todos los datos de inventario y precios que ya configuraste."
+                else "Si cambias la forma de ingreso, se borrarán todas las presentaciones de venta que ya habías creado en el Paso 3.",
+                onDismiss = {
+                    onStateChange(
+                        state.copy(
+                            showStep3ResetDialog = false,
+                            pendingStockEntryMode = null,
+                            pendingControlType = null
+                        )
+                    )
+                },
+                onConfirm = {
+                    if (isFromStep1) {
+                        val newType = state.pendingControlType
+                        onStateChange(
+                            state.resetStockEntryConfiguration().copy(
+                                controlType = newType,
+                                typeSelectedManually = true,
+                                presentations = emptyList(),
+                                mainPresentationId = "",
+                                showStep3ResetDialog = false,
+                                pendingControlType = null,
+                                errors = state.errors - setOf(
+                                    "controlType",
+                                    "receivedUnits",
+                                    "boxesReceived",
+                                    "unitsPerBox",
+                                    "presentations"
+                                )
+                            )
+                        )
+                    } else {
+                        val mode = state.pendingStockEntryMode
+                        onStateChange(
+                            state.copy(
+                                presentations = emptyList(),
+                                mainPresentationId = "",
+                                stockEntryConfigured = false,
+                                showStockEntryDialog = mode != null,
+                                stockEntryMode = mode,
+                                receivedUnitsText = "",
+                                boxesReceivedText = "",
+                                unitsPerBoxText = "",
+                                packagesPerBoxText = "",
+                                unitsPerPackageText = "",
+                                showStep3ResetDialog = false,
+                                pendingStockEntryMode = null,
+                                errors = state.errors - setOf(
+                                    "receivedUnits",
+                                    "boxesReceived",
+                                    "unitsPerBox",
+                                    "packagesPerBox",
+                                    "unitsPerPackage",
+                                    "presentations",
+                                    "mainPresentation"
+                                )
+                            )
+                        )
+                    }
+                }
+            )
+        }
+
+        // --- DIÁLOGO DE CONFLICTO DE LOTE (V21.10) ---
+        if (state.showLotConflictDialog && state.lotConflictProduct != null) {
+            val isLotConflict = lotConflictSeverity != 0
+            
+            ConflictManagementDialog(
+                title = if (isLotConflict) "Lote Duplicado" else "Producto ya Registrado",
+                message = if (isLotConflict) 
+                    "El número de lote '${state.lotNumber}' ya está asignado a otro producto en el inventario."
+                    else "Hemos detectado que ya existe un producto con este nombre o identificación en el sistema.",
+                conflictProduct = state.lotConflictProduct,
+                onDismiss = { 
+                    if (isLotConflict) {
+                        onStateChange(state.copy(lotNumber = "", lotScanned = false, showLotConflictDialog = false))
+                    } else {
+                        onStateChange(state.copy(showLotConflictDialog = false))
+                    }
+                },
+                onAddStock = { onAddStockToExistingProduct(state.lotConflictProduct!!) }
+            )
+        }
+    }
+}
+
+@Composable
+fun ConflictManagementDialog(
+    title: String,
+    message: String,
+    conflictProduct: MoldeProductos,
+    onDismiss: () -> Unit,
+    onAddStock: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.8f))
+                .padding(horizontal = 24.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color.White,
+                shadowElevation = 24.dp,
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // ENCABEZADO DE ADVERTENCIA PREMIUM
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(WarningGradient)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.25f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.PriorityHigh, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = title,
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Text(
+                            text = message,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CreateTextSecondary,
+                            lineHeight = 20.sp
+                        )
+
+                        // TARJETA DEL PRODUCTO EXISTENTE
+                        Surface(
+                            color = CreateBackground,
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Inventory2, null, tint = CreateOrange, modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = conflictProduct.nombre,
+                                        color = CreateTextPrimary,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = conflictProduct.categoria,
+                                        color = CreateTextSecondary,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // ACCIONES PROFESIONALES
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onAddStock,
+                                modifier = Modifier.fillMaxWidth().height(54.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CreateOrange)
+                            ) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("AÑADIR STOCK AL EXISTENTE", fontWeight = FontWeight.Black)
+                            }
+
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("CORREGIR NOMBRE / CANCELAR", color = CreateRed, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Step3ResetWarningDialog(
+    state: CreateProductState,
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .padding(horizontal = 32.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color.White,
+                shadowElevation = 12.dp,
+                border = BorderStroke(2.dp, CreateRed.copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+            ) {
+                Box(modifier = Modifier.background(WarningGradient)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.2f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Text(
+                                text = message,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+
+                        Surface(
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = "Esta acción no se puede deshacer.",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            ) {
+                                Text("Cancelar", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = onConfirm,
+                                modifier = Modifier.weight(1f).height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed)
+                            ) {
+                                Text("Sí, borrar", fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StockLimitErrorDialog(
+    state: CreateProductState,
+    onDismiss: () -> Unit
+) {
+    val total = calculateTotalBaseStock(state)
+    val assigned = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val remaining = (total - assigned).coerceAtLeast(0.0)
+    val unit = resolveStockUnitLabel(state)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .padding(horizontal = 32.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color.White,
+                shadowElevation = 12.dp,
+                border = BorderStroke(2.dp, CreateRed.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+            ) {
+                Box(modifier = Modifier.background(WarningGradient)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.2f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Exceso de Inventario",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "La cantidad que intentas agregar supera lo que tienes disponible en este lote.",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+
+                        Surface(
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("STOCK DISPONIBLE", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("${formatCreateProductNumber(remaining)} $unit", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed)
+                        ) {
+                            Text("Ajustar cantidad", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StockUsageCompleteDialog(
+    state: CreateProductState,
+    onDismiss: () -> Unit
+) {
+    val total = calculateTotalBaseStock(state)
+    val unit = resolveStockUnitLabel(state)
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = Color.White,
+            shadowElevation = 12.dp,
+            border = BorderStroke(1.5.dp, CreateGreen.copy(alpha = 0.3f))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Icono Animado / Central
+                Surface(
+                    color = CreateGreenSoft,
+                    shape = CircleShape,
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "¡Mercancía Agotada!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        color = CreateTextPrimary
+                    )
+                    Text(
+                        text = "Has distribuido el 100% de lo ingresado en las presentaciones de venta.",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = CreateTextSecondary
+                    )
+                }
+                
+                // Gráfico de Balance
+                Surface(
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Total Ingreso", color = CreateTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("${formatCreateProductNumber(total)} $unit", color = CreateTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        }
+                        
+                        Icon(Icons.Filled.ChevronRight, null, tint = CreateBorder)
+                        
+                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                            Text("Distribuido", color = CreateGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("100%", color = CreateGreen, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+                
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                ) {
+                    Text("Entendido", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CreatePresentationDialog(
+    state: CreateProductState,
+    onStateChange: (CreateProductState) -> Unit,
+    onSavePresentation: (SavedPresentation) -> Unit = {},
+    onDismiss: () -> Unit
+) {
+    val totalStock = calculateTotalBaseStock(state)
+    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val remainingStock = (totalStock - assignedStock).coerceAtLeast(0.0)
+
+    val unitToUse = state.draftPresentationCustomUnit.ifBlank {
+        when (state.controlType) {
+            CreateProductControlType.PESO -> "g"
+            CreateProductControlType.LIQUIDO -> "mL"
+            else -> ""
+        }
+    }
+
+    val inputAmount = state.draftPresentationCustomAmount.toDoubleOrNull() ?: 0.0
+    val inputInBase = when (state.controlType) {
+        CreateProductControlType.PESO -> if (unitToUse == "kg") inputAmount * 1000.0 else inputAmount
+        CreateProductControlType.LIQUIDO -> if (unitToUse == "L") inputAmount * 1000.0 else inputAmount
+        else -> inputAmount
+    }
+
+    val canAdd = state.draftPresentationName.isNotBlank() &&
+            inputAmount > 0 &&
+            state.draftPresentationSalePriceText.toDoubleOrNull()?.let { it > 0 } == true
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.65f))
+                .padding(horizontal = 32.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color.White,
+                shadowElevation = 16.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().background(WaterGradient)) {
+                    val configuration = LocalConfiguration.current
+                    val maxHeight = (configuration.screenHeightDp.dp * 0.7f)
+
+                    Column(
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .heightIn(max = maxHeight)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        Text(
+                            text = "Nueva Presentación",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Black,
+                            color = CreateTextPrimary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            // 1. Nombre (Ahora siempre visible para cualquier tipo)
+                            AppTextField(
+                                label = "NOMBRE (EJ. BLÍSTER, CAJA, FRASCO)",
+                                value = state.draftPresentationName,
+                                placeholder = "Escribe el nombre...",
+                                onValueChange = { onStateChange(state.copy(draftPresentationName = it)) }
+                            )
+
+                            // 2. Cantidad y Selector de Unidades
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = if (state.controlType == CreateProductControlType.UNIDAD) "CANTIDAD DE UNIDADES" else "CONTENIDO / PESO",
+                                    color = CreateTextSecondary,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        AppTextField(
+                                            label = "",
+                                            value = state.draftPresentationCustomAmount,
+                                            placeholder = "Ej. 500",
+                                            keyboardType = KeyboardType.Decimal,
+                                            onValueChange = { onStateChange(state.copy(draftPresentationCustomAmount = it)) }
+                                        )
+                                    }
+                                    
+                                    // Selector tipo burbuja
+                                    if (state.controlType != CreateProductControlType.UNIDAD) {
+                                        val options = if (state.controlType == CreateProductControlType.PESO) listOf("g", "kg") else listOf("mL", "L")
+                                        PremiumUnitSelector(
+                                            selected = unitToUse,
+                                            options = options,
+                                            onSelected = { onStateChange(state.copy(draftPresentationCustomUnit = it)) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Precio
+                            AppTextField(
+                                label = "PRECIO DE VENTA (BS)",
+                                value = state.draftPresentationSalePriceText,
+                                placeholder = "Ej. 45.50",
+                                keyboardType = KeyboardType.Decimal,
+                                leadingIcon = Icons.Outlined.AttachMoney,
+                                onValueChange = { onStateChange(state.copy(draftPresentationSalePriceText = it)) }
+                            )
+                        }
+
+                        // Resumen de disponibilidad
+                        Surface(
+                            color = Color.White.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                        ) {
+                            Text(
+                                text = "Equivale a ${formatCreateProductNumber(inputInBase)} ${resolveStockUnitLabel(state)}. Stock libre: ${formatCreateProductNumber(remainingStock)}",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CreateTextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).height(54.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Text("Cancelar", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    // Validación final de stock antes de agregar
+                                    if (inputInBase > remainingStock) {
+                                        onStateChange(state.copy(showStockErrorDialog = true))
+                                        return@Button
+                                    }
+
+                                    val (draftName, equivalence) = when (state.controlType) {
+                                        CreateProductControlType.UNIDAD -> {
+                                            val nombre = state.draftPresentationName.trim().ifBlank { "Pack $inputAmount" }
+                                            nombre to formatCreateProductNumber(inputAmount)
+                                        }
+                                        else -> state.draftPresentationName.trim() to formatCreateProductNumber(inputInBase)
+                                    }
+
+                                    val newPresentation = CreateProductPresentation(
+                                        id = draftName.lowercase().replace(" ", "_") + "_" + java.util.UUID.randomUUID().toString().take(4),
+                                        name = draftName,
+                                        equivalenceText = equivalence,
+                                        salePriceText = state.draftPresentationSalePriceText,
+                                        isAiSuggested = false
+                                    )
+
+                                    val (nextList, idFinal) = mergePresentacionEvitandoDuplicado(state.presentations, newPresentation)
+                                    val nextAssigned = nextList.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+                                    
+                                    onStateChange(state.copy(
+                                        presentations = nextList,
+                                        mainPresentationId = if (nextList.any { it.id == state.mainPresentationId }) state.mainPresentationId else idFinal,
+                                        addPresentationExpanded = false,
+                                        draftPresentationName = "",
+                                        draftPresentationCustomAmount = "",
+                                        draftPresentationCustomUnit = "",
+                                        draftPresentationSalePriceText = "",
+                                        showStockCompleteDialog = (totalStock - nextAssigned) <= 0.0
+                                    ))
+                                },
+                                enabled = canAdd,
+                                modifier = Modifier.weight(1.2f).height(54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                            ) {
+                                Text("Agregar", fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -953,7 +1846,6 @@ private fun CreateProductTabletSidebarLayout(
     // Sugerencia IA propagada también en tablet para consistencia móvil/tablet.
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState =
         com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
-    onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit = {},
     onSwitchToManualCategory: () -> Unit = {},
     onBackToAiCategory: () -> Unit = {},
     onSearchIA: (Boolean) -> Unit = {},
@@ -964,7 +1856,12 @@ private fun CreateProductTabletSidebarLayout(
     onIdentificarBarcode: (String, String?) -> Unit = { _, _ -> },
     onRequestLabelScan: () -> Unit = {},
     onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
-    onClearBarcodeIntegrityConflict: () -> Unit = {}
+    onClearBarcodeIntegrityConflict: () -> Unit = {},
+    isCheckingLotRemote: Boolean = false,
+    lotConflictInfo: String? = null,
+    lotConflictColor: Color = Color.Transparent,
+    lotConflictSeverity: Int = 0,
+    onSaveSupplier: (String, String) -> Unit = { _, _ -> }
 ) {
     val currentStep = state.currentStep
     val isLast = currentStep == CreateProductStep.RESUMEN
@@ -1022,7 +1919,7 @@ private fun CreateProductTabletSidebarLayout(
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ── Sidebar izquierdo: lista de pasos ────────────────────────────
+            // â”€â”€ Sidebar izquierdo: lista de pasos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Surface(
                 modifier = Modifier
                     .width(280.dp)
@@ -1077,11 +1974,11 @@ private fun CreateProductTabletSidebarLayout(
                         CreateProductStep.PRESENTACIONES,
                         CreateProductStep.RESUMEN
                     )
-                    // Fix: el sidebar permitía saltar a cualquier paso, ignorando
+                    // Fix: el sidebar permitÃ­a saltar a cualquier paso, ignorando
                     // las validaciones del flujo (`nextEnabled`). Ahora solo se
                     // puede retroceder a pasos previos o quedarse en el actual;
-                    // para avanzar es obligatorio usar el botón "Siguiente",
-                    // que sí respeta la validación.
+                    // para avanzar es obligatorio usar el botÃ³n "Siguiente",
+                    // que sÃ­ respeta la validaciÃ³n.
                     pasos.forEach { paso ->
                         val isCurrent = paso == currentStep
                         val isCompleted = paso.number < currentStep.number
@@ -1101,7 +1998,7 @@ private fun CreateProductTabletSidebarLayout(
                 }
             }
 
-            // ── Contenido derecho: formulario del paso actual ────────────────
+            // â”€â”€ Contenido derecho: formulario del paso actual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -1138,7 +2035,6 @@ private fun CreateProductTabletSidebarLayout(
                             categoryOptions = categoryOptions,
                             onStateChange = onStateChange,
                             categorySuggestionState = categorySuggestionState,
-                            onAcceptCategorySuggestion = onAcceptCategorySuggestion,
                             onSwitchToManualCategory = onSwitchToManualCategory,
                             onBackToAiCategory = onBackToAiCategory,
                             onSearchIA = onSearchIA,
@@ -1155,7 +2051,12 @@ private fun CreateProductTabletSidebarLayout(
                         CreateProductStep.LOTE_INICIAL -> InitialLotStep(
                             state = state,
                             existingLotNumbers = existingLotNumbers,
-                            onStateChange = onStateChange
+                            onStateChange = onStateChange,
+                            isCheckingLotRemote = isCheckingLotRemote,
+                            lotConflictInfo = lotConflictInfo,
+                            lotConflictColor = lotConflictColor,
+                            lotConflictSeverity = lotConflictSeverity,
+                            onSaveSupplier = onSaveSupplier
                         )
                         CreateProductStep.PRESENTACIONES -> PresentationsPricesStep(
                             state = state,
@@ -1275,7 +2176,7 @@ fun CreateProductStepHeader(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(12.dp))
 
             // Título animado al lado de la flecha
@@ -1312,7 +2213,7 @@ fun CreateProductStepHeader(
                 )
             }
         }
-        
+
         // Subtítulo compacto debajo para mantener contexto
         AnimatedContent(
             targetState = step.subtitle,
@@ -1329,6 +2230,7 @@ fun CreateProductStepHeader(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
     }
 }
 
@@ -1345,10 +2247,11 @@ fun ProductStepContent(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // --- NUEVO: Ocultar teclado suavemente al hacer scroll ---
+    // --- NUEVO: Ocultar teclado suavemente al hacer scroll (Solo si es manual) ---
+    val isDragged by listState.interactionSource.collectIsDraggedAsState()
     LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
-            focusManager.clearFocus(force = true)
+        if (listState.isScrollInProgress && isDragged) {
+            focusManager.clearFocus()
             keyboardController?.hide()
         }
     }
@@ -1428,7 +2331,7 @@ fun AiBarcodeProductStep(
                         producto = producto,
                         onAddStock = { onAddStockToExistingProduct(producto) }
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1490,7 +2393,7 @@ fun AiBarcodeProductStep(
                                     currentStep = CreateProductStep.LOTE_INICIAL,
                                     errors = state.errors - setOf("name", "category", "controlType", "barcode")
                                 ))
-                                // V18.5: Avance automático al Paso 2 tras aplicar datos exitosos de la IA
+                                // V18.5: Avance automÃ¡tico al Paso 2 tras aplicar datos exitosos de la IA
                             } else {
                                 // Si el tipo es DESCONOCIDO, forzar manual para que el usuario elija
                                 onStateChange(state.copy(
@@ -1498,12 +2401,12 @@ fun AiBarcodeProductStep(
                                     category = result.categoria.orEmpty(),
                                     requiresPrescription = result.requiereReceta,
                                     forceManualProductEntry = true,
-                                    errors = state.errors + ("controlType" to "✨ La IA hizo su magia, solo confirma cómo se controla este producto.")
+                                    errors = state.errors + ("controlType" to "âœ¨ La IA hizo su magia, solo confirma como se controla este producto.")
                                 ))
                             }
                         },
                         onScanOther = resetAndScanAgain,
-                        onEditManual = { 
+                        onEditManual = {
                             val mappedType = when (result.tipoControl) {
                                 "UNIDAD" -> CreateProductControlType.UNIDAD
                                 "PESO" -> CreateProductControlType.PESO
@@ -1516,7 +2419,7 @@ fun AiBarcodeProductStep(
                                 controlType = mappedType,
                                 requiresPrescription = result.requiereReceta,
                                 forceManualProductEntry = true
-                            )) 
+                            ))
                         }
                     )
                 } else {
@@ -1529,14 +2432,14 @@ fun AiBarcodeProductStep(
                 }
             }
 
-            // 5. Estado inicial o código vacío
+            // 5. Estado inicial o codigo vacio
             state.barcode.isBlank() -> {
                 InitialScanCard(
                     onStartScan = onRequestBarcodeScan
                 )
             }
 
-            // 6. Error de red o validación del código.
+            // 6. Error de red o validacion del cÃ³digo.
             state.errors["barcode"] != null -> {
                 BarcodeValidationErrorCard(
                     message = state.errors["barcode"].orEmpty(),
@@ -1545,17 +2448,12 @@ fun AiBarcodeProductStep(
                 )
             }
 
-            // 7. Código nuevo sin resultado todavía (esperando).
+            // 7. Codigo nuevo sin resultado todavia  (esperando).
             else -> {
                 IdentifyingBarcodeCard(barcode = state.barcode)
-                LaunchedEffect(state.barcode, state.errors["barcode"]) {
-                    if (!state.isIdentifyingBarcode &&
-                        state.barcodeAiResult == null &&
-                        state.errors["barcode"] == null
-                    ) {
-                        onIdentificarBarcode(state.barcode, state.scannedImageBase64)
-                    }
-                }
+                // V18.3: Eliminado el LaunchedEffect que duplicaba llamadas a IA
+                // y causaba carreras con la validación de Firebase. La validación
+                // ahora fluye únicamente desde programarValidacionBarcodeCompose
             }
         }
     }
@@ -1581,7 +2479,7 @@ fun InitialScanCard(onStartScan: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Escanea el código del producto",
+                text = "Escanea el codigo del producto",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = CreateTextPrimary
@@ -1600,7 +2498,7 @@ fun InitialScanCard(onStartScan: () -> Unit) {
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
             ) {
-                Text("Escanear código")
+                Text("Escanear codigo")
             }
         }
     }
@@ -1626,11 +2524,12 @@ fun IdentifyingBarcodeCard(barcode: String) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Código: $barcode",
+                text = "Codigo: $barcode",
                 style = MaterialTheme.typography.bodySmall,
                 color = CreateTextSecondary
             )
         }
+
     }
 }
 
@@ -1667,7 +2566,7 @@ fun BarcodeValidationErrorCard(
             }
 
             Text(
-                text = "No pudimos validar el código",
+                text = "No pudimos validar el codigo",
                 color = CreateRed,
                 fontWeight = FontWeight.Black,
                 fontSize = 18.sp,
@@ -1881,6 +2780,7 @@ private fun BarcodeInfoPill(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
     }
 }
 @Composable
@@ -1905,13 +2805,13 @@ fun BarcodeNotIdentifiedCard(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "No pude identificarlo por código",
+                "No pude identificarlo por codigo",
                 fontWeight = FontWeight.Bold,
                 color = CreateRed,
                 textAlign = TextAlign.Center
             )
             Text(
-                "El código $barcode no arrojó resultados claros.",
+                "El codigo $barcode no arroja resultados claros.",
                 style = MaterialTheme.typography.bodySmall,
                 color = CreateTextSecondary
             )
@@ -1946,7 +2846,7 @@ fun BarcodeNotIdentifiedCard(
             }
 
             TextButton(onClick = onScanOther) {
-                Text("Escanear otro código", color = CreateTextSecondary)
+                Text("Escanear otro codigo", color = CreateTextSecondary)
             }
         }
     }
@@ -1969,9 +2869,9 @@ fun ProductAppliedSummaryCard(state: CreateProductState, onEditManual: () -> Uni
             Spacer(modifier = Modifier.height(12.dp))
             Text(state.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(state.category, style = MaterialTheme.typography.bodySmall, color = CreateTextSecondary)
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onScanOther, modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp)) {
                     Text("Cambiar", fontSize = 12.sp)
@@ -2000,7 +2900,6 @@ fun ProductBasicStep(
     isSearching: Boolean = false,
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState =
         com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
-    onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit = {},
     onSwitchToManualCategory: () -> Unit = {},
     onBackToAiCategory: () -> Unit = {},
     onAsistManualName: (String) -> Unit = {},
@@ -2018,12 +2917,30 @@ fun ProductBasicStep(
     onNext: () -> Unit = {},
     onRequestLabelScan: () -> Unit = {},
     onCheckBarcodeIntegrity: (String, String) -> Unit = { _, _ -> },
-    onClearBarcodeIntegrityConflict: () -> Unit = {}
+    onClearBarcodeIntegrityConflict: () -> Unit = {},
+    onSaveSupplier: (String, String) -> Unit = { _, _ -> }
 ) {
     val nameRequester = remember { BringIntoViewRequester() }
     val categoryRequester = remember { BringIntoViewRequester() }
     val requirementsRequester = remember { BringIntoViewRequester() }
-    
+
+    var isMagicScrolling by remember { mutableStateOf(false) }
+    var previouslyMagicTriggered by remember { 
+        mutableStateOf(state.categorySelectedFromAi && state.controlType != null) 
+    }
+
+    LaunchedEffect(state.categorySelectedFromAi, state.controlType) {
+        val currentTrigger = state.categorySelectedFromAi && state.controlType != null
+        if (currentTrigger && !previouslyMagicTriggered) {
+            isMagicScrolling = true
+            delay(150)
+            requirementsRequester.bringIntoView()
+            delay(800) // Un poco más de tiempo para que se vea suave
+            isMagicScrolling = false
+        }
+        previouslyMagicTriggered = currentTrigger
+    }
+
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
@@ -2043,27 +2960,22 @@ fun ProductBasicStep(
         }
     }
 
-    var isWaitingForAi by remember { mutableStateOf(false) }
-
-    // Modo manual silencioso: al dejar de escribir el nombre, precarga una categoría.
+    // IA silenciosa: un solo debounce (300 ms en el ViewModel), sin espera extra en UI.
     LaunchedEffect(state.name, state.category, state.categorySelectedFromAi, state.duplicateProductFound) {
-        isWaitingForAi = false
         if (
-            state.name.length >= 3 &&
+            state.name.length >= 5 && // V28.3: Subimos a 5 letras para evitar lag en tipeo corto
             state.category.isBlank() &&
             !state.categorySelectedFromAi &&
             state.duplicateProductFound == null
         ) {
-            isWaitingForAi = true
-            delay(500)
+            delay(400) // V28.3: Respiro extra antes de activar IA
             onSearchIA(false)
-            isWaitingForAi = false
         }
     }
 
     // V18.8: Validación de Integridad (Nombre vs Código) con Debounce
-    LaunchedEffect(state.name, state.barcode, state.barcodeAiApplied) {
-        if (state.name.length > 5 && state.barcode.isNotBlank() && !state.barcodeAiApplied) {
+    LaunchedEffect(state.name, state.barcode, state.barcodeAiResult) {
+        if (state.name.length > 5 && state.barcode.isNotBlank() && state.barcodeAiResult != null) {
             delay(1000)
             onCheckBarcodeIntegrity(state.barcode, state.name)
         }
@@ -2087,8 +2999,7 @@ fun ProductBasicStep(
             state.controlType == aiControlType
     val manualAiPrescriptionSuggestion = categorySuggestionState.sugerenciaTipoManual
         ?.takeIf { suggestion ->
-            state.categorySelectedFromAi &&
-                state.name.trim().stripAccents().equals(suggestion.productName.trim().stripAccents(), ignoreCase = true) &&
+            state.name.trim().stripAccents().equals(suggestion.productName.trim().stripAccents(), ignoreCase = true) &&
                 state.category.trim().stripAccents().equals(suggestion.category.trim().stripAccents(), ignoreCase = true)
         }
         ?.requiereReceta
@@ -2124,44 +3035,58 @@ fun ProductBasicStep(
             onAddStockToExistingProduct = onAddStockToExistingProduct
         )
 
-        // --- SECCIÓN: NOMBRE DEL PRODUCTO ---
-        // Se extrae para que el tipeado del nombre no afecte a las secciones de red pesadas.
-        ProductNameSection(
-            state = state,
-            nameRequester = nameRequester,
-            onStateChange = onStateChange,
-            onClearAsistManual = onClearAsistManual
-        )
+        // --- SECCIÓN: IDENTIDAD (BLOQUE UNIFICADO) ---
+        val isIdentityValid = state.name.isNotBlank() && state.category.isNotBlank() && state.controlType != null
+        
+        CreateSectionCard(
+            title = "IDENTIDAD DEL PRODUCTO",
+            subtitle = "Define el nombre, su clasificación y control",
+            icon = Icons.AutoMirrored.Outlined.Label,
+            isSuccess = isIdentityValid
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                ProductNameSection(
+                    state = state,
+                    nameRequester = nameRequester,
+                    onStateChange = onStateChange,
+                    onClearAsistManual = onClearAsistManual
+                )
 
-        // --- SECCIÓN: CATEGORÍA Y TIPO DE CONTROL ---
-        // Maneja la sincronización con Gemini y el despliegue del selector de tipo.
-        CategorySelectionSection(
-            state = state,
-            categoryRequester = categoryRequester,
-            categoryOptions = categoryOptions,
-            categorySuggestionState = categorySuggestionState,
-            isWaitingForAi = isWaitingForAi,
-            onStateChange = onStateChange,
-            onAcceptCategorySuggestion = onAcceptCategorySuggestion,
-            onSwitchToManualCategory = onSwitchToManualCategory,
-            onBackToAiCategory = onBackToAiCategory,
-            onClearAsistManual = onClearAsistManual,
-            onControlTypeChange = { controlType ->
-                keyboardController?.hide()
-                focusManager.clearFocus(force = true)
-                onStateChange(state.copy(
-                    controlType = controlType,
-                    typeSelectedManually = true,
-                    presentations = sugerirPresentacionesIniciales(controlType, ""),
-                    mainPresentationId = "",
-                    errors = state.errors - "controlType"
-                ))
-                scope.launch {
-                    delay(400)
-                    requirementsRequester.bringIntoView()
-                }
+                CategorySelectionSection(
+                    state = state,
+                    categoryRequester = categoryRequester,
+                    categoryOptions = categoryOptions,
+                    categorySuggestionState = categorySuggestionState,
+                    onStateChange = onStateChange,
+                    onSwitchToManualCategory = onSwitchToManualCategory,
+                    onBackToAiCategory = onBackToAiCategory,
+                    onClearAsistManual = onClearAsistManual,
+                    onControlTypeChange = { controlType ->
+                        if (state.stockEntryConfigured || state.presentations.isNotEmpty()) {
+                            onStateChange(state.copy(
+                                showStep3ResetDialog = true,
+                                pendingControlType = controlType
+                            ))
+                        } else {
+                            keyboardController?.hide()
+                            focusManager.clearFocus(force = true)
+                            val nextState = state.resetStockEntryConfiguration().copy(
+                                controlType = controlType,
+                                typeSelectedManually = true,
+                                presentations = emptyList(),
+                                mainPresentationId = "",
+                                errors = state.errors - "controlType"
+                            )
+                            onStateChange(nextState)
+                            scope.launch {
+                                delay(400)
+                                requirementsRequester.bringIntoView()
+                            }
+                        }
+                    }
+                )
             }
-        )
+        }
 
         // --- SECCIÓN: REQUISITOS (RECETA MÉDICA) ---
         // Oculta hasta que los datos base estén listos.
@@ -2172,12 +3097,51 @@ fun ProductBasicStep(
             aiPrescriptionSuggestion = manualAiPrescriptionSuggestion,
             onStateChange = onStateChange
         )
+
+        // --- SECCIÓN: UBICACIÓN FÍSICA ---
+        ProductLocationSection(
+            state = state,
+            onStateChange = onStateChange
+        )
+    }
+
+    if (state.showAddSupplierDialog) {
+        AddSupplierDialog(
+            onDismiss = { onStateChange(state.copy(showAddSupplierDialog = false)) },
+            onSave = onSaveSupplier
+        )
+    }
+
+    if (isMagicScrolling) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.White.copy(alpha = 0.96f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(color = CreateGreen)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Analizando producto...",
+                        color = CreateTextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
     }
 }
 
 /**
- * Encapsula toda la lógica de gestión de códigos de barras (escaneo, manual y duplicados).
- * Su extracción evita recomposiciones masivas cuando se detecta un conflicto de integridad.
+ * Encapsula toda la logica de gestion de codigos de barras (escaneo, manual y duplicados).
+ * Su extraccion evita recomposiciones masivas cuando se detecta un conflicto de integridad.
  */
 @Composable
 private fun BarcodeManagementSection(
@@ -2201,13 +3165,24 @@ private fun BarcodeManagementSection(
             error = state.errors["barcode"],
             onStartScan = {
                 onClearBarcodeIntegrityConflict()
+
+                val resetIdentityForAi = state.barcodeAiApplied || state.barcodeAiResult != null
+
                 onStateChange(state.copy(
                     barcode = "",
+                    scannedImageBase64 = null,
                     barcodeAiResult = null,
+                    barcodeAiError = null,
                     barcodeAiApplied = false,
-                    forceManualProductEntry = true, // Mantenemos el modo manual
+                    forceManualProductEntry = if (resetIdentityForAi) false else true,
                     isBarcodeManualMode = false,
                     duplicateProductFound = null,
+                    barcodeMismatchDetected = false,
+                    barcodeMismatchOriginalName = null,
+                    name = if (resetIdentityForAi) "" else state.name,
+                    category = if (resetIdentityForAi) "" else state.category,
+                    controlType = if (resetIdentityForAi) null else state.controlType,
+                    requiresPrescription = if (resetIdentityForAi) false else state.requiresPrescription,
                     errors = state.errors - setOf("barcode", "name", "category", "controlType")
                 ))
                 onRequestBarcodeScan()
@@ -2242,7 +3217,7 @@ private fun BarcodeManagementSection(
 }
 
 /**
- * Maneja únicamente el campo de texto del nombre del producto.
+ * Maneja Uicamente el campo de texto del nombre del producto.
  * Optimiza la fluidez del teclado al aislar los cambios de 'state.name'.
  */
 @Composable
@@ -2252,56 +3227,234 @@ private fun ProductNameSection(
     onStateChange: (CreateProductState) -> Unit,
     onClearAsistManual: () -> Unit
 ) {
+    val isNameValid = state.name.isNotBlank() && state.errors["name"] == null && !state.isValidatingNameRemote
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        AppTextField(
+            modifier = Modifier.bringIntoViewRequester(nameRequester),
+            label = "NOMBRE DEL PRODUCTO",
+            value = state.name,
+            error = state.errors["name"],
+            isSuccess = isNameValid,
+            placeholder = "Escribe el nombre o marca...",
+            leadingIcon = Icons.AutoMirrored.Outlined.Label,
+            trailingIcon = if (state.isValidatingNameRemote) {
+                { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.5.dp, color = CreateGreen) }
+            } else if (state.name.length >= 3 && state.errors["name"].isNullOrBlank()) {
+                { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
+            } else null,
+            onValueChange = { input ->
+                if (input.isBlank()) {
+                    onStateChange(state.copy(
+                        name = "",
+                        category = "",
+                        controlType = null,
+                        requiresPrescription = false,
+                        categorySelectedFromAi = false,
+                        duplicateProductFound = null,
+                        errors = state.errors - setOf("name", "category", "controlType")
+                    ))
+                    onClearAsistManual()
+                } else {
+                    onStateChange(state.copy(
+                        name = input,
+                        duplicateProductFound = null,
+                        errors = state.errors - "name"
+                    ))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ProductLocationSection(
+    state: CreateProductState,
+    onStateChange: (CreateProductState) -> Unit
+) {
     val hasDuplicateProduct = state.duplicateProductFound != null
+    val mostrarUbicacion = !hasDuplicateProduct && 
+                          state.name.isNotBlank() && 
+                          state.category.isNotBlank() && 
+                          state.controlType != null
 
     AnimatedVisibility(
-        visible = !hasDuplicateProduct,
+        visible = mostrarUbicacion,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Re-instanciar el BarcodeSection aquí si no hay duplicado (según lógica original)
-            // Nota: Se podría optimizar aún más sacándolo de este AnimatedVisibility
-            // pero mantenemos la estructura original solicitada.
-
-            AppTextField(
-                modifier = Modifier.bringIntoViewRequester(nameRequester),
-                label = "NOMBRE DEL PRODUCTO",
-                value = state.name,
-                error = state.errors["name"],
-                placeholder = "Escribe el nombre o marca...",
-                leadingIcon = Icons.AutoMirrored.Outlined.Label,
-                trailingIcon = if (state.name.length >= 3) {
-                    { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
-                } else null,
-                onValueChange = { input ->
-                    if (input.isBlank()) {
+        CreateSectionCard(
+            title = "UBICACIÓN FÍSICA",
+            subtitle = "Indica dónde se guarda el producto",
+            icon = Icons.Default.Place,
+            isSuccess = state.location.isNotBlank()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppTextField(
+                    label = "",
+                    value = state.location,
+                    error = state.errors["location"],
+                    isSuccess = state.location.isNotBlank(),
+                    placeholder = "Ej: Estante B-3, Vitrina 1...",
+                    onValueChange = { 
                         onStateChange(state.copy(
-                            name = "",
-                            category = "",
-                            controlType = null,
-                            requiresPrescription = false,
-                            categorySelectedFromAi = false,
-                            duplicateProductFound = null,
-                            errors = state.errors - setOf("name", "category", "controlType")
-                        ))
-                        onClearAsistManual()
-                    } else {
-                        onStateChange(state.copy(
-                            name = input, 
-                            duplicateProductFound = null, 
-                            errors = state.errors - "name"
-                        ))
+                            location = it,
+                            errors = state.errors - "location"
+                        )) 
                     }
-                }
-            )
+                )
+                Text(
+                    text = "Es obligatorio indicar la ubicación para continuar.",
+                    fontSize = 11.sp,
+                    color = CreateTextSecondary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
         }
     }
 }
 
+@Composable
+private fun SupplierSelectionSection(
+    state: CreateProductState,
+    onStateChange: (CreateProductState) -> Unit
+) {
+    val hasDuplicateProduct = state.duplicateProductFound != null
+
+    if (!hasDuplicateProduct && state.name.isNotBlank()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "PROVEEDOR",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = CreateTextSecondary,
+                letterSpacing = 1.2.sp
+            )
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Dropdown sutil
+                var expanded by remember { mutableStateOf(false) }
+                
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = CreateSurfaceSoft,
+                    border = BorderStroke(1.dp, CreateBorder)
+                ) {
+                    Box(modifier = Modifier.clickable { expanded = true }.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Business, null, tint = CreateTextSecondary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = state.supplierName.ifBlank { "Seleccionar proveedor..." },
+                                color = if (state.supplierName.isBlank()) CreateTextSecondary else CreateTextPrimary,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = CreateTextSecondary)
+                        }
+
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.fillMaxWidth(0.7f).background(Color.White)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Ninguno", fontSize = 14.sp) },
+                                onClick = { 
+                                    onStateChange(state.copy(supplierId = "", supplierName = ""))
+                                    expanded = false 
+                                }
+                            )
+                            state.suppliers.forEach { proveedor ->
+                                DropdownMenuItem(
+                                    text = { Text(proveedor.nombre, fontSize = 14.sp) },
+                                    onClick = { 
+                                        onStateChange(state.copy(supplierId = proveedor.id, supplierName = proveedor.nombre))
+                                        expanded = false 
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Botón Añadir
+                IconButton(
+                    onClick = { onStateChange(state.copy(showAddSupplierDialog = true)) },
+                    modifier = Modifier.size(48.dp).background(CreateGreen.copy(alpha = 0.1f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Add, null, tint = CreateGreen)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddSupplierDialog(
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
+    var nombre by remember { mutableStateOf("") }
+    var idFiscal by remember { mutableStateOf("") }
+    
+    val pais = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion.lowercase()
+    val labelId = when {
+        pais.contains("venezuela") -> "RIF"
+        pais.contains("peru") || pais.contains("perú") -> "RUC"
+        pais.contains("colombia") -> "NIT"
+        pais.contains("mexico") || pais.contains("méxico") -> "RFC"
+        else -> "Identificación Fiscal"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nuevo Proveedor", fontWeight = FontWeight.Black) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre / Razón Social") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = idFiscal,
+                    onValueChange = { idFiscal = it },
+                    label = { Text(labelId) },
+                    placeholder = { Text("Nro de identificación...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (nombre.isNotBlank()) onSave(nombre, idFiscal) },
+                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen),
+                enabled = nombre.isNotBlank(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Guardar Proveedor", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = CreateTextSecondary)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
 /**
- * Gestiona el campo de categoría, el asistente de Gemini y el selector de tipo.
- * Es la sección con mayor carga lógica del Paso 1.
+ * Gestiona el campo de categoria, el asistente de Gemini y el selector de tipo.
  */
 @Composable
 private fun CategorySelectionSection(
@@ -2309,15 +3462,29 @@ private fun CategorySelectionSection(
     categoryRequester: BringIntoViewRequester,
     categoryOptions: List<String>,
     categorySuggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState,
-    isWaitingForAi: Boolean,
     onStateChange: (CreateProductState) -> Unit,
-    onAcceptCategorySuggestion: (com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestion) -> Unit,
     onSwitchToManualCategory: () -> Unit,
     onBackToAiCategory: () -> Unit,
     onClearAsistManual: () -> Unit,
     onControlTypeChange: (CreateProductControlType) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val hasDuplicateProduct = state.duplicateProductFound != null
+
+    // V28.7: Comportamiento Premium - Ocultar teclado cuando el usuario espera la sugerencia
+    LaunchedEffect(categorySuggestionState.status) {
+        val currentStatus = categorySuggestionState.status
+        val isWaiting = currentStatus == com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus.LOADING ||
+                       currentStatus == com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus.READY
+        
+        // Solo ocultamos si NO estamos en modo manual forzado por el usuario y el campo está vacío
+        if (isWaiting && state.category.isBlank()) {
+            delay(100)
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
 
     if (!hasDuplicateProduct && state.name.isNotBlank()) {
         CategoryAutocompleteField(
@@ -2328,9 +3495,7 @@ private fun CategorySelectionSection(
             error = state.errors["category"],
             controlType = state.controlType,
             controlTypeError = state.errors["controlType"],
-            isWaitingForAi = isWaitingForAi,
             suggestionState = categorySuggestionState,
-            onAcceptSuggestion = onAcceptCategorySuggestion,
             onSwitchToManual = onSwitchToManualCategory,
             onBackToAi = onBackToAiCategory,
             categorySelectedFromAi = state.categorySelectedFromAi,
@@ -2341,15 +3506,18 @@ private fun CategorySelectionSection(
                     categorySelectedFromAi = false
                 ))
             },
-            onCategorySelectedFromSuggestion = { selectedCategory ->
+            onCategorySelectedFromSuggestion = { selected ->
                 onStateChange(state.copy(
-                    category = selectedCategory,
+                    category = selected,
                     categorySelectedFromAi = true,
                     typeSelectedManually = false,
                     controlType = null,
                     errors = state.errors - "category"
                 ))
                 onClearAsistManual()
+                // Toque Premium: Ocultar teclado suavemente
+                focusManager.clearFocus(force = true)
+                keyboardController?.hide()
             },
             onControlTypeChange = onControlTypeChange
         )
@@ -2357,8 +3525,8 @@ private fun CategorySelectionSection(
 }
 
 /**
- * Sección final de requisitos adicionales como receta médica.
- * Solo aparece cuando los datos base son válidos.
+ * Seccion final de requisitos adicionales como receta medica.
+ * Solo aparece cuando los datos base son validos.
  */
 @Composable
 private fun ProductRequirementsSection(
@@ -2391,38 +3559,40 @@ private fun ProductRequirementsSection(
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.2.sp
             )
-            
+
             Surface(
                 color = Color.White,
                 shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, CreateBorder)
+                border = BorderStroke(
+                    width = if (state.name.isNotBlank() && state.category.isNotBlank() && state.controlType != null) 2.dp else 1.dp,
+                    color = if (state.name.isNotBlank() && state.category.isNotBlank() && state.controlType != null) CreateGreen else CreateBorder
+                )
             ) {
-                if (shouldShowAiPrescriptionInfo) {
-                    AiPrescriptionInfoRow(requiresPrescription = state.requiresPrescription)
-                } else {
-                    Column {
-                        CompactSwitchRow(
-                            title = "¿Requiere receta médica?",
-                            subtitle = "Actívalo si solicitas receta al vender",
-                            checked = state.requiresPrescription,
-                            onCheckedChange = {
-                                onStateChange(state.copy(requiresPrescription = it))
-                            }
-                        )
-                        if (aiPrescriptionSuggestion != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(CreateBorder.copy(alpha = 0.55f))
-                            )
-                            AiPrescriptionInfoRow(requiresPrescription = aiPrescriptionSuggestion)
+                Column {
+                    CompactSwitchRow(
+                        title = "¿Requiere receta médica?",
+                        subtitle = "Actívalo si solicitas receta al vender",
+                        checked = state.requiresPrescription,
+                        onCheckedChange = {
+                            onStateChange(state.copy(requiresPrescription = it))
                         }
+                    )
+                    
+                    if (shouldShowAiPrescriptionInfo || aiPrescriptionSuggestion != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(CreateBorder.copy(alpha = 0.55f))
+                        )
+                        val sourceRequires = if (shouldShowAiPrescriptionInfo) 
+                            state.barcodeAiResult?.requiereReceta == true 
+                        else aiPrescriptionSuggestion == true
+                        
+                        AiPrescriptionInfoRow(requiresPrescription = sourceRequires)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
@@ -2432,14 +3602,16 @@ fun InitialLotStep(
     state: CreateProductState,
     existingLotNumbers: Set<String>,
     onStateChange: (CreateProductState) -> Unit,
-    // Estado y disparador del escáner OCR (cámara + Gemini Vision).
+    // Estado y disparador del escaner OCR (camara + Gemini Vision).
     labelScannerState: com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState =
         com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState(),
     onRequestLabelScan: () -> Unit = {},
     onConsumeLabelScan: () -> Unit = {},
     isCheckingLotRemote: Boolean = false,
     lotConflictInfo: String? = null,
-    lotConflictColor: Color = Color.Transparent
+    lotConflictColor: Color = Color.Transparent,
+    lotConflictSeverity: Int = 0,
+    onSaveSupplier: (String, String) -> Unit = { _, _ -> }
 ) {
     val lotRequester = remember { BringIntoViewRequester() }
     val expirationRequester = remember { BringIntoViewRequester() }
@@ -2447,14 +3619,28 @@ fun InitialLotStep(
     val minimumStockRequester = remember { BringIntoViewRequester() }
     val purchaseCostRequester = remember { BringIntoViewRequester() }
 
+    var isMagicScrolling by remember { mutableStateOf(false) }
+    var previouslyConfigured by remember { mutableStateOf(state.stockEntryConfigured) }
+
+    LaunchedEffect(state.stockEntryConfigured) {
+        if (state.stockEntryConfigured && !previouslyConfigured) {
+            isMagicScrolling = true
+            delay(150)
+            minimumStockRequester.bringIntoView()
+            delay(600)
+            isMagicScrolling = false
+        }
+        previouslyConfigured = state.stockEntryConfigured
+    }
+
     val expirationStatus = remember(state.expirationDate) {
         evaluateExpirationStatus(state.expirationDate)
     }
 
     // Fix: se removieron un `when` y un `remember` cuyos valores no se asignaban
-    // ni se consumían. El resumen ya se calcula dentro de StockConfiguredCard y
+    // ni se consuman. El resumen ya se calcula dentro de StockConfiguredCard y
     // StockEntryDialog, y la etiqueta de unidad la usa cada subcomponente que
-    // la necesita. Aquí solo se mantenían como código muerto que disparaba
+    // la necesita. Aqui solo se manteniean como codigo muerto que disparaba
     // recomposiciones innecesarias.
 
     val normalizedLot = remember(state.lotNumber) {
@@ -2463,6 +3649,24 @@ fun InitialLotStep(
 
     val lotExists = remember(normalizedLot, existingLotNumbers) {
         normalizedLot.isNotBlank() && existingLotNumbers.contains(normalizedLot)
+    }
+
+    val isLotInfoReady = remember(
+        state.lotNumber,
+        state.expirationDate,
+        state.errors,
+        expirationStatus,
+        lotExists,
+        lotConflictSeverity
+    ) {
+        state.lotNumber.isNotBlank() &&
+            state.expirationDate.isNotBlank() &&
+            !lotExists &&
+            lotConflictSeverity == 0 &&
+            state.errors["lotNumber"].isNullOrBlank() &&
+            state.errors["expirationDate"].isNullOrBlank() &&
+            expirationStatus?.kind != ExpirationStatusKind.INVALIDO &&
+            expirationStatus?.kind != ExpirationStatusKind.VENCIDO
     }
 
     val suggestedLot = remember(state.name, normalizedLot, existingLotNumbers) {
@@ -2496,6 +3700,15 @@ fun InitialLotStep(
         }
     }
 
+    var showManualLotEntry by remember {
+        mutableStateOf(state.lotNumber.isNotBlank() || state.expirationDate.isNotBlank())
+    }
+    LaunchedEffect(state.lotNumber, state.expirationDate) {
+        if (state.lotNumber.isNotBlank() || state.expirationDate.isNotBlank()) {
+            showManualLotEntry = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2503,26 +3716,96 @@ fun InitialLotStep(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         CreateSectionCard(
-            title = "Datos del lote",
-            subtitle = "Identifica este ingreso de inventario."
+            title = "Lote y vencimiento",
+            subtitle = "Escanea o completa manualmente.",
+            icon = Icons.Outlined.Inventory2,
+            isSuccess = isLotInfoReady,
+            onClear = if (showManualLotEntry || state.lotScanned) {
+                {
+                    showManualLotEntry = false
+                    onStateChange(state.copy(
+                        lotNumber = "",
+                        expirationDate = "",
+                        lotScanned = false,
+                        errors = state.errors - setOf("lotNumber", "expirationDate")
+                    ))
+                }
+            } else null
         ) {
-            // Botón para escanear la etiqueta con cámara + Gemini Vision.
-            // Llena automáticamente "Número de lote" y "Vencimiento" si la
+            val isScanning = labelScannerState.status == com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.LOADING ||
+                             labelScannerState.status == com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // CASO 1: Ninguno seleccionado (Estado Inicial)
+                if (!showManualLotEntry && !isScanning) {
+                    Button(
+                        onClick = onRequestLabelScan,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                    ) {
+                        Text("Escanear", fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { showManualLotEntry = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, CreateBorder)
+                    ) {
+                        Text("Ingresar manual", color = CreateTextPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
+                // CASO 2: Modo Escanear Activo
+                else if (isScanning) {
+                    OutlinedButton(
+                        onClick = onConsumeLabelScan,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateRed)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Escanear", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                // CASO 3: Modo Manual o Escaneado (Ahora se maneja con la 'X' en el header)
+            }
+
+            // Boton para escanear la etiqueta con camara + Gemini Vision.
+            // Llena automÃ¡ticamente "Numero de lote" y "Vencimiento" si la
             // foto los muestra legibles. El usuario siempre puede editar.
             LabelScannerRow(
                 state = labelScannerState,
                 onRequestScan = onRequestLabelScan,
                 onApplyResult = { etiqueta ->
                     // Auto-aplicar resultados al formulario. NO reseteamos
-                    // el ViewModel después: queremos que la tarjeta READY
-                    // se quede visible como confirmación + opción "Tomar
-                    // otra foto". El usuario podrá tomar otra foto sin
+                    // el ViewModel despues: queremos que la tarjeta READY
+                    // se quede visible como confirmacion + opcion "Tomar
+                    // otra foto". El usuario podra¡ tomar otra foto sin
                     // necesidad de pulsar "Aplicar" cada vez.
                     var nuevoEstado = state
                     etiqueta.loteNumero?.let { lote ->
                         nuevoEstado = nuevoEstado.copy(
                             lotNumber = lote,
-                            errors = nuevoEstado.errors - "lotNumber"
+                            errors = nuevoEstado.errors - "lotNumber",
+                            lotScanned = true
                         )
                     }
                     // Solo aplicamos el vencimiento si está vigente. Vencidos
@@ -2532,242 +3815,519 @@ fun InitialLotStep(
                         if (esVencimientoVigenteSimple(venc)) {
                             nuevoEstado = nuevoEstado.copy(
                                 expirationDate = venc,
-                                errors = nuevoEstado.errors - "expirationDate"
+                                errors = nuevoEstado.errors - "expirationDate",
+                                lotScanned = true
                             )
                         }
                     }
                     onStateChange(nuevoEstado)
                 },
-                onDismiss = onConsumeLabelScan
+                onDismiss = onConsumeLabelScan,
+                showScanButton = false
             )
 
             // Solo ocultamos los inputs durante LOADING (procesamiento de la
-            // foto). En READY los datos ya se aplicaron automáticamente y los
+            // foto). En READY los datos ya se aplicaron automÃ¡ticamente y los
             // inputs se muestran rellenados para que el usuario pueda
-            // ajustarlos si la IA detectó algo distinto a lo que ve.
+            // ajustarlos si la IA detecta algo distinto a lo que ve.
             val escaneoActivo = labelScannerState.status ==
                 com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.LOADING
+            val escaneoListo = labelScannerState.status ==
+                com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY
+
+            // V19.3: Si escaneó con éxito, mostramos un Card de Resumen en lugar de inputs.
+            AnimatedVisibility(
+                visible = escaneoListo,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Surface(
+                    color = CreateAiFocusSoft.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, CreateAiFocus.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Lightbulb,
+                                    contentDescription = null,
+                                    tint = CreateAiFocus,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "LOTE DETECTADO POR IA",
+                                    color = CreateAiFocus,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+
+                            // X para cancelar el resultado escaneado
+                            IconButton(
+                                onClick = {
+                                    onConsumeLabelScan() // Cancela el estado del scanner
+                                    onStateChange(state.copy(
+                                        lotNumber = "",
+                                        expirationDate = "",
+                                        errors = state.errors - setOf("lotNumber", "expirationDate")
+                                    ))
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancelar resultado",
+                                    tint = CreateRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Número de Lote", color = CreateTextSecondary, fontSize = 11.sp)
+                                Text(
+                                    text = state.lotNumber.ifBlank { "No detectado" },
+                                    color = CreateTextPrimary,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                                Text("Vencimiento", color = CreateTextSecondary, fontSize = 11.sp)
+                                Text(
+                                    text = state.expirationDate.ifBlank { "No detectada" },
+                                    color = if (expirationStatus?.kind == ExpirationStatusKind.POR_VENCER) CreateOrange else CreateTextPrimary,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        if (expirationStatus != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "• ${expirationStatus.message}",
+                                color = expirationStatus.color,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
 
             AnimatedVisibility(
-                visible = !escaneoActivo,
+                visible = !escaneoActivo && !escaneoListo && showManualLotEntry,
                 enter = fadeIn() + slideInVertically { it / 8 },
                 exit = fadeOut() + slideOutVertically { -it / 8 }
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            val showLotSuggestion = state.lotNumber.isBlank() && suggestedLot.isNotBlank()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val isLotValidated = state.lotNumber.isNotBlank() && 
+                                !isCheckingLotRemote && 
+                                lotConflictSeverity != 2 &&
+                                state.errors["lotNumber"].isNullOrBlank()
+            val isExpirationValid = state.expirationDate.isNotBlank() &&
+                    expirationStatus?.kind != ExpirationStatusKind.VENCIDO &&
+                    expirationStatus?.kind != ExpirationStatusKind.INVALIDO &&
+                    state.errors["expirationDate"].isNullOrBlank()
 
-            AppTextField(
-                modifier = Modifier.bringIntoViewRequester(lotRequester),
-                label = "Numero de lote *",
-                value = state.lotNumber,
-                error = when {
-                    lotExists -> "Ese lote ya existe"
-                    else -> state.errors["lotNumber"]
-                },
-                helper = when {
-                    showLotSuggestion ->
-                        "Sugerencia automatica: $suggestedLot"
-                    state.lotNumber.equals(suggestedLot, ignoreCase = true) ->
-                        null
-                    else ->
-                        "Usa un codigo breve y facil de rastrear."
-                },
-                helperActionLabel = if (showLotSuggestion) "Usar" else null,
-                helperHighlighted = lotExists,
-                onHelperAction = if (showLotSuggestion) {
-                    {
+            val lotField: @Composable (Modifier) -> Unit = { fieldModifier ->
+                AppTextField(
+                    modifier = fieldModifier.bringIntoViewRequester(lotRequester),
+                    label = "",
+                    value = state.lotNumber,
+                    isSuccess = isLotValidated && !lotExists,
+                    error = when {
+                        lotExists -> "Ese lote ya existe"
+                        else -> state.errors["lotNumber"]
+                    },
+                    helper = when {
+                        isCheckingLotRemote -> "Verificando disponibilidad de lote..."
+                        lotExists -> "Ese lote ya existe"
+                        else -> null
+                    },
+                    helperHighlighted = !isCheckingLotRemote && lotConflictSeverity == 0 && !state.lotNumber.isBlank(),
+                    placeholder = "Nro de lote",
+                    keyboardType = KeyboardType.Ascii,
+                    trailingIcon = if (isCheckingLotRemote) {
+                        { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = CreateGreen) }
+                    } else if (isLotValidated && lotConflictSeverity == 0) {
+                        { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(18.dp)) }
+                    } else null,
+                    onValueChange = {
+                        val sanitized = it.uppercase().replace(" ", "")
                         onStateChange(
                             state.copy(
-                                lotNumber = suggestedLot,
+                                lotNumber = sanitized,
                                 errors = state.errors - "lotNumber"
                             )
                         )
                     }
-                } else null,
-                placeholder = "Ej. $suggestedLot",
-                keyboardType = KeyboardType.Ascii,
-                onValueChange = {
-                    val sanitized = it.uppercase().replace(" ", "")
-                    onStateChange(
-                        state.copy(
-                            lotNumber = sanitized,
-                            errors = state.errors - "lotNumber"
-                        )
-                    )
-                }
-            )
+                )
+            }
 
-            ExpirationDateField(
-                modifier = Modifier.bringIntoViewRequester(expirationRequester),
-                label = "Fecha de vencimiento *",
-                value = state.expirationDate,
-                error = when {
-                    expirationStatus?.kind == ExpirationStatusKind.VENCIDO ->
-                        "La fecha ingresada ya vencio."
-                    expirationStatus?.kind == ExpirationStatusKind.INVALIDO ->
-                        expirationStatus.message   // ✅ usar el mensaje específico
-                    else -> state.errors["expirationDate"]
-                },
-                helper = expirationStatus?.takeIf {
-                    it.kind != ExpirationStatusKind.INVALIDO &&
+            val expirationField: @Composable (Modifier) -> Unit = { fieldModifier ->
+                ExpirationDateField(
+                    modifier = fieldModifier.bringIntoViewRequester(expirationRequester),
+                    label = "",
+                    value = state.expirationDate,
+                    isSuccess = isExpirationValid,
+                    enabled = isLotValidated, // V19.4: Solo habilitar si el lote es vÃ¡lido
+                    error = when {
+                        expirationStatus?.kind == ExpirationStatusKind.VENCIDO ->
+                            "La fecha ingresada ya vencio."
+                        expirationStatus?.kind == ExpirationStatusKind.INVALIDO ->
+                            expirationStatus.message
+                        else -> state.errors["expirationDate"]
+                    },
+                    helper = expirationStatus?.takeIf {
+                        it.kind != ExpirationStatusKind.INVALIDO &&
                             it.kind != ExpirationStatusKind.VENCIDO
-                }?.message,
-                helperColor = expirationStatus?.color ?: CreateTextSecondary,
-                placeholder = "Ej. 07/28",
-                onValueChange = {
-                    onStateChange(
-                        state.copy(
-                            expirationDate = formatExpirationDateInput(it),
-                            errors = state.errors - "expirationDate"
+                    }?.message,
+                    helperColor = expirationStatus?.color ?: CreateTextSecondary,
+                    onValueChange = {
+                        onStateChange(
+                            state.copy(
+                                expirationDate = formatExpirationDateInput(it),
+                                errors = state.errors - "expirationDate"
+                            )
                         )
-                    )
+                    }
+                )
+            }
+
+            // V19.2: Fila horizontal 50/50 para Lote y Vencimiento (Solicitud usuario)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    lotField(Modifier.fillMaxWidth())
                 }
-            )
+                Box(modifier = Modifier.weight(1f)) {
+                    expirationField(Modifier.fillMaxWidth())
+                }
+            }
                 }  // fin Column dentro de AnimatedVisibility
             }      // fin AnimatedVisibility (escaneo activo)
         }
 
-        CreateSectionCard(
-            title = "Como recibiste el producto",
-            subtitle = "Elige la forma en que llego este lote."
+        AnimatedVisibility(
+            visible = isLotInfoReady,
+            enter = fadeIn() + slideInVertically { it / 6 },
+            exit = fadeOut() + slideOutVertically { -it / 10 }
         ) {
-            Box(modifier = Modifier.bringIntoViewRequester(entryModeRequester)) {
-                if (!state.stockEntryConfigured) {
-                    StockEntryModeSelector(
-                        selected = state.stockEntryMode,
-                        error = state.errors["stockEntryMode"],
-                        onSelected = { mode ->
-                            onStateChange(
-                                state.copy(
-                                    stockEntryMode = mode,
-                                    showStockEntryDialog = true,
-                                    errors = state.errors -
-                                            setOf(
-                                                "stockEntryMode",
-                                                "receivedUnits",
-                                                "boxesReceived",
-                                                "unitsPerBox",
-                                                "packagesPerBox",
-                                                "unitsPerPackage"
-                                            )
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                // V27.0: SECCIÓN - DATOS DE PAGO Y PROVEEDOR
+                val isPaymentDataValid = state.supplierId.isNotBlank() && 
+                                       (state.purchaseCost.trim().replace(",", ".").toDoubleOrNull()?.let { it > 0.0 } ?: false) &&
+                                       (if (state.paymentCondition == "CREDITO") state.paymentDueDate.isNotBlank() && state.errors["paymentDueDate"] == null else true)
+
+                CreateSectionCard(
+                    title = "Datos de pago",
+                    subtitle = "Factura, costo y condición de pago",
+                    icon = Icons.AutoMirrored.Outlined.Assignment,
+                    isSuccess = isPaymentDataValid
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        // 1. PROVEEDOR (Movido al paso 2)
+                        SupplierSelectionSection(
+                            state = state,
+                            onStateChange = onStateChange
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 2. FACTURA Y COSTO
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                AppTextField(
+                                    label = "NRO FACTURA",
+                                    value = state.invoiceNumber,
+                                    placeholder = "Ej: F001-234",
+                                    keyboardType = KeyboardType.Ascii,
+                                    onValueChange = { onStateChange(state.copy(invoiceNumber = it)) }
                                 )
+                            }
+                            
+                            // Botón para foto de factura
+                            Surface(
+                                onClick = { onStateChange(state.copy(isCapturingInvoice = true)) },
+                                color = if (state.invoiceImageBase64 != null) CreateGreenSoft else CreateBackground,
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, if (state.invoiceImageBase64 != null) CreateGreen else CreateBorder),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (state.invoiceImageBase64 != null) Icons.Outlined.CheckCircle else Icons.Default.Receipt,
+                                        contentDescription = "Foto factura",
+                                        tint = if (state.invoiceImageBase64 != null) CreateGreen else CreateTextSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Box(modifier = Modifier.weight(1f)) {
+                                AppTextField(
+                                    label = "COSTO TOTAL",
+                                    value = state.purchaseCost,
+                                    error = state.errors["purchaseCost"],
+                                    isSuccess = state.purchaseCost.trim().replace(",", ".").toDoubleOrNull()?.let { it > 0.0 } ?: false,
+                                    placeholder = "0.00",
+                                    keyboardType = KeyboardType.Decimal,
+                                    onValueChange = {
+                                        onStateChange(
+                                            state.copy(
+                                                purchaseCost = it,
+                                                errors = state.errors - "purchaseCost"
+                                            )
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        // 3. CONDICIÓN DE PAGO
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "CONDICIÓN DE PAGO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = CreateTextSecondary,
+                                letterSpacing = 1.2.sp
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                listOf("CONTADO", "CREDITO").forEach { condition ->
+                                    val isSel = state.paymentCondition == condition
+                                    Surface(
+                                        modifier = Modifier.weight(1f).clickable { onStateChange(state.copy(paymentCondition = condition)) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSel) CreateGreen.copy(alpha = 0.1f) else CreateSurfaceSoft,
+                                        border = BorderStroke(1.dp, if (isSel) CreateGreen else CreateBorder)
+                                    ) {
+                                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = condition,
+                                                color = if (isSel) CreateGreen else CreateTextSecondary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        AnimatedVisibility(visible = state.paymentCondition == "CREDITO") {
+                            FullDateField(
+                                label = "VENCIMIENTO DEL PAGO",
+                                value = state.paymentDueDate,
+                                isSuccess = state.paymentDueDate.isNotBlank() && state.errors["paymentDueDate"] == null,
+                                error = state.errors["paymentDueDate"],
+                                onValueChange = {
+                                    onStateChange(state.copy(
+                                        paymentDueDate = it,
+                                        errors = state.errors - "paymentDueDate"
+                                    ))
+                                }
                             )
                         }
-                    )
-                } else {
-                    StockConfiguredCard(
-                        state = state,
-                        onEditQuantity = {
-                            onStateChange(state.copy(showStockEntryDialog = true))
-                        },
-                        onChangeType = {
-                            onStateChange(
-                                state.copy(
-                                    stockEntryConfigured = false,
-                                    showStockEntryDialog = false,
-                                    stockEntryMode = null,
-                                    receivedUnitsText = "",
-                                    boxesReceivedText = "",
-                                    unitsPerBoxText = "",
-                                    packagesPerBoxText = "",
-                                    unitsPerPackageText = "",
-                                    errors = state.errors -
-                                            setOf(
-                                                "receivedUnits",
-                                                "boxesReceived",
-                                                "unitsPerBox",
-                                                "packagesPerBox",
-                                                "unitsPerPackage"
-                                            )
-                                )
-                            )
+
+                        // 4. COSTO UNITARIO DERIVADO (Informativo)
+                        val costoTotal = state.purchaseCost
+                            .replace("Bs", "", ignoreCase = true)
+                            .trim()
+                            .replace(",", ".")
+                            .toDoubleOrNull()
+                        val recibidoBase = calculateRecibidoBase(state)
+                        if (costoTotal != null && costoTotal > 0.0 && recibidoBase > 0.0) {
+                            val unitario = costoTotal / recibidoBase
+                            val unitLabel = resolveStockUnitLabel(state)
+                            Surface(
+                                color = CreateSurfaceSoft,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.75f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = null,
+                                        tint = CreateGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Costo por $unitLabel:",
+                                        color = CreateTextSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Bs " + String.format(Locale.US, "%.4f", unitario)
+                                            .trimEnd('0').trimEnd('.'),
+                                        color = CreateTextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
                         }
-                    )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isPaymentDataValid,
+                    enter = fadeIn() + slideInVertically { it / 6 },
+                    exit = fadeOut()
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        CreateSectionCard(
+                            title = "Cómo se controla",
+                            subtitle = if (state.stockEntryConfigured) "Resumen del ingreso actual" else "Elige cómo se descontará en inventario",
+                            icon = Icons.Outlined.AllInbox,
+                            isSuccess = state.stockEntryConfigured
+                        ) {
+                            Box(modifier = Modifier.bringIntoViewRequester(entryModeRequester)) {
+                                if (!state.stockEntryConfigured) {
+                                    PremiumStockEntryModeSelector(
+                                        controlType = state.controlType,
+                                        selected = state.stockEntryMode,
+                                        onSelected = { mode ->
+                                            if (state.presentations.isNotEmpty()) {
+                                                onStateChange(state.copy(
+                                                    showStep3ResetDialog = true,
+                                                    pendingStockEntryMode = mode
+                                                ))
+                                            } else {
+                                                onStateChange(
+                                                    state.copy(
+                                                        stockEntryMode = mode,
+                                                        showStockEntryDialog = true,
+                                                        errors = state.errors -
+                                                                setOf(
+                                                                    "stockEntryMode",
+                                                                    "receivedUnits",
+                                                                    "boxesReceived",
+                                                                    "unitsPerBox",
+                                                                    "packagesPerBox",
+                                                                    "unitsPerPackage"
+                                                                )
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    StockConfiguredCard(
+                                        state = state,
+                                        onEditQuantity = {
+                                            onStateChange(state.copy(showStockEntryDialog = true))
+                                        },
+                                        onChangeType = {
+                                            if (state.presentations.isNotEmpty()) {
+                                                onStateChange(state.copy(
+                                                    showStep3ResetDialog = true,
+                                                    pendingStockEntryMode = null
+                                                ))
+                                            } else {
+                                                onStateChange(
+                                                    state.copy(
+                                                        stockEntryConfigured = false,
+                                                        showStockEntryDialog = false,
+                                                        stockEntryMode = null,
+                                                        receivedUnitsText = "",
+                                                        boxesReceivedText = "",
+                                                        unitsPerBoxText = "",
+                                                        packagesPerBoxText = "",
+                                                        unitsPerPackageText = "",
+                                                        errors = state.errors -
+                                                                setOf(
+                                                                    "receivedUnits",
+                                                                    "boxesReceived",
+                                                                    "unitsPerBox",
+                                                                    "packagesPerBox",
+                                                                    "unitsPerPackage"
+                                                                )
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = state.stockEntryConfigured,
+                            enter = fadeIn() + slideInVertically { it / 6 },
+                            exit = fadeOut()
+                        ) {
+                            Box(modifier = Modifier.bringIntoViewRequester(minimumStockRequester)) {
+                                MinimumStockInputCard(
+                                    state = state,
+                                    onStateChange = onStateChange
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
 
+    if (state.showAddSupplierDialog) {
+        AddSupplierDialog(
+            onDismiss = { onStateChange(state.copy(showAddSupplierDialog = false)) },
+            onSave = onSaveSupplier
+        )
+    }
 
-
-        // Stepper de porcentaje para el stock mínimo. Solo aparece cuando
-        // el modo de ingreso está configurado (sin recibido no hay base de
-        // cálculo). El campo `minimumStockText` se rellena automáticamente
-        // según el porcentaje elegido — el usuario nunca escribe unidades.
-        AnimatedVisibility(
-            visible = state.stockEntryConfigured,
-            enter = fadeIn() + slideInVertically { it / 6 },
-            exit = fadeOut()
+    if (isMagicScrolling) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false)
         ) {
-            Box(modifier = Modifier.bringIntoViewRequester(minimumStockRequester)) {
-                MinimumStockStepperCard(
-                    state = state,
-                    onStateChange = onStateChange
-                )
-            }
-        }
-
-        CreateSectionCard(
-            title = "Costo de compra",
-            subtitle = "Costo total pagado por este lote."
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppTextField(
-                    modifier = Modifier.bringIntoViewRequester(purchaseCostRequester),
-                    label = "Costo total *",
-                    value = state.purchaseCost,
-                    error = state.errors["purchaseCost"],
-                    placeholder = "Ej. Bs 300.00",
-                    keyboardType = KeyboardType.Decimal,
-                    onValueChange = {
-                        onStateChange(
-                            state.copy(
-                                purchaseCost = it,
-                                errors = state.errors - "purchaseCost"
-                            )
-                        )
-                    }
-                )
-
-                // Validación visual: muestra el costo unitario derivado para
-                // que el usuario pueda detectar errores de tipeo evidentes
-                // (ej. olvidó un cero). No es editable, solo informativo.
-                val costoTotal = state.purchaseCost
-                    .replace("Bs", "", ignoreCase = true)
-                    .trim()
-                    .replace(",", ".")
-                    .toDoubleOrNull()
-                val recibidoBase = calculateRecibidoBase(state)
-                if (costoTotal != null && costoTotal > 0.0 && recibidoBase > 0.0) {
-                    val unitario = costoTotal / recibidoBase
-                    val unitLabel = state.controlType?.baseUnitLabel ?: "unidad"
-                    Surface(
-                        color = Color(0xFFF5F6FF),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE2E5F7))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "🧮", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Costo por $unitLabel:",
-                                color = CreateTextSecondary,
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Bs " + String.format(Locale.US, "%.4f", unitario)
-                                    .trimEnd('0').trimEnd('.'),
-                                color = CreateTextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.White.copy(alpha = 0.96f)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(color = CreateGreen)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Configurando inventario...",
+                        color = CreateTextPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -2778,9 +4338,9 @@ fun InitialLotStep(
             state = state,
             onStateChange = onStateChange,
             onApply = {
-                // El stock mínimo se calcula automáticamente en la tarjeta
+                // El stock mÃ­nimo se calcula automÃ¡ticamente en la tarjeta
                 // `MinimumStockStepperCard` a partir del porcentaje (default 20%).
-                // Ya no auto-rellenamos aquí; el LaunchedEffect del stepper
+                // Ya no auto-rellenamos aquÃ­; el LaunchedEffect del stepper
                 // lo sincroniza en cuanto se renderiza.
                 onStateChange(
                     state.copy(
@@ -2820,173 +4380,267 @@ fun InitialLotStep(
 
 
 /**
- * Tarjeta animada para el aviso de bajo inventario.
+ * Tarjeta de stock mínimo basada en porcentaje.
  *
- * El usuario no escribe un número de unidades. En su lugar:
- *  - Arriba ve cuánto recibió, con desglose (5 cajas × 100 u = 500).
- *  - En el centro ve "Avisar cuando queden N unidades" (calculado).
- *  - Abajo manipula el porcentaje con un stepper [-] [N%] [+] de pasos
- *    de 5%, rango 5%–50%.
- *
- * Cuando el porcentaje cambia, el número del centro se anima a su nuevo
- * valor y el `minimumStockText` se persiste en el estado en unidad base.
- * El cálculo redondea hacia arriba para no avisar tarde.
+ * Si el inventario se controla en piezas enteras (frascos, blísteres, cajas),
+ * solo permite opciones enteras válidas. Así 5 frascos generan 20%, 40%,
+ * 60%, 80% y 100%, nunca 5%.
  */
 @Composable
-fun MinimumStockStepperCard(
+fun MinimumStockInputCard(
     state: CreateProductState,
     onStateChange: (CreateProductState) -> Unit
 ) {
-    val totalPhysicalUnits = remember(state) { calculateTotalPhysicalUnits(state) }
-    val mode = remember(state) { getEffectiveStockControlMode(state) }
-    val validOptions = remember(totalPhysicalUnits, mode) { 
-        calculateValidStockOptions(totalPhysicalUnits, mode) 
+    val haptic = LocalHapticFeedback.current
+    val mode = remember(state.controlType, state.stockEntryMode, state.stockControlMode) {
+        resolveMinimumStockControlMode(state)
+    }
+    
+    // V21.0: Sincronización Profesional - El stepper ahora opera en la unidad VISUAL
+    // seleccionada por el usuario (kg, L, etc.) para evitar números absurdos como "1000 kg".
+    val totalReference = remember(state, mode) {
+        when (mode) {
+            StockControlMode.INDIVISIBLE -> calculateTotalPhysicalUnits(state)
+            StockControlMode.DIVISIBLE -> {
+                val base = calculateTotalBaseStock(state)
+                if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
+                    (base / 1000.0).toInt()
+                } else {
+                    base.toInt()
+                }
+            }
+        }.coerceAtLeast(0)
+    }
+    
+    val validOptions = remember(totalReference, mode) {
+        calculateValidStockOptions(totalReference, mode)
     }
     
     val currentSelection = state.minimumStockUnits
-    val unitLabel = getPhysicalUnitLabel(state, currentSelection)
+    val unitLabel = resolveMinimumStockLabel(state, currentSelection, mode)
+    val storedUnit = resolveMinimumStockStoredUnit(state, currentSelection, mode)
     
-    // Sincronización inicial y ajuste si el total cambia.
-    LaunchedEffect(validOptions) {
-        if (validOptions.isNotEmpty()) {
-            if (currentSelection !in validOptions) {
-                // Si la selección actual no es válida (o es 0 inicial), 
-                // tomamos la primera opción (mínimo 10% o 1 frasco).
-                onStateChange(state.copy(minimumStockUnits = validOptions.first()))
-            }
-        }
-    }
-
-    val percentage = remember(currentSelection, totalPhysicalUnits) {
-        if (totalPhysicalUnits > 0) {
-            (currentSelection.toDouble() / totalPhysicalUnits.toDouble()) * 100.0
+    val percentage = remember(currentSelection, totalReference) {
+        if (totalReference > 0) {
+            (currentSelection.toDouble() / totalReference.toDouble()) * 100.0
         } else 0.0
     }
-
+    
     val formattedPercent = remember(percentage) {
         if (percentage % 1.0 == 0.0) "${percentage.toInt()}%"
         else "aprox. ${String.format(Locale.US, "%.1f", percentage)}%"
     }
-
-    val desglose = remember(state) {
-        val unit = state.controlType?.baseUnitLabel ?: "unidades"
-        descripcionRecibidoCorto(state, unit)
-    }
-
-    // Animación: el número se interpola al cambiar.
-    val numeroAnimado by animateIntAsState(
-        targetValue = currentSelection,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
-        label = "minimum_stock_number"
-    )
     
-    val bellPulse = remember { Animatable(1f) }
-    LaunchedEffect(currentSelection) {
-        bellPulse.snapTo(0.85f)
-        bellPulse.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMedium)
-        )
+    val totalLabel = resolveMinimumStockLabel(state, totalReference, mode)
+
+    // Solo auto-inicializamos si el valor actual no es válido para el nuevo rango
+    LaunchedEffect(validOptions) {
+        if (validOptions.isNotEmpty() && currentSelection !in validOptions) {
+            val nextValue = if (currentSelection > totalReference) {
+                validOptions.last()
+            } else if (currentSelection <= 0) {
+                // Default al 20% si es posible
+                val target = (totalReference * 0.2).toInt()
+                validOptions.minByOrNull { kotlin.math.abs(it - target) } ?: validOptions.first()
+            } else {
+                validOptions.minByOrNull { kotlin.math.abs(it - currentSelection) } ?: validOptions.first()
+            }
+            
+            onStateChange(
+                state.copy(
+                    minimumStockUnits = nextValue,
+                    minimumStockText = nextValue.toString(),
+                    minimumStockUnit = resolveMinimumStockStoredUnit(state, nextValue, mode),
+                    errors = state.errors - "minimumStock"
+                )
+            )
+        }
     }
+
+    val isMinimumStockValid = state.minimumStockUnits > 0 && state.errors["minimumStock"] == null
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(
+            width = if (isMinimumStockValid) 2.dp else 1.dp,
+            color = if (isMinimumStockValid) CreateGreen else CreateBorder.copy(alpha = 0.85f)
+        ),
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Encabezado
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "🔔",
-                    fontSize = 22.sp,
-                    modifier = Modifier.graphicsScale(bellPulse.value)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = CreateGreenSoft,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.Notifications,
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Stock mínimo inteligente",
+                        text = "Stock mínimo",
                         color = CreateTextPrimary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 18.sp
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            color = CreateGreenSoft,
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                text = if (mode == StockControlMode.INDIVISIBLE) "Control por envase" else "Control por unidad",
-                                color = CreateGreen,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                        if (desglose.isNotBlank()) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Total: $desglose",
-                                color = CreateTextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
+                    Text(
+                        text = "Define desde qué nivel quieres recibir alerta.",
+                        color = CreateTextSecondary,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.7f))
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text(
+                            text = "Control",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = resolveMinimumStockLabel(state, 2, mode).replaceFirstChar {
+                                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                            },
+                            color = CreateTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.7f))
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text(
+                            text = "Total recibido",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = "$totalReference $totalLabel",
+                            color = CreateTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Display central
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "AVISAR CUANDO QUEDEN",
+                    text = "Alertar cuando queden",
                     color = CreateTextSecondary,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.sp
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.6.sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = numeroAnimado.toString(),
-                        color = CreateGreen,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 48.sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = unitLabel,
-                        color = CreateTextSecondary,
-                        fontSize = 20.sp,
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // V21.8: Visualización Profesional por "Contenedores" (Frascos/Blísteres)
+                val visualValue = currentSelection
+                val label = unitLabel
+                val baseEquivalence = when (mode) {
+                    StockControlMode.INDIVISIBLE -> {
+                        when (state.controlType) {
+                            CreateProductControlType.UNIDAD -> {
+                                if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES)
+                                    parseCreateProductNumber(state.unitsPerPackageText)
+                                else 1.0
+                            }
+                            else -> parseCreateProductNumber(state.unitsPerItemText)
+                        }
+                    }
+                    else -> 1.0
+                }
+                val totalUnits = (visualValue * baseEquivalence).toInt()
+                val baseUnit = resolveStockUnitLabel(state)
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = visualValue.toString(),
+                            color = CreateGreen,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 44.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = label,
+                            color = CreateTextSecondary,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    
+                    // Sub-texto de equivalencia pequeña para que el usuario entienda la escala
+                    if (baseEquivalence > 1.0) {
+                        Surface(
+                            color = CreateBackground,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Text(
+                                text = "Equivale a $totalUnits $baseUnit",
+                                color = CreateTextSecondary.copy(alpha = 0.8f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Surface(
-                    color = CreateBackground,
-                    shape = RoundedCornerShape(8.dp)
+                    color = CreateGreenSoft.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
-                        text = "Equivale al $formattedPercent del stock actual",
+                        text = "$formattedPercent del stock actual",
                         color = CreateTextSecondary,
                         fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Stepper discreto
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -2999,14 +4653,23 @@ fun MinimumStockStepperCard(
                 IconButton(
                     onClick = {
                         if (canDecrease) {
-                            onStateChange(state.copy(minimumStockUnits = validOptions[currentIndex - 1]))
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val next = validOptions[currentIndex - 1]
+                            onStateChange(
+                                state.copy(
+                                    minimumStockUnits = next,
+                                    minimumStockText = next.toString(),
+                                    minimumStockUnit = resolveMinimumStockStoredUnit(state, next, mode),
+                                    errors = state.errors - "minimumStock"
+                                )
+                            )
                         }
                     },
                     enabled = canDecrease,
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(52.dp)
                         .background(
-                            if (canDecrease) CreateGreenSoft else CreateBackground,
+                            if (canDecrease) CreateSurfaceSoft else CreateBackground,
                             CircleShape
                         )
                 ) {
@@ -3022,12 +4685,21 @@ fun MinimumStockStepperCard(
                 IconButton(
                     onClick = {
                         if (canIncrease) {
-                            onStateChange(state.copy(minimumStockUnits = validOptions[currentIndex + 1]))
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val next = validOptions[currentIndex + 1]
+                            onStateChange(
+                                state.copy(
+                                    minimumStockUnits = next,
+                                    minimumStockText = next.toString(),
+                                    minimumStockUnit = resolveMinimumStockStoredUnit(state, next, mode),
+                                    errors = state.errors - "minimumStock"
+                                )
+                            )
                         }
                     },
                     enabled = canIncrease,
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(52.dp)
                         .background(
                             if (canIncrease) CreateGreenSoft else CreateBackground,
                             CircleShape
@@ -3040,18 +4712,27 @@ fun MinimumStockStepperCard(
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
+
             Text(
-                text = if (mode == StockControlMode.INDIVISIBLE) 
-                    "Este producto se controla por envases completos. No se permiten fracciones."
-                    else "El mínimo se calcula sobre unidades reales para evitar alertas imposibles.",
-                color = CreateTextSecondary.copy(alpha = 0.7f),
+                text = if (mode == StockControlMode.INDIVISIBLE)
+                    "Solo se permiten cantidades completas."
+                else
+                    "La alerta sigue tramos válidos sobre el total ingresado.",
+                color = CreateTextSecondary.copy(alpha = 0.8f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+            if (!state.errors["minimumStock"].isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = state.errors["minimumStock"].orEmpty(),
+                    color = CreateRed,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -3094,41 +4775,40 @@ private fun StepperButton(
                 fontSize = 26.sp
             )
         }
+
     }
 }
 
 /**
- * Texto corto y entendible del desglose: "5 cajas × 100 u = 500 u",
- * "10 cajas × 5 frascos × 120 mL = 6000 mL", etc.
+ * Texto corto y entendible del desglose: "5 cajas Ã— 100 u = 500 u",
+ * "10 cajas Ã— 5 frascos Ã— 120 mL = 6000 mL", etc.
  */
 private fun descripcionRecibidoCorto(
     state: CreateProductState,
     unitLabel: String
 ): String {
+    fun plural(n: Double, s: String, p: String) = if (n == 1.0) s else p
+    
     return when (state.stockEntryMode) {
         CreateProductStockEntryMode.UNIDAD -> {
             val q = parseCreateProductNumber(state.receivedUnitsText)
             if (q <= 0.0) "" else "${formatCreateProductNumber(q)} $unitLabel"
         }
         CreateProductStockEntryMode.CAJA -> {
-            val cajas = parseCreateProductNumber(state.boxesReceivedText)
-            val porCaja = parseCreateProductNumber(state.unitsPerBoxText)
-            val total = cajas * porCaja
-            if (cajas <= 0 || porCaja <= 0) "" else
-                "${formatCreateProductNumber(cajas)} cajas × " +
-                    "${formatCreateProductNumber(porCaja)} $unitLabel = " +
-                    "${formatCreateProductNumber(total)} $unitLabel"
+            val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val perBox = parseCreateProductNumber(state.unitsPerBoxText)
+            val total = calculateTotalBaseStock(state)
+            val visualTotal = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") total / 1000.0 else total
+            
+            if (boxes <= 0.0 || perBox <= 0.0) "" else
+                "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "caja", "cajas")} (${formatCreateProductNumber(visualTotal)} $unitLabel total)"
         }
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-            val cajas = parseCreateProductNumber(state.boxesReceivedText)
-            val paquetes = parseCreateProductNumber(state.packagesPerBoxText)
-            val porPaquete = parseCreateProductNumber(state.unitsPerPackageText)
-            val total = cajas * paquetes * porPaquete
-            if (cajas <= 0 || paquetes <= 0 || porPaquete <= 0) "" else
-                "${formatCreateProductNumber(cajas)} × " +
-                    "${formatCreateProductNumber(paquetes)} × " +
-                    "${formatCreateProductNumber(porPaquete)} = " +
-                    "${formatCreateProductNumber(total)} $unitLabel"
+            val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val total = calculateTotalBaseStock(state)
+            
+            if (boxes <= 0.0) "" else
+                "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "blíster", "blísters")} (${formatCreateProductNumber(total)} $unitLabel total)"
         }
         null -> ""
     }
@@ -3141,46 +4821,209 @@ fun StockConfiguredCard(
     onChangeType: () -> Unit
 ) {
     val summary = buildInitialStockEntrySummary(state)
+    val modeTitle = remember(state.stockEntryMode, state.controlType) {
+        configuredStockModeTitle(state)
+    }
+    val modeSubtitle = remember(state.stockEntryMode, state.controlType) {
+        configuredStockModeSubtitle(state)
+    }
+    val availableText = remember(state) { buildStockAvailableSummary(state) }
 
     Surface(
-        color = CreateGreenSoft,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.85f)),
+        shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = when (state.stockEntryMode) {
-                    CreateProductStockEntryMode.UNIDAD -> "Por unidad configurado"
-                    CreateProductStockEntryMode.CAJA -> "Por caja configurado"
-                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja con paquetes configurado"
-                    null -> "Sin configurar"
-                },
-                color = CreateGreen,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp
-            )
-
-            if (summary.isNotBlank()) {
-                Text(
-                    text = summary,
-                    color = CreateTextSecondary,
-                    fontSize = 14.sp
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = CreateGreenSoft,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ingreso configurado",
+                        color = CreateTextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    Text(
+                        text = modeSubtitle,
+                        color = CreateTextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp
+                    )
+                }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onEditQuantity) {
-                    Text("Cambiar cantidad")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.7f))
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text(
+                            text = "Control",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = modeTitle,
+                            color = CreateTextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                TextButton(onClick = onChangeType) {
-                    Text("Cambiar tipo")
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.7f))
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text(
+                            text = "Disponible",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = availableText,
+                            color = CreateGreen,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            if (summary.isNotBlank()) {
+                Surface(
+                    color = CreateSurfaceSoft,
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.75f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Resumen",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = summary,
+                            color = CreateTextPrimary,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = onEditQuantity,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder),
+                    contentPadding = PaddingValues(vertical = 14.dp)
+                ) {
+                    Text(
+                        text = "Editar",
+                        color = CreateTextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = onChangeType,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CreateTextPrimary,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(vertical = 14.dp)
+                ) {
+                    Text(
+                        text = "Cambiar modo",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
+    }
+}
+
+private fun configuredStockModeTitle(state: CreateProductState): String {
+    return when (state.stockEntryMode) {
+        CreateProductStockEntryMode.UNIDAD -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Frascos directos"
+            CreateProductControlType.PESO -> "Envases directos"
+            else -> "Unidades directas"
+        }
+        CreateProductStockEntryMode.CAJA -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Cajas con frascos"
+            CreateProductControlType.PESO -> "Cajas con envases"
+            else -> "Cajas con unidades"
+        }
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Frascos directos"
+            CreateProductControlType.PESO -> "Envases directos"
+            else -> "Blísteres"
+        }
+        null -> "Sin configurar"
+    }
+}
+
+private fun configuredStockModeSubtitle(state: CreateProductState): String {
+    return when (state.stockEntryMode) {
+        CreateProductStockEntryMode.UNIDAD -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Se controlará por frasco y contenido."
+            CreateProductControlType.PESO -> "Se controlará por envase y peso."
+            else -> "Se controlará como unidades directas."
+        }
+        CreateProductStockEntryMode.CAJA -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Se calcularán frascos y contenido total."
+            CreateProductControlType.PESO -> "Se calcularán envases y peso total."
+            else -> "Se calcularán unidades dentro de cada caja."
+        }
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> "Se controlará por frasco y contenido."
+            CreateProductControlType.PESO -> "Se controlará por envase y peso."
+            else -> "Se controlará por blíster y unidades."
+        }
+        null -> "Todavía no hay un modo de ingreso seleccionado."
     }
 }
 
@@ -3191,374 +5034,405 @@ fun StockEntryDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val unitLabel = state.controlType?.baseUnitLabel ?: "unidades"
-    val summary = buildInitialStockEntrySummary(state)
-
-    // Textos dinámicos según el tipo de control
-    val (labelUnidad, trailingUnidad, placeholderUnidad) = when (state.controlType) {
-        CreateProductControlType.LIQUIDO -> Triple("Mililitros totales", "mL", "Ej. 5000")
-        CreateProductControlType.PESO -> Triple("Gramos totales", "g", "Ej. 2500")
-        else -> Triple("Unidades totales", "unidades", "Ej. 100")
+    // 1. DETERMINAR TERMINOLOGÍA SEGÚN EL TIPO DE PRODUCTO (Nivel 2)
+    val itemType = when (state.controlType) {
+        CreateProductControlType.LIQUIDO -> "FRASCO / AMPOLLA"
+        CreateProductControlType.PESO -> "ENVASE / EMPAQUE"
+        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "BLÍSTER" else "PIEZA"
+        else -> "UNIDAD"
     }
 
-    val (labelCajaUnidadBase, placeholderCajaUnidadBase) = when (state.controlType) {
-        CreateProductControlType.LIQUIDO -> Pair("mL por caja", "Ej. 120")
-        CreateProductControlType.PESO -> Pair("gramos por caja", "Ej. 500")
-        else -> Pair("unidades por caja", "Ej. 60")
+    val pluralItemType = when (state.controlType) {
+        CreateProductControlType.LIQUIDO -> "frascos"
+        CreateProductControlType.PESO -> "envases"
+        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "blísters" else "piezas"
+        else -> "unidades"
     }
 
-    val (labelPaquete, trailingPaquete, labelUnidadPaquete, placeholderUnidadPaquete) = when (state.controlType) {
-        CreateProductControlType.LIQUIDO -> Tuple4("Frascos / blisters por caja", "frascos", "mL por frasco", "Ej. 120")
-        CreateProductControlType.PESO -> Tuple4("Sobres / envases por caja", "sobres", "gramos por sobre", "Ej. 50")
-        else -> Tuple4("Paquetes / blisters por caja", "paquetes", "unidades por paquete", "Ej. 10")
+    // 2. DETERMINAR UNIDAD MÍNIMA (Nivel 3)
+    val baseUnitName = when (state.controlType) {
+        CreateProductControlType.LIQUIDO -> "MILILITROS (mL)"
+        CreateProductControlType.PESO -> "GRAMOS (g)"
+        CreateProductControlType.UNIDAD -> "CONTENIDO (Pastillas / Cápsulas)"
+        else -> "UNIDADES"
     }
 
-    // Selector de unidad: PESO usa g/kg, LIQUIDO usa mL/L. UNIDAD no aplica.
     val (unidadBase, unidadGrande) = when (state.controlType) {
         CreateProductControlType.LIQUIDO -> "mL" to "L"
         CreateProductControlType.PESO -> "g" to "kg"
         else -> "" to ""
     }
     val mostrarSelectorUnidad = state.controlType == CreateProductControlType.PESO ||
-        state.controlType == CreateProductControlType.LIQUIDO
+            state.controlType == CreateProductControlType.LIQUIDO
 
-    var unitForBox by remember(state.controlType) { mutableStateOf(unidadBase) }
-    var unitForPackage by remember(state.controlType) { mutableStateOf(unidadBase) }
-
-    // TextFieldValue para controlar cursor
-    var boxFieldValue by remember { mutableStateOf(TextFieldValue()) }
-    var packageFieldValue by remember { mutableStateOf(TextFieldValue()) }
-
-    // Fix: se reutiliza `formatCreateProductNumber` para evitar el sufijo
-    // ".0" cuando el valor es entero (antes "500" se mostraba como "500.0"
-    // al alternar la unidad).
-    // Sincronizar con el estado externo (almacenado en unidad base: g o mL).
-    LaunchedEffect(state.unitsPerBoxText, unitForBox) {
-        val base = state.unitsPerBoxText.toDoubleOrNull() ?: 0.0
-        val display = if (unitForBox == unidadGrande && unidadGrande.isNotEmpty()) base / 1000 else base
-        val displayStr = if (display == 0.0) "" else formatCreateProductNumber(display)
-        if (boxFieldValue.text != displayStr) {
-            boxFieldValue = TextFieldValue(displayStr, selection = TextRange(displayStr.length))
-        }
+    var unitForItem by remember(state.controlType, state.stockEntryUnit) {
+        mutableStateOf(state.stockEntryUnit.ifBlank { unidadBase })
     }
-    LaunchedEffect(state.unitsPerPackageText, unitForPackage) {
-        val base = state.unitsPerPackageText.toDoubleOrNull() ?: 0.0
-        val display = if (unitForPackage == unidadGrande && unidadGrande.isNotEmpty()) base / 1000 else base
-        val displayStr = if (display == 0.0) "" else formatCreateProductNumber(display)
-        if (packageFieldValue.text != displayStr) {
-            packageFieldValue = TextFieldValue(displayStr, selection = TextRange(displayStr.length))
+    var itemFieldValue by remember { mutableStateOf(TextFieldValue()) }
+
+    LaunchedEffect(state.unitsPerItemText, unitForItem) {
+        val displayStr = state.unitsPerItemText
+            .takeIf { it.isNotBlank() && parseCreateProductNumber(it) > 0.0 }
+            .orEmpty()
+        if (itemFieldValue.text != displayStr) {
+            itemFieldValue = TextFieldValue(displayStr, selection = TextRange(displayStr.length))
         }
     }
 
-    // Fix: ahora se acepta como máximo un punto decimal. Antes se podía
-    // escribir "12.3.4" y la función abortaba silenciosamente dejando un
-    // texto inválido visible en el campo.
-    fun onBoxValueChange(newValue: TextFieldValue) {
+    fun onItemValueChange(newValue: TextFieldValue) {
         val raw = newValue.text
         if (raw.isBlank()) {
-            boxFieldValue = newValue
-            onStateChange(state.copy(unitsPerBoxText = ""))
+            itemFieldValue = newValue
+            onStateChange(state.copy(unitsPerItemText = ""))
             return
         }
         val sanitized = sanitizeDecimalInput(raw)
         val selection = TextRange(sanitized.length)
-        boxFieldValue = if (sanitized == raw) newValue else TextFieldValue(sanitized, selection)
+        itemFieldValue = if (sanitized == raw) newValue else TextFieldValue(sanitized, selection)
         val number = sanitized.toDoubleOrNull() ?: run {
-            onStateChange(state.copy(unitsPerBoxText = ""))
+            onStateChange(state.copy(unitsPerItemText = ""))
             return
         }
-        val baseValue = if (unitForBox == unidadGrande && unidadGrande.isNotEmpty()) number * 1000 else number
-        onStateChange(state.copy(unitsPerBoxText = formatCreateProductNumber(baseValue)))
+        onStateChange(
+            state.copy(
+                unitsPerItemText = formatCreateProductNumber(number),
+                stockEntryUnit = unitForItem
+            )
+        )
     }
 
-    fun onPackageValueChange(newValue: TextFieldValue) {
-        val raw = newValue.text
-        if (raw.isBlank()) {
-            packageFieldValue = newValue
-            onStateChange(state.copy(unitsPerPackageText = ""))
-            return
-        }
-        val sanitized = sanitizeDecimalInput(raw)
-        val selection = TextRange(sanitized.length)
-        packageFieldValue = if (sanitized == raw) newValue else TextFieldValue(sanitized, selection)
-        val number = sanitized.toDoubleOrNull() ?: run {
-            onStateChange(state.copy(unitsPerPackageText = ""))
-            return
-        }
-        val baseValue = if (unitForPackage == unidadGrande && unidadGrande.isNotEmpty()) number * 1000 else number
-        onStateChange(state.copy(unitsPerPackageText = formatCreateProductNumber(baseValue)))
+    fun changeItemUnit(newUnit: String) {
+        if (unitForItem == newUnit) return
+        unitForItem = newUnit
+        onStateChange(state.copy(stockEntryUnit = newUnit))
+        val currentValue = itemFieldValue.text
+        itemFieldValue = TextFieldValue(currentValue, selection = TextRange(currentValue.length))
     }
 
-    // Fix: al cambiar la unidad ahora se preserva la magnitud física en
-    // lugar de reinterpretar el número. Antes "500 g" pasaba a "500 kg"
-    // (x1000 oculto). Ahora "500 g" muestra "0.5" al pasar a kg, y el
-    // valor base en gramos se mantiene intacto. También se usa
-    // `formatCreateProductNumber` para evitar el ".0" en enteros.
-    fun changeBoxUnit(newUnit: String) {
-        if (unitForBox == newUnit) return
-        val baseValue = state.unitsPerBoxText.toDoubleOrNull() ?: 0.0
-        unitForBox = newUnit
-        val displayValue = if (newUnit == unidadGrande && unidadGrande.isNotEmpty()) baseValue / 1000 else baseValue
-        val newDisplayStr = if (displayValue == 0.0) "" else formatCreateProductNumber(displayValue)
-        boxFieldValue = TextFieldValue(newDisplayStr, selection = TextRange(newDisplayStr.length))
-    }
+    val summary = buildInitialStockEntrySummary(state)
+    val configuration = LocalConfiguration.current
+    val dialogMaxHeight = (configuration.screenHeightDp.dp * 0.88f)
 
-    fun changePackageUnit(newUnit: String) {
-        if (unitForPackage == newUnit) return
-        val baseValue = state.unitsPerPackageText.toDoubleOrNull() ?: 0.0
-        unitForPackage = newUnit
-        val displayValue = if (newUnit == unidadGrande && unidadGrande.isNotEmpty()) baseValue / 1000 else baseValue
-        val newDisplayStr = if (displayValue == 0.0) "" else formatCreateProductNumber(displayValue)
-        packageFieldValue = TextFieldValue(newDisplayStr, selection = TextRange(newDisplayStr.length))
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-                    .imePadding(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .padding(horizontal = 24.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(32.dp),
+                color = Color.White,
+                shadowElevation = 24.dp,
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
             ) {
-                Text("Configurar cantidad", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CreateTextPrimary)
-
-                Text(
-                    text = when (state.stockEntryMode) {
-                        CreateProductStockEntryMode.UNIDAD -> "Unidades sueltas"
-                        CreateProductStockEntryMode.CAJA -> "Caja con unidades directas"
-                        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja con frascos / sobres / blisters"
-                        null -> ""
-                    },
-                    color = CreateTextSecondary, fontSize = 14.sp
-                )
-
-                when (state.stockEntryMode) {
-                    null -> Unit
-                    CreateProductStockEntryMode.UNIDAD -> {
-                        // Fix: para productos por PESO o LIQUIDO se permiten
-                        // decimales (ej. "5000.5 mL"). Para UNIDAD se mantiene
-                        // entrada entera. Antes el filtro `isDigit()` descartaba
-                        // el punto silenciosamente sin avisar al usuario.
-                        val allowDecimalsUnits = state.controlType == CreateProductControlType.PESO ||
-                            state.controlType == CreateProductControlType.LIQUIDO
-                        OutlinedTextField(
-                            value = state.receivedUnitsText,
-                            onValueChange = { input ->
-                                val sanitized = if (allowDecimalsUnits) sanitizeDecimalInput(input)
-                                else input.filter { it.isDigit() }
-                                onStateChange(state.copy(receivedUnitsText = sanitized))
-                            },
-                            label = { Text(labelUnidad) },
-                            placeholder = { Text(placeholderUnidad) },
-                            isError = state.errors["receivedUnits"] != null,
-                            trailingIcon = { Text(trailingUnidad) },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = if (allowDecimalsUnits) KeyboardType.Decimal else KeyboardType.Number
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                        if (state.errors["receivedUnits"] != null)
-                            Text(state.errors["receivedUnits"]!!, color = Color.Red, fontSize = 12.sp)
-                    }
-                    CreateProductStockEntryMode.CAJA -> {
-                        // Cajas recibidas
-                        OutlinedTextField(
-                            value = state.boxesReceivedText,
-                            onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) },
-                            label = { Text("Cajas recibidas *") },
-                            placeholder = { Text("Ej. 10") },
-                            isError = state.errors["boxesReceived"] != null,
-                            trailingIcon = { Text("cajas") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                        if (state.errors["boxesReceived"] != null)
-                            Text(state.errors["boxesReceived"]!!, color = Color.Red, fontSize = 12.sp)
-
-                        // Cantidad por caja con selector de unidad (PESO: g/kg, LIQUIDO: mL/L)
-                        if (mostrarSelectorUnidad) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    OutlinedTextField(
-                                        value = boxFieldValue,
-                                        onValueChange = { onBoxValueChange(it) },
-                                        label = { Text(labelCajaUnidadBase) },
-                                        placeholder = { Text(placeholderCajaUnidadBase) },
-                                        isError = state.errors["unitsPerBox"] != null,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(18.dp)
-                                    )
-                                    if (state.errors["unitsPerBox"] != null)
-                                        Text(state.errors["unitsPerBox"]!!, color = Color.Red, fontSize = 12.sp)
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFFF2F4F7))
-                                        .padding(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    FilterChip(
-                                        selected = unitForBox == unidadBase,
-                                        onClick = { changeBoxUnit(unidadBase) },
-                                        label = { Text(unidadBase) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = CreateGreen,
-                                            selectedLabelColor = Color.White
-                                        )
-                                    )
-                                    FilterChip(
-                                        selected = unitForBox == unidadGrande,
-                                        onClick = { changeBoxUnit(unidadGrande) },
-                                        label = { Text(unidadGrande) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = CreateGreen,
-                                            selectedLabelColor = Color.White
-                                        )
-                                    )
-                                }
-                            }
-                        } else {
-                            OutlinedTextField(
-                                value = state.unitsPerBoxText,
-                                onValueChange = { onStateChange(state.copy(unitsPerBoxText = it.filter { it.isDigit() })) },
-                                label = { Text(labelCajaUnidadBase) },
-                                placeholder = { Text(placeholderCajaUnidadBase) },
-                                isError = state.errors["unitsPerBox"] != null,
-                                trailingIcon = { Text(unitLabel) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(18.dp)
-                            )
-                            if (state.errors["unitsPerBox"] != null)
-                                Text(state.errors["unitsPerBox"]!!, color = Color.Red, fontSize = 12.sp)
-                        }
-                    }
-                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                        // Cajas recibidas
-                        OutlinedTextField(
-                            value = state.boxesReceivedText,
-                            onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) },
-                            label = { Text("Cajas recibidas *") },
-                            placeholder = { Text("Ej. 10") },
-                            isError = state.errors["boxesReceived"] != null,
-                            trailingIcon = { Text("cajas") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                        if (state.errors["boxesReceived"] != null)
-                            Text(state.errors["boxesReceived"]!!, color = Color.Red, fontSize = 12.sp)
-
-                        // Paquetes por caja
-                        OutlinedTextField(
-                            value = state.packagesPerBoxText,
-                            onValueChange = { onStateChange(state.copy(packagesPerBoxText = it.filter { it.isDigit() })) },
-                            label = { Text(labelPaquete) },
-                            placeholder = { Text("Ej. 5") },
-                            isError = state.errors["packagesPerBox"] != null,
-                            trailingIcon = { Text(trailingPaquete) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                        if (state.errors["packagesPerBox"] != null)
-                            Text(state.errors["packagesPerBox"]!!, color = Color.Red, fontSize = 12.sp)
-
-                        // Cantidad por paquete con selector (PESO: g/kg, LIQUIDO: mL/L)
-                        if (mostrarSelectorUnidad) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    OutlinedTextField(
-                                        value = packageFieldValue,
-                                        onValueChange = { onPackageValueChange(it) },
-                                        label = { Text(labelUnidadPaquete) },
-                                        placeholder = { Text(placeholderUnidadPaquete) },
-                                        isError = state.errors["unitsPerPackage"] != null,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(18.dp)
-                                    )
-                                    if (state.errors["unitsPerPackage"] != null)
-                                        Text(state.errors["unitsPerPackage"]!!, color = Color.Red, fontSize = 12.sp)
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFFF2F4F7))
-                                        .padding(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    FilterChip(
-                                        selected = unitForPackage == unidadBase,
-                                        onClick = { changePackageUnit(unidadBase) },
-                                        label = { Text(unidadBase) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = CreateGreen,
-                                            selectedLabelColor = Color.White
-                                        )
-                                    )
-                                    FilterChip(
-                                        selected = unitForPackage == unidadGrande,
-                                        onClick = { changePackageUnit(unidadGrande) },
-                                        label = { Text(unidadGrande) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = CreateGreen,
-                                            selectedLabelColor = Color.White
-                                        )
-                                    )
-                                }
-                            }
-                        } else {
-                            OutlinedTextField(
-                                value = state.unitsPerPackageText,
-                                onValueChange = { onStateChange(state.copy(unitsPerPackageText = it.filter { it.isDigit() })) },
-                                label = { Text(labelUnidadPaquete) },
-                                placeholder = { Text(placeholderUnidadPaquete) },
-                                isError = state.errors["unitsPerPackage"] != null,
-                                trailingIcon = { Text(unitLabel) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(18.dp)
-                            )
-                            if (state.errors["unitsPerPackage"] != null)
-                                Text(state.errors["unitsPerPackage"]!!, color = Color.Red, fontSize = 12.sp)
-                        }
-                    }
-                }
-
-                if (summary.isNotBlank()) {
-                    Surface(
-                        color = CreateGreenSoft,
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, CreateBorder)
-                    ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Resultado", color = CreateGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text(summary, color = CreateTextSecondary, fontSize = 14.sp)
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(PremiumGradient)
                 ) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancelar") }
-                    Button(onClick = onApply, modifier = Modifier.weight(1f), enabled = summary.isNotBlank()) { Text("Aplicar") }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = dialogMaxHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp, vertical = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Desglose de Inventario",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 24.sp,
+                                color = CreateTextPrimary,
+                                letterSpacing = (-0.5).sp
+                            )
+                            Text(
+                                text = "Define cómo se organiza lo que recibiste.",
+                                color = CreateTextSecondary,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        // BADGE DE MODO SELECCIONADO
+                        Surface(
+                            color = CreateGreenSoft,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.2f))
+                        ) {
+                            Text(
+                                text = when (state.stockEntryMode) {
+                                    CreateProductStockEntryMode.UNIDAD -> "INGRESO POR ${itemType}S"
+                                    CreateProductStockEntryMode.CAJA -> "INGRESO POR CAJAS"
+                                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "INGRESO POR CAJAS Y BLÍSTERS"
+                                    null -> ""
+                                },
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                color = CreateGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.2.sp
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                            when (state.stockEntryMode) {
+                                null -> Unit
+
+                                CreateProductStockEntryMode.UNIDAD -> {
+                                    AppTextField(
+                                        label = "CANTIDAD DE ${itemType}S RECIBIDOS",
+                                        value = state.receivedUnitsText,
+                                        error = state.errors["receivedUnits"],
+                                        placeholder = "Ej. 50",
+                                        trailingLabel = pluralItemType,
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(receivedUnitsText = it.filter { c -> c.isDigit() })) }
+                                    )
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "¿CUÁNTO TRAE CADA ${itemType}?",
+                                            color = CreateTextSecondary,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 11.sp,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                AppTextField(
+                                                    label = "",
+                                                    value = itemFieldValue.text,
+                                                    error = state.errors["unitsPerItem"],
+                                                    placeholder = "Ej. 120",
+                                                    keyboardType = KeyboardType.Decimal,
+                                                    onValueChange = { onItemValueChange(TextFieldValue(it)) }
+                                                )
+                                            }
+                                            if (mostrarSelectorUnidad) {
+                                                PremiumUnitSelector(
+                                                    selected = unitForItem,
+                                                    options = listOf(unidadBase, unidadGrande),
+                                                    onSelected = { changeItemUnit(it) }
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = if (state.controlType == CreateProductControlType.UNIDAD) "pastillas" else "",
+                                                    color = CreateTextPrimary,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                CreateProductStockEntryMode.CAJA -> {
+                                    AppTextField(
+                                        label = "CANTIDAD DE CAJAS",
+                                        value = state.boxesReceivedText,
+                                        error = state.errors["boxesReceived"],
+                                        placeholder = "Ej. 10",
+                                        trailingLabel = "cajas",
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) }
+                                    )
+
+                                    AppTextField(
+                                        label = "¿CUÁNTOS ${itemType}S TRAE CADA CAJA?",
+                                        value = state.unitsPerBoxText,
+                                        error = state.errors["unitsPerBox"],
+                                        placeholder = "Ej. 12",
+                                        trailingLabel = pluralItemType,
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(unitsPerBoxText = it.filter { it.isDigit() })) }
+                                    )
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "¿CUÁNTO TRAE CADA ${itemType}? ($baseUnitName)",
+                                            color = CreateTextSecondary,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 11.sp,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                AppTextField(
+                                                    label = "",
+                                                    value = itemFieldValue.text,
+                                                    error = state.errors["unitsPerItem"],
+                                                    placeholder = "Ej. 500",
+                                                    keyboardType = KeyboardType.Decimal,
+                                                    onValueChange = { onItemValueChange(TextFieldValue(it)) }
+                                                )
+                                            }
+                                            if (mostrarSelectorUnidad) {
+                                                PremiumUnitSelector(
+                                                    selected = unitForItem,
+                                                    options = listOf(unidadBase, unidadGrande),
+                                                    onSelected = { changeItemUnit(it) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+                                    AppTextField(
+                                        label = "CANTIDAD DE CAJAS",
+                                        value = state.boxesReceivedText,
+                                        error = state.errors["boxesReceived"],
+                                        placeholder = "Ej. 10",
+                                        trailingLabel = "cajas",
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) }
+                                    )
+
+                                    AppTextField(
+                                        label = "¿CUÁNTOS BLÍSTERS TRAE CADA CAJA?",
+                                        value = state.packagesPerBoxText,
+                                        error = state.errors["packagesPerBox"],
+                                        placeholder = "Ej. 5",
+                                        trailingLabel = "blísters",
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(packagesPerBoxText = it.filter { it.isDigit() })) }
+                                    )
+
+                                    AppTextField(
+                                        label = "¿CUÁNTAS PASTILLAS TRAE CADA BLÍSTER?",
+                                        value = state.unitsPerPackageText,
+                                        error = state.errors["unitsPerPackage"],
+                                        placeholder = "Ej. 10",
+                                        trailingLabel = "pastillas",
+                                        keyboardType = KeyboardType.Number,
+                                        onValueChange = { onStateChange(state.copy(unitsPerPackageText = it.filter { it.isDigit() })) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // TOTALIZADOR EN TIEMPO REAL
+                        if (summary.isNotBlank()) {
+                            Surface(
+                                color = CreateSurfaceSoft,
+                                shape = RoundedCornerShape(20.dp),
+                                border = BorderStroke(1.dp, CreateBorder)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "RESUMEN DEL INGRESO",
+                                        color = CreateTextSecondary,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 11.sp,
+                                        letterSpacing = 1.2.sp
+                                    )
+                                    
+                                    val totalBase = calculateTotalBaseStock(state)
+                                    val unit = when (state.controlType) {
+                                        CreateProductControlType.UNIDAD -> "Unidades"
+                                        CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
+                                        CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
+                                        else -> ""
+                                    }
+
+                                    Text(
+                                        text = "${formatCreateProductNumber(totalBase)} $unit",
+                                        color = CreateGreen,
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+
+                                    Text(
+                                        text = summary,
+                                        color = CreateTextPrimary,
+                                        fontSize = 13.sp,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).height(60.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                border = BorderStroke(1.5.dp, CreateBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateTextSecondary)
+                            ) {
+                                Text("CANCELAR", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                            Button(
+                                onClick = onApply,
+                                modifier = Modifier.weight(1f).height(60.dp),
+                                enabled = summary.isNotBlank(),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen, contentColor = Color.White),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                            ) {
+                                Text("CONFIRMAR", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            }
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumUnitSelector(
+    selected: String,
+    options: List<String>,
+    onSelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.4f))
+            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = selected == option
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onSelected(option) },
+                color = if (isSelected) CreateGreen else Color.Transparent,
+            ) {
+                Text(
+                    text = option,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    color = if (isSelected) Color.White else CreateTextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -3568,6 +5442,143 @@ fun StockEntryDialog(
 private data class Tuple4<T1, T2, T3, T4>(val a: T1, val b: T2, val c: T3, val d: T4)
 
 @Composable
+fun StockAllocationPanel(state: CreateProductState) {
+    val totalStock = calculateTotalBaseStock(state)
+    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val remainingStock = (totalStock - assignedStock).coerceAtLeast(0.0)
+    
+    // V21.9: Soporte para unidades escaladas en el panel de distribución (kg/L)
+    val factor = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") 1000.0 else 1.0
+    val visualRemaining = remainingStock / factor
+    val visualTotal = totalStock / factor
+    val unit = if (state.stockEntryUnit.isNotBlank()) state.stockEntryUnit else resolveStockUnitLabel(state)
+    
+    val usageRatio = if (totalStock > 0) (assignedStock / totalStock).toFloat().coerceIn(0f, 1f) else 0f
+    val isComplete = remainingStock <= 0.0 && totalStock > 0.0
+
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.5.dp, if (isComplete) CreateGreen else CreateBorder),
+        shadowElevation = if (isComplete) 4.dp else 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (isComplete) "STOCK 100% DISTRIBUIDO" else "DISTRIBUCIÓN DE MERCANCÍA",
+                        color = if (isComplete) CreateGreen else CreateTextSecondary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = formatCreateProductNumber(if (isComplete) visualTotal else visualRemaining),
+                            color = if (isComplete) CreateGreen else CreateTextPrimary,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = unit,
+                            color = CreateTextSecondary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+                }
+                
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { 1f },
+                        modifier = Modifier.size(54.dp),
+                        color = CreateBorder.copy(alpha = 0.5f),
+                        strokeWidth = 5.dp,
+                        trackColor = Color.Transparent
+                    )
+                    CircularProgressIndicator(
+                        progress = { if (isComplete) 1f else usageRatio },
+                        modifier = Modifier.size(54.dp),
+                        color = if (isComplete) CreateGreen else CreateOrange,
+                        strokeWidth = 5.dp,
+                        strokeCap = StrokeCap.Round,
+                        trackColor = Color.Transparent
+                    )
+                    Icon(
+                        imageVector = if (isComplete) Icons.Outlined.CheckCircle else Icons.Outlined.Inventory,
+                        contentDescription = null,
+                        tint = if (isComplete) CreateGreen else CreateTextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(14.dp))
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(CreateBorder.copy(alpha = 0.5f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(if (isComplete) 1f else usageRatio)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = if (isComplete) listOf(CreateGreen.copy(alpha = 0.7f), CreateGreen)
+                                else listOf(CreateOrange.copy(alpha = 0.7f), CreateOrange)
+                            )
+                        )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                InfoMiniTag("Total: ${formatCreateProductNumber(visualTotal)} $unit", CreateInfoGraySoft)
+                Spacer(modifier = Modifier.weight(1f))
+                if (isComplete) {
+                    InfoMiniTag("¡Listo para guardar!", CreateGreenSoft, CreateGreen)
+                } else {
+                    InfoMiniTag("Por asignar: ${formatCreateProductNumber(visualRemaining)} $unit", CreateOrangeSoft, CreateOrange)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoMiniTag(text: String, background: Color, textColor: Color = CreateTextSecondary) {
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = textColor
+        )
+    }
+}
+
+@Composable
 @OptIn(ExperimentalLayoutApi::class)
 fun PresentationsPricesStep(
     state: CreateProductState,
@@ -3575,21 +5586,6 @@ fun PresentationsPricesStep(
 ) {
     val presentationsRequester = remember { BringIntoViewRequester() }
     val mainPresentationRequester = remember { BringIntoViewRequester() }
-
-    val controlTypeKey = when (state.controlType) {
-        CreateProductControlType.UNIDAD -> "UNIDAD"
-        CreateProductControlType.PESO -> "PESO"
-        CreateProductControlType.LIQUIDO -> "LIQUIDO"
-        null -> ""
-    }
-    // Solo presentaciones guardadas previamente por el usuario (sin sugerencias hardcoded).
-    val availableSavedToAdd = remember(state.savedPresentationOptions, controlTypeKey, state.presentations) {
-        state.savedPresentationOptions
-            .filter { it.controlType == controlTypeKey }
-            .filterNot { saved ->
-                state.presentations.any { it.name.equals(saved.name, ignoreCase = true) }
-            }
-    }
 
     val firstErrorKey = remember(state.errors) {
         when {
@@ -3613,24 +5609,69 @@ fun PresentationsPricesStep(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, CreateBorder)
-        ) {
-            Text(
-                text = "Agrega las presentaciones de venta y escribe manualmente su equivalencia y precio.",
-                modifier = Modifier.padding(16.dp),
-                color = CreateTextSecondary,
-                fontSize = 14.sp
-            )
+        // V19.6: Nuevo Panel de Control de Mercancía (Elegante y Tecnológico)
+        StockAllocationPanel(state = state)
+
+        // V21.0: Chips de presentaciones sugeridas (Recientes)
+        val recentOptions = remember(state.savedPresentations, state.controlType) {
+            state.savedPresentations.filter { 
+                it.controlType == (state.controlType?.name ?: "UNIDAD") 
+            }.take(10)
+        }
+
+        if (recentOptions.isNotEmpty() && !state.addPresentationExpanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "PRESENTACIONES RECIENTES",
+                    color = CreateTextSecondary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.2.sp
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    recentOptions.forEach { opt ->
+                        Surface(
+                            modifier = Modifier.clickable {
+                                onStateChange(state.copy(
+                                    addPresentationExpanded = true,
+                                    draftPresentationName = opt.name,
+                                    draftPresentationCustomAmount = opt.equivalenceBase,
+                                    draftPresentationCustomUnit = "",
+                                    draftPresentationSalePriceText = ""
+                                ))
+                            },
+                            color = Color.White,
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, CreateBorder),
+                            shadowElevation = 1.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Add, null, tint = CreateGreen, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = opt.name,
+                                    color = CreateTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Text(
-            text = "Presentaciones de venta",
+            text = "Formas de venta y precios",
             color = CreateTextPrimary,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 17.sp,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 18.sp,
             modifier = Modifier.bringIntoViewRequester(presentationsRequester)
         )
 
@@ -3647,7 +5688,7 @@ fun PresentationsPricesStep(
                             presentations = state.presentations.map {
                                 if (it.id == presentation.id) {
                                     // Si el usuario edita la equivalencia, la
-                                    // presentación deja de "pertenecer" a la IA.
+                                    // presentaciÃ³n deja de "pertenecer" a la IA.
                                     it.copy(equivalenceText = value, isAiSuggested = false)
                                 } else {
                                     it
@@ -3689,6 +5730,55 @@ fun PresentationsPricesStep(
                     )
                 }
             )
+
+            // V29.0: GUARDÍAN DE MARGEN (PROFIT GUARD) - Feedback en tiempo real
+            val costoTotal = state.purchaseCost.replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true).trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+            val stockTotalBase = calculateTotalBaseStock(state)
+            val precioVenta = presentation.salePriceText.replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true).trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+            val equiv = presentation.equivalenceText.toDoubleOrNull() ?: 1.0
+
+            if (costoTotal > 0 && stockTotalBase > 0 && precioVenta > 0) {
+                val costoUnitarioBase = costoTotal / stockTotalBase
+                val costoEstaPresentacion = costoUnitarioBase * equiv
+                val gananciaAbsoluta = precioVenta - costoEstaPresentacion
+                val margenPorcentaje = (gananciaAbsoluta / precioVenta) * 100
+
+                val (colorMargen, mensajeMargen) = when {
+                    margenPorcentaje < 10 -> CreateRed to "¡Pérdida o margen muy bajo!"
+                    margenPorcentaje < 20 -> CreateOrange to "Margen ajustado"
+                    else -> CreateGreen to "Margen saludable"
+                }
+
+                Surface(
+                    modifier = Modifier.padding(horizontal = 8.dp).offset(y = (-12).dp),
+                    color = colorMargen.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+                    border = BorderStroke(1.dp, colorMargen.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(6.dp).background(colorMargen, CircleShape))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Ganancia: ${String.format(Locale.US, "%.1f", margenPorcentaje)}%",
+                                color = colorMargen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Text(
+                            text = mensajeMargen,
+                            color = colorMargen.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
 
         if (state.errors["presentations"] != null) {
@@ -3700,235 +5790,7 @@ fun PresentationsPricesStep(
         }
 
         if (state.addPresentationExpanded) {
-            Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, CreateBorder)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // Chips de presentaciones guardadas previamente (DB)
-                    if (availableSavedToAdd.isNotEmpty()) {
-                        Text(
-                            text = "Guardadas anteriormente",
-                            color = CreateTextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            availableSavedToAdd.forEach { saved ->
-                                AddPresentationModeChip(
-                                    label = saved.name,
-                                    selected = false,
-                                    onClick = {
-                                        val newPresentation = CreateProductPresentation(
-                                            id = saved.name.lowercase().replace(" ", "_") + "_" +
-                                                java.util.UUID.randomUUID().toString().take(4),
-                                            name = saved.name,
-                                            equivalenceText = saved.equivalenceBase,
-                                            salePriceText = "",
-                                            isAiSuggested = false
-                                        )
-                                        // Mismo helper de fusión que el formulario
-                                        // custom: evita duplicados por nombre,
-                                        // sinónimos o equivalencia exacta.
-                                        val (nextList, idFinal) = mergePresentacionEvitandoDuplicado(
-                                            existentes = state.presentations,
-                                            nueva = newPresentation
-                                        )
-                                        onStateChange(
-                                            state.copy(
-                                                presentations = nextList,
-                                                mainPresentationId = state.mainPresentationId
-                                                    .takeIf { id -> nextList.any { it.id == id } }
-                                                    ?: idFinal,
-                                                addPresentationExpanded = false,
-                                                draftPresentationName = "",
-                                                draftPresentationCustomMode = false,
-                                                draftPresentationCustomAmount = "",
-                                                draftPresentationCustomUnit = "",
-                                                errors = state.errors - "presentations"
-                                            )
-                                        )
-                                    }
-                                )
-                            }
-                        }
-
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = CreateBorder,
-                            shape = RoundedCornerShape(1.dp)
-                        ) { Spacer(modifier = Modifier.height(1.dp)) }
-
-                        Text(
-                            text = "O crea una nueva",
-                            color = CreateTextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    // Formulario personalizado (siempre visible)
-                    CustomPresentationFields(
-                        controlType = state.controlType,
-                        amount = state.draftPresentationCustomAmount,
-                        unit = state.draftPresentationCustomUnit.ifBlank {
-                            when (state.controlType) {
-                                CreateProductControlType.PESO -> "g"
-                                CreateProductControlType.LIQUIDO -> "mL"
-                                else -> ""
-                            }
-                        },
-                        customName = state.draftPresentationName,
-                        onAmountChange = {
-                            onStateChange(state.copy(draftPresentationCustomAmount = it))
-                        },
-                        onUnitChange = {
-                            onStateChange(state.copy(draftPresentationCustomUnit = it))
-                        },
-                        onCustomNameChange = {
-                            onStateChange(state.copy(draftPresentationName = it))
-                        }
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(
-                            onClick = {
-                                onStateChange(
-                                    state.copy(
-                                        addPresentationExpanded = false,
-                                        draftPresentationName = "",
-                                        draftPresentationCustomMode = false,
-                                        draftPresentationCustomAmount = "",
-                                        draftPresentationCustomUnit = ""
-                                    )
-                                )
-                            }
-                        ) {
-                            Text("Cancelar")
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        val unitToUse = state.draftPresentationCustomUnit.ifBlank {
-                            when (state.controlType) {
-                                CreateProductControlType.PESO -> "g"
-                                CreateProductControlType.LIQUIDO -> "mL"
-                                else -> ""
-                            }
-                        }
-                        val canAdd = when (state.controlType) {
-                            CreateProductControlType.UNIDAD ->
-                                state.draftPresentationName.isNotBlank() &&
-                                    state.draftPresentationCustomAmount.toIntOrNull()?.let { it > 0 } == true
-                            CreateProductControlType.PESO,
-                            CreateProductControlType.LIQUIDO ->
-                                state.draftPresentationCustomAmount.toDoubleOrNull()?.let { it > 0 } == true &&
-                                    unitToUse.isNotBlank()
-                            null -> false
-                        }
-
-                        Button(
-                            onClick = {
-                                val amount = state.draftPresentationCustomAmount.trim()
-                                val (draftName, equivalence) = when (state.controlType) {
-                                    CreateProductControlType.UNIDAD -> {
-                                        val nombre = state.draftPresentationName.trim()
-                                            .ifBlank { "Pack $amount" }
-                                        nombre to amount
-                                    }
-                                    CreateProductControlType.PESO -> {
-                                        val grams = (amount.toDoubleOrNull() ?: 0.0).let {
-                                            if (unitToUse == "kg") it * 1000 else it
-                                        }
-                                        val gStr = if (grams % 1 == 0.0) grams.toInt().toString() else grams.toString()
-                                        "$amount $unitToUse" to gStr
-                                    }
-                                    CreateProductControlType.LIQUIDO -> {
-                                        val ml = (amount.toDoubleOrNull() ?: 0.0).let {
-                                            if (unitToUse == "L") it * 1000 else it
-                                        }
-                                        val mlStr = if (ml % 1 == 0.0) ml.toInt().toString() else ml.toString()
-                                        "$amount $unitToUse" to mlStr
-                                    }
-                                    null -> return@Button
-                                }
-
-                                val newPresentation = CreateProductPresentation(
-                                    id = draftName.lowercase().replace(" ", "_") + "_" +
-                                        java.util.UUID.randomUUID().toString().take(4),
-                                    name = draftName,
-                                    equivalenceText = equivalence,
-                                    salePriceText = "",
-                                    isAiSuggested = false
-                                )
-
-                                // Agregar a la lista local + guardar como sugerencia para próxima vez
-                                val newSaved = SavedPresentation(
-                                    name = draftName,
-                                    equivalenceBase = equivalence,
-                                    controlType = controlTypeKey
-                                )
-                                val nextSaved = if (state.savedPresentationOptions.any {
-                                        it.name.equals(draftName, ignoreCase = true) &&
-                                            it.controlType == controlTypeKey
-                                    }) {
-                                    state.savedPresentationOptions
-                                } else {
-                                    state.savedPresentationOptions + newSaved
-                                }
-
-                                // Fusión inteligente: si la nueva tiene el
-                                // mismo nombre / mismo grupo de sinónimos /
-                                // misma equivalencia que una existente,
-                                // reemplaza la anterior (sin duplicar).
-                                val (nextList, idFinal) = mergePresentacionEvitandoDuplicado(
-                                    existentes = state.presentations,
-                                    nueva = newPresentation
-                                )
-
-                                onStateChange(
-                                    state.copy(
-                                        presentations = nextList,
-                                        mainPresentationId = state.mainPresentationId
-                                            .takeIf { id -> nextList.any { it.id == id } }
-                                            ?: idFinal,
-                                        addPresentationExpanded = false,
-                                        draftPresentationName = "",
-                                        draftPresentationCustomMode = false,
-                                        draftPresentationCustomAmount = "",
-                                        draftPresentationCustomUnit = "",
-                                        savedPresentationOptions = nextSaved,
-                                        errors = state.errors - "presentations"
-                                    )
-                                )
-                            },
-                            enabled = canAdd
-                        ) {
-                            Text("Agregar")
-                        }
-                    }
-                }
-            }
-        } else {
-            OutlinedButton(
-                onClick = {
-                    onStateChange(state.copy(addPresentationExpanded = true))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.controlType != null
-            ) {
-                Text("+ Agregar presentacion")
-            }
+            // Se maneja vÃ­a Dialog fuera del flujo de la lista para mayor elegancia.
         }
 
         if (state.presentations.size > 1) {
@@ -3947,6 +5809,7 @@ fun PresentationsPricesStep(
                 }
             )
         }
+
     }
 }
 
@@ -4101,274 +5964,266 @@ fun ProductSummaryStep(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Bloque informativo inicial
-        Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, CreateBorder)
-        ) {
-            Text(
-                text = "Revisa cuidadosamente los datos antes de registrar el producto en el inventario.",
-                modifier = Modifier.padding(16.dp),
-                color = CreateTextSecondary,
-                fontSize = 14.sp
-            )
+        // V20.0: Bloque de Información Útil (IA)
+        if (state.isFetchingUsageInfo) {
+            SummaryCard(
+                title = "Información Útil",
+                icon = Icons.Outlined.Lightbulb,
+                color = CreateAiFocus
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = CreateAiFocus,
+                        strokeWidth = 2.5.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Consultando con farmacéutico IA...",
+                        color = CreateTextSecondary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        } else if (state.aiUsageInfo != null) {
+            SummaryCard(
+                title = "Información Útil",
+                icon = Icons.Outlined.Lightbulb,
+                color = CreateAiFocus
+            ) {
+                // Usos
+                Text(
+                    text = "PARA QUÉ SIRVE",
+                    color = CreateAiFocus,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp
+                )
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    state.aiUsageInfo.usos.forEach { uso ->
+                        Surface(
+                            color = CreateAiFocusSoft.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, CreateAiFocus.copy(alpha = 0.2f))
+                        ) {
+                            Text(
+                                text = uso,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                color = CreateTextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Instrucciones
+                SummaryItem("Instrucciones de Uso", state.aiUsageInfo.instrucciones)
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Contraindicaciones
+                Column {
+                    Text(
+                        text = "CUÁNDO NO TOMAR",
+                        color = CreateRed,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = state.aiUsageInfo.contraindicaciones,
+                        color = CreateTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
 
-        // --- CARD PASO 1: IDENTIDAD DEL PRODUCTO ---
+        // Bloques de igual tamaño visual (estilo dashboard)
+        // --- CARD PASO 1: IDENTIDAD ---
         SummaryCard(
-            title = "Paso 1: Identidad",
-            icon = "🆔",
+            title = "Identidad del Producto",
+            icon = Icons.AutoMirrored.Outlined.Label,
             color = CreateBlue
         ) {
-            SummaryItem("Nombre", state.name.ifBlank { "(Sin nombre)" })
-            SummaryItem("Categoría", state.category.ifBlank { "(Sin categoría)" })
-            SummaryItem(
-                "Tipo de control",
-                state.controlType?.label ?: "(No definido)"
-            )
-            SummaryItem(
-                "Receta médica",
-                if (state.requiresPrescription) "Requiere receta 📋" else "Venta libre 🟢"
-            )
-            SummaryItem(
-                "Estado inicial",
-                if (state.active) "Activo (Visible en ventas)" else "Inactivo (Oculto)"
-            )
+            SummaryItem("Nombre Comercial", state.name.ifBlank { "(Sin nombre)" })
+            SummaryItem("Categoría", state.category.ifBlank { "(Sin categoria)" })
+            SummaryItem("Tipo de Control", state.controlType?.label ?: "(No definido)")
+            SummaryItem("Venta", if (state.requiresPrescription) "Bajo Receta Médica" else "Venta Libre")
         }
 
-        // --- CARD PASO 2: INVENTARIO Y LOTE ---
+        // --- CARD PASO 2: INVENTARIO ---
         SummaryCard(
-            title = "Paso 2: Inventario",
-            icon = "📦",
+            title = "Configuración de Lote",
+            icon = Icons.Outlined.Inventory2,
             color = CreateOrange
         ) {
             val expirationStatus = evaluateExpirationStatus(state.expirationDate)
-            
             SummaryItem("Número de Lote", state.lotNumber.ifBlank { "(Sin lote)" })
             SummaryItem(
                 "Vencimiento",
-                "${state.expirationDate.ifBlank { "(Sin fecha)" }} " +
-                        (expirationStatus?.message?.let { "· $it" } ?: "")
+                state.expirationDate.ifBlank { "(Sin fecha)" },
+                helper = expirationStatus?.message,
+                helperColor = expirationStatus?.color ?: CreateTextSecondary
             )
+            SummaryItem("Stock de Ingreso", buildInitialStockEntrySummary(state).ifBlank { "(No configurado)" })
+            SummaryItem("Costo Total", formatBs(state.purchaseCost), highlight = true)
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val minimumUnits = state.minimumStockUnits
+            val minimumLabel = resolveMinimumStockLabel(state, minimumUnits)
+            val baseMinEquivalence = when (resolveMinimumStockControlMode(state)) {
+                StockControlMode.INDIVISIBLE -> {
+                    when (state.controlType) {
+                        CreateProductControlType.UNIDAD -> {
+                            if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES)
+                                parseCreateProductNumber(state.unitsPerPackageText)
+                            else 1.0
+                        }
+                        else -> parseCreateProductNumber(state.unitsPerItemText)
+                    }
+                }
+                else -> 1.0
+            }
+            val totalBaseUnits = (minimumUnits * baseMinEquivalence).toInt()
+            val baseUnitLabel = resolveStockUnitLabel(state)
+
             SummaryItem(
-                "Stock Recibido",
-                buildInitialStockEntrySummary(state).ifBlank { "(No configurado)" }
-            )
-            SummaryItem(
-                "Costo de compra",
-                formatBs(state.purchaseCost)
+                "Alerta de Stock Bajo",
+                "Notificar al llegar a $minimumUnits $minimumLabel",
+                helper = if (baseMinEquivalence > 1.0) "Equivale a $totalBaseUnits $baseUnitLabel" else null,
+                highlight = true
             )
         }
 
-        // --- CARD PASO 3: VENTA Y ALERTAS ---
+        // --- CARD PASO 3: COMERCIALIZACIÓN ---
         SummaryCard(
-            title = "Paso 3: Venta y Alertas",
-            icon = "💰",
+            title = "Venta y Alertas",
+            icon = Icons.Outlined.AttachMoney,
             color = CreateGreen
         ) {
-            // Desglose de presentaciones de venta
             Text(
-                text = "Precios de venta:",
+                text = "PRESENTACIONES CONFIGURADAS",
                 color = CreateTextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.2.sp
             )
             
             if (state.presentations.isEmpty()) {
-                Text(text = "(Sin presentaciones)", color = CreateTextSecondary, fontSize = 13.sp)
+                Text(text = "(Sin presentaciones)", color = CreateTextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
             } else {
                 state.presentations.forEach { pres ->
                     val isMain = pres.id == state.mainPresentationId
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "${pres.name} (x${pres.equivalenceText}) ${if (isMain) "⭐" else ""}",
-                            color = CreateTextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = if (isMain) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isMain) Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(if (isMain) 8.dp else 0.dp))
+                            Text(
+                                text = "${pres.name} (x${pres.equivalenceText})",
+                                color = if (isMain) CreateTextPrimary else CreateTextSecondary,
+                                fontSize = 14.sp,
+                                fontWeight = if (isMain) FontWeight.Black else FontWeight.Medium
+                            )
+                        }
                         Text(
                             text = formatBs(pres.salePriceText),
                             color = CreateGreen,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder))
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Alerta de stock mínimo
-            val mode = getEffectiveStockControlMode(state)
-            val unitLabel = getPhysicalUnitLabel(state, state.minimumStockUnits)
-            
-            SummaryItem(
-                "Alerta stock bajo",
-                "Avisar al quedar ${state.minimumStockUnits} $unitLabel",
-                highlight = true
-            )
-            Text(
-                text = if (mode == StockControlMode.INDIVISIBLE) 
-                    "Controlado por envase completo." 
-                    else "Controlado por unidad suelta.",
-                color = CreateTextSecondary,
-                fontSize = 11.sp,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-            )
         }
 
-        // --- CARD PASO 4: USOS Y SÍNTOMAS (INTELIGENCIA IA) ---
-        SummaryCard(
-            title = "¿Para qué sirve?",
-            icon = "🩺",
-            color = Color(0xFF8E44AD) // Morado IA
-        ) {
-            Text(
-                text = "Selecciona los usos que deseas activar para el buscador inteligente:",
-                color = CreateTextSecondary,
-                fontSize = 12.sp,
-                lineHeight = 16.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            if (state.keywords.isEmpty()) {
-                // Estado de carga o espera de IA
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFF8E44AD)
-                    )
-                    Text(
-                        text = "Analizando usos terapéuticos...",
-                        color = CreateTextSecondary,
-                        fontSize = 13.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                }
-            } else {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.keywords.forEach { keyword ->
-                        val isSelected = state.selectedKeywords.contains(keyword)
-                        
-                        // Diseño solicitado: Azul Medicina si seleccionado, Blanco/Gris si no
-                        Surface(
-                            modifier = Modifier.clickable {
-                                val currentSelected = state.selectedKeywords.toMutableSet()
-                                if (isSelected) {
-                                    // Regla: mínimo 1 seleccionado
-                                    if (currentSelected.size > 1) {
-                                        currentSelected.remove(keyword)
-                                    }
-                                } else {
-                                    currentSelected.add(keyword)
-                                }
-                                onStateChange(state.copy(selectedKeywords = currentSelected))
-                            },
-                            color = if (isSelected) Color(0xFF2E5BFF) else Color.White,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(
-                                width = 1.dp, 
-                                color = if (isSelected) Color(0xFF2E5BFF) else Color(0xFFE5E7EB)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = if (isSelected) "✅" else "🛡️", 
-                                    fontSize = 10.sp
-                                )
-                                Text(
-                                    text = keyword,
-                                    color = if (isSelected) Color.White else Color(0xFF4B5563),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(14.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder))
-            Spacer(modifier = Modifier.height(10.dp))
-            
-            Text(
-                text = "💡 Solo los usos seleccionados se guardarán para el buscador inteligente.",
-                color = Color(0xFF8E44AD),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
 private fun SummaryCard(
     title: String,
-    icon: String,
+    icon: ImageVector,
     color: Color,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.8f)),
+        shadowElevation = 2.dp
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // ENCABEZADO SEPARADO POR RAYA
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Surface(
                     color = color.copy(alpha = 0.12f),
                     shape = CircleShape,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = icon, fontSize = 18.sp)
+                        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
                 Text(
-                    text = title,
+                    text = title.uppercase(),
                     color = CreateTextPrimary,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
-                    letterSpacing = 0.5.sp
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    letterSpacing = 1.sp
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
+            // RAYA SEPARADORA
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CreateBorder.copy(alpha = 0.6f))
+            )
+
+            // CONTENIDO
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 content()
             }
@@ -4380,6 +6235,8 @@ private fun SummaryCard(
 private fun SummaryItem(
     label: String,
     value: String,
+    helper: String? = null,
+    helperColor: Color = CreateTextSecondary,
     highlight: Boolean = false
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -4387,30 +6244,34 @@ private fun SummaryItem(
             text = label.uppercase(),
             color = CreateTextSecondary,
             fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 1.2.sp
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             color = if (highlight) CreateGreen else CreateTextPrimary,
-            fontSize = 15.sp,
-            fontWeight = if (highlight) FontWeight.ExtraBold else FontWeight.SemiBold
+            fontSize = 16.sp,
+            fontWeight = if (highlight) FontWeight.Black else FontWeight.SemiBold
         )
+        if (helper != null) {
+            Text(
+                text = "• $helper",
+                color = helperColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
     }
 }
 
 @Composable
 fun ProductCreatedSuccessScreen(
     summary: ProductCreatedSummary,
-    referenceState: ProductReferenceUiState,
-    showReferenceSection: Boolean,
     onViewProduct: () -> Unit,
-    onCreateAnother: () -> Unit,
-    onRetryReference: () -> Unit,
-    onOpenReference: () -> Unit,
-    onSkipReference: () -> Unit,
-    onSaveReference: (ProductReference) -> Unit
+    onCreateAnother: () -> Unit
 ) {
     // Pantalla post-guardado simplificada: la sección de "búsqueda inteligente"
     // (CleanSmartReferenceCard) y los botones asociados se eliminaron del
@@ -4509,403 +6370,6 @@ fun ProductCreatedSuccessScreen(
                     .height(52.dp)
             ) {
                 Text("Ver producto")
-            }
-        }
-    }
-}
-
-@Composable
-private fun CleanSmartReferenceCard(
-    referenceState: ProductReferenceUiState,
-    onOpenReference: () -> Unit,
-    onSkipReference: () -> Unit,
-    onSaveReference: (ProductReference) -> Unit
-) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "Sugerencia inteligente",
-                color = CreateTextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-
-            AnimatedContent(
-                targetState = referenceState.status,
-                label = "smart_reference_status_animation",
-                transitionSpec = {
-                    (fadeIn() + slideInVertically { it / 6 })
-                        .togetherWith(fadeOut() + slideOutVertically { -it / 6 })
-                }
-            ) { status ->
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    when (status) {
-                        ProductReferenceStatus.LOADING,
-                        ProductReferenceStatus.IDLE -> {
-                            Text(
-                                text = "Buscando información confiable...",
-                                color = CreateTextSecondary,
-                                fontSize = 15.sp
-                            )
-
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = CreateGreen,
-                                trackColor = CreateBorder
-                            )
-                        }
-
-                        ProductReferenceStatus.READY -> {
-                            val reference = referenceState.reference
-                            val summary = reference?.toSummary()
-                            val confidenceValue =
-                                reference?.confidence?.toString()?.toFloatOrNull() ?: 0f
-                            val confidencePercent = (confidenceValue * 100f).toInt()
-                            val matchedName = reference?.matchedName.orEmpty()
-                            val keywords = reference?.searchKeywords.orEmpty()
-
-                            Text(
-                                text = "Información encontrada",
-                                color = CreateGreen,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-
-                            if (matchedName.isNotBlank()) {
-                                Text(
-                                    text = "Coincide con: $matchedName",
-                                    color = CreateTextSecondary,
-                                    fontSize = 14.sp
-                                )
-                            }
-
-                            Text(
-                                text = "Fuente: ${reference?.sourceName.orEmpty().ifBlank { "MedlinePlus en español" }}",
-                                color = CreateTextSecondary,
-                                fontSize = 14.sp
-                            )
-
-                            Text(
-                                text = "Confianza: $confidencePercent%",
-                                color = CreateTextSecondary,
-                                fontSize = 14.sp
-                            )
-
-                            ReferenceSimpleBlock(
-                                title = "¿Para qué sirve?",
-                                value = summary?.shortUse ?: "Sin resumen disponible."
-                            )
-
-                            ReferenceSimpleBlock(
-                                title = "¿Cómo se toma?",
-                                value = reference?.howToUse
-                                    ?: "Seguir la información del empaque o receta."
-                            )
-
-                            ReferenceSimpleBlock(
-                                title = "No recomendado para",
-                                value = reference?.notRecommendedFor?.joinToString(", ")
-                                    ?.ifBlank { "Verificar empaque, etiqueta oficial o receta." }
-                                    ?: "Verificar empaque, etiqueta oficial o receta."
-                            )
-
-                            if (keywords.isNotEmpty()) {
-                                ReferenceSimpleBlock(
-                                    title = "Palabras para buscar al vender",
-                                    value = keywords.joinToString(", ")
-                                )
-
-                                Text(
-                                    text = "Sirven para encontrar el producto por síntomas o uso, por ejemplo: fiebre, dolor de cabeza.",
-                                    color = CreateTextSecondary,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-
-                        ProductReferenceStatus.NOT_FOUND -> {
-                            Text(
-                                text = "No se encontró información confiable.",
-                                color = CreateTextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp
-                            )
-
-                            Text(
-                                text = "Puedes agregar la información manualmente o hacerlo luego.",
-                                color = CreateTextSecondary,
-                                fontSize = 15.sp
-                            )
-                        }
-
-                        ProductReferenceStatus.ERROR -> {
-                            Text(
-                                text = "No se pudo buscar la información.",
-                                color = CreateTextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp
-                            )
-
-                            Text(
-                                text = "Revisa la conexión o agrega la información manualmente.",
-                                color = CreateTextSecondary,
-                                fontSize = 15.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun ReferenceSimpleBlock(
-    title: String,
-    value: String
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = title,
-            color = CreateTextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
-        )
-
-        Text(
-            text = value,
-            color = CreateTextSecondary,
-            fontSize = 14.sp
-        )
-    }
-}
-
-@Composable
-fun SmartReferenceSuggestionScreen(
-    referenceState: ProductReferenceUiState,
-    onBack: () -> Unit,
-    onDiscard: () -> Unit,
-    onSaveReference: (ProductReference) -> Unit
-) {
-    val reference = referenceState.reference ?: return
-
-    var commonUse by remember(reference.normalizedName) {
-        mutableStateOf(reference.commonUse.orEmpty())
-    }
-
-    var useCases by remember(reference.normalizedName) {
-        mutableStateOf(reference.useCases.joinToString(", "))
-    }
-
-    var howToUse by remember(reference.normalizedName) {
-        mutableStateOf(reference.howToUse.orEmpty())
-    }
-
-    var notRecommended by remember(reference.normalizedName) {
-        mutableStateOf(reference.notRecommendedFor.joinToString(", "))
-    }
-
-    var keywords by remember(reference.normalizedName) {
-        mutableStateOf(reference.searchKeywords.joinToString(", "))
-    }
-
-    Scaffold(
-        containerColor = CreateBackground,
-        bottomBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onDiscard,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Cancelar")
-                }
-
-                Button(
-                    onClick = {
-                        onSaveReference(
-                            reference.copy(
-                                commonUse = commonUse.trim().ifBlank { null },
-                                useCases = parseCommaList(useCases),
-                                howToUse = howToUse.trim().ifBlank { null },
-                                notRecommendedFor = parseCommaList(notRecommended),
-                                searchKeywords = parseCommaList(keywords)
-                            )
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Guardar")
-                }
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_arrow_back_24),
-                        contentDescription = "Atras",
-                        tint = CreateTextPrimary
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = "Agregar información",
-                    color = CreateTextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 26.sp
-                )
-            }
-
-            Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, CreateBorder)
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = reference.originalName,
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-
-                    Text(
-                        text = "Completa la información útil para vender o recomendar mejor este producto.",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-
-            CleanReferenceInputCard(
-                title = "¿Para qué sirve?",
-                value = commonUse,
-                placeholder = "Ej. Ayuda a aliviar dolor, fiebre o malestar...",
-                onValueChange = { commonUse = it }
-            )
-
-            CleanReferenceInputCard(
-                title = "Casos comunes",
-                value = useCases,
-                placeholder = "Ej. fiebre, dolor de cabeza, dolor muscular",
-                helper = "Separa con comas.",
-                onValueChange = { useCases = it }
-            )
-
-            CleanReferenceInputCard(
-                title = "¿Cómo se toma?",
-                value = howToUse,
-                placeholder = "Ej. Seguir la dosis indicada en el empaque o receta.",
-                onValueChange = { howToUse = it }
-            )
-
-            CleanReferenceInputCard(
-                title = "No recomendado para",
-                value = notRecommended,
-                placeholder = "Ej. Personas alérgicas al componente activo.",
-                onValueChange = { notRecommended = it }
-            )
-
-            CleanReferenceInputCard(
-                title = "Palabras para buscar al vender",
-                value = keywords,
-                placeholder = "Ej. fiebre, dolor, alergia, tos",
-                helper = "Sirven para buscar por síntomas o uso.",
-                onValueChange = { keywords = it }
-            )
-
-            Surface(
-                color = CreateOrangeSoft,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, Color(0xFFF9D7AC))
-            ) {
-                Text(
-                    text = "Información de apoyo. Verifica siempre empaque, etiqueta oficial o receta.",
-                    modifier = Modifier.padding(16.dp),
-                    color = Color(0xFF9A6700),
-                    fontSize = 14.sp
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CleanReferenceInputCard(
-    title: String,
-    value: String,
-    placeholder: String,
-    helper: String? = null,
-    onValueChange: (String) -> Unit
-) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = title,
-                color = CreateTextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp
-            )
-
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4,
-                placeholder = {
-                    Text(
-                        text = placeholder,
-                        color = CreateTextSecondary
-                    )
-                },
-                shape = RoundedCornerShape(16.dp)
-            )
-
-            if (!helper.isNullOrBlank()) {
-                Text(
-                    text = helper,
-                    color = CreateTextSecondary,
-                    fontSize = 13.sp
-                )
             }
         }
     }
@@ -5090,155 +6554,393 @@ fun ProductTypeSelector(
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
+
     }
 }
 
 
 
-fun sugerirPresentacionesIniciales(
-    controlType: CreateProductControlType?,
-    receivedPresentation: String = ""
-): List<CreateProductPresentation> {
-    val recibida = receivedPresentation.trim()
 
-    val options = if (recibida.isNotBlank()) {
-        mutableListOf(recibida)
-    } else {
-        when (controlType) {
-            CreateProductControlType.UNIDAD -> mutableListOf("Unidad", "Blister", "Caja", "Sobre", "Pack")
-            CreateProductControlType.PESO -> mutableListOf("g", "100 g", "500 g", "1 kg")
-            CreateProductControlType.LIQUIDO -> mutableListOf("mL", "100 mL", "250 mL", "500 mL", "1 litro")
-            null -> mutableListOf()
+
+@Composable
+fun PremiumStockEntryModeSelector(
+    controlType: CreateProductControlType?,
+    selected: CreateProductStockEntryMode?,
+    onSelected: (CreateProductStockEntryMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val availableModes = remember(controlType) {
+        CreateProductStockEntryMode.entries
+            .filter { isStockEntryModeValidForControlType(it, controlType) }
+    }
+    val selectedMeta = selected
+        ?.takeIf { isStockEntryModeValidForControlType(it, controlType) }
+        ?.stockModeMeta(controlType)
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = Color.White,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Forma de ingreso",
+                color = CreateTextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp
+            )
+
+            Text(
+                text = "Elige cómo se registrará este stock.",
+                color = CreateTextSecondary,
+                fontSize = 13.sp
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                availableModes.forEach { mode ->
+                    PremiumStockModeCard(
+                        controlType = controlType,
+                        mode = mode,
+                        selected = selected == mode,
+                        onClick = { onSelected(mode) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            if (selectedMeta != null) {
+                PremiumStockModeInfoBox(
+                    title = selectedMeta.infoTitle,
+                    description = selectedMeta.infoDescription
+                )
+            }
         }
     }
+}
 
-    return options.distinctBy { it.lowercase(Locale.getDefault()) }.map { option ->
-        val isBaseSimple = option.equals("Unidad", ignoreCase = true) ||
-                option.equals("g", ignoreCase = true) ||
-                option.equals("mL", ignoreCase = true)
+@Composable
+private fun PremiumStockModeCard(
+    controlType: CreateProductControlType?,
+    mode: CreateProductStockEntryMode,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val meta = mode.stockModeMeta(controlType)
+    val haptic = LocalHapticFeedback.current
 
-        // Extraer número automáticamente (ej. "100 mL" -> "100")
-        val autoEquivalence = if (!isBaseSimple && recibida.isBlank()) {
-            Regex("\\d+").find(option)?.value?.toIntOrNull()?.toString() ?: ""
-        } else {
-            if (isBaseSimple) "1" else ""
+    Surface(
+        modifier = modifier
+            .height(126.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
+                }
+            ),
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) CreateGreenSoft.copy(alpha = 0.45f) else Color.White,
+        shadowElevation = if (selected) 3.dp else 0.dp,
+        border = BorderStroke(
+            width = if (selected) 1.5.dp else 1.dp,
+            color = if (selected) CreateGreen else CreateBorder.copy(alpha = 0.9f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (selected) CreateGreen.copy(alpha = 0.12f)
+                        else CreateSurfaceSoft
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = meta.icon,
+                    contentDescription = meta.title,
+                    tint = if (selected) CreateGreen else CreateTextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Text(
+                text = meta.title,
+                color = CreateTextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+
+            Text(
+                text = meta.shortDescription,
+                color = CreateTextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+
+            if (selected) {
+                Surface(
+                    color = CreateGreen,
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = "Seleccionado",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(22.dp))
+            }
         }
+    }
+}
 
-        CreateProductPresentation(
-            id = option.lowercase(Locale.getDefault()).replace(" ", "_"),
-            name = option,
-            equivalenceText = autoEquivalence,
-            salePriceText = ""
+@Composable
+private fun PremiumStockModeInfoBox(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = CreateSurfaceSoft,
+        border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.6f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(CreateGreenSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = CreateGreen,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = CreateTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = description,
+                    color = CreateTextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+    }
+}
+
+private data class StockModeMeta(
+    val title: String,
+    val shortDescription: String,
+    val infoTitle: String,
+    val infoDescription: String,
+    val icon: ImageVector
+)
+
+private fun CreateProductStockEntryMode.stockModeMeta(controlType: CreateProductControlType?): StockModeMeta {
+    return when (this) {
+        CreateProductStockEntryMode.UNIDAD -> StockModeMeta(
+            title = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Frascos"
+                CreateProductControlType.PESO -> "Envases"
+                else -> "Unidades"
+            },
+            shortDescription = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Ingreso directo"
+                CreateProductControlType.PESO -> "Ingreso directo"
+                else -> "Piezas directas"
+            },
+            infoTitle = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Control por frasco"
+                CreateProductControlType.PESO -> "Control por envase"
+                else -> "Se descuenta una a una"
+            },
+            infoDescription = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Registra frascos sueltos y el contenido de cada uno."
+                CreateProductControlType.PESO -> "Registra envases sueltos y el peso de cada uno."
+                else -> "Úsalo cuando vendes unidades sueltas o blísteres individuales."
+            },
+            icon = Icons.Outlined.Inventory2
+        )
+
+        CreateProductStockEntryMode.CAJA -> StockModeMeta(
+            title = "Cajas",
+            shortDescription = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Con frascos"
+                CreateProductControlType.PESO -> "Con envases"
+                else -> "Con unidades"
+            },
+            infoTitle = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Caja con frascos"
+                CreateProductControlType.PESO -> "Caja con envases"
+                else -> "Caja con unidades"
+            },
+            infoDescription = when (controlType) {
+                CreateProductControlType.LIQUIDO -> "Registra cuántas cajas recibiste, cuántos frascos trae cada caja y el contenido por frasco."
+                CreateProductControlType.PESO -> "Registra cuántas cajas recibiste, cuántos envases trae cada caja y el peso por envase."
+                else -> "Registra cajas y cuántas unidades trae cada una."
+            },
+            icon = Icons.Outlined.Inventory
+        )
+
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> StockModeMeta(
+            title = "Blísters",
+            shortDescription = "Paquetes internos",
+            infoTitle = "Control por blíster o paquete",
+            infoDescription = "Úsalo cuando la unidad real de salida es el blíster o paquete interno.",
+            icon = Icons.Outlined.AllInbox
         )
     }
 }
 
 @Composable
-fun StockEntryModeSelector(
-    selected: CreateProductStockEntryMode?,
-    error: String?,
-    onSelected: (CreateProductStockEntryMode) -> Unit
-) {
-    // Nota: anteriormente la IA sugería un modo de ingreso, pero la decisión
-    // depende del modelo de compra/venta del usuario (compra 1 frasco suelto
-    // vs caja de 10 frascos), no del producto. La sugerencia se removió a
-    // favor de un selector manual puro.
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        CreateProductStockEntryMode.values().forEach { mode ->
-            val selectedCurrent = selected == mode
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelected(mode) },
-                color = if (selectedCurrent) CreateGreenSoft else Color.White,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(
-                    width = if (selectedCurrent) 1.5.dp else 1.dp,
-                    color = if (selectedCurrent) CreateGreen else CreateBorder
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(if (selectedCurrent) CreateGreen else Color(0xFFF2F4F7)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selectedCurrent) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_check_circle),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = mode.label,
-                            color = CreateTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = mode.helper,
-                            color = CreateTextSecondary,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        if (!error.isNullOrBlank()) {
-            Text(
-                text = error,
-                color = Color(0xFFB42318),
-                fontSize = 13.sp
-            )
-        }
-    }
-}
-
-@Composable
 fun CreateSectionCard(
-    title: String,
+    title: String? = null,
     subtitle: String? = null,
+    icon: ImageVector? = null,
+    onClear: (() -> Unit)? = null,
+    isSuccess: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val hasHeader = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || icon != null || onClear != null
+
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        border = BorderStroke(
+            width = if (isSuccess) 2.dp else 1.dp,
+            color = if (isSuccess) CreateGreen else CreateBorder
+        )
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = title,
-                    color = CreateTextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
-                )
+            if (hasHeader) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (icon != null) {
+                            Surface(
+                                color = CreateGreenSoft,
+                                shape = CircleShape,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = CreateGreen,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
 
-                if (!subtitle.isNullOrBlank()) {
-                    Text(
-                        text = subtitle,
-                        color = CreateTextSecondary,
-                        fontSize = 13.sp
-                    )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            if (!title.isNullOrBlank()) {
+                                Text(
+                                    text = title,
+                                    color = CreateTextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 17.sp
+                                )
+                            }
+
+                            if (!subtitle.isNullOrBlank()) {
+                                Text(
+                                    text = subtitle,
+                                    color = if (title.isNullOrBlank()) CreateTextPrimary else CreateTextSecondary,
+                                    fontWeight = if (title.isNullOrBlank()) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = if (title.isNullOrBlank()) 17.sp else 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    if (onClear != null) {
+                        Surface(
+                            onClick = onClear,
+                            color = CreateRed.copy(alpha = 0.08f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Limpiar",
+                                    tint = CreateRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(CreateBorder.copy(alpha = 0.6f))
+                )
+                Spacer(modifier = Modifier.height(14.dp))
             }
 
             content()
@@ -5256,137 +6958,174 @@ fun PresentationPriceCard(
     onRemove: () -> Unit
 ) {
     val bloquearEquivalencia = isMain || presentation.name.equals("Unidad", ignoreCase = true)
+    
+    val isComplete = presentation.equivalenceText.toDoubleOrNull()?.let { it > 0 } == true &&
+            presentation.salePriceText.toDoubleOrNull()?.let { it > 0 } == true &&
+            error == null
 
     Surface(
         color = Color.White,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(
+            width = if (isComplete) 2.dp else 1.5.dp,
+            color = if (isComplete) CreateGreen else CreateBorder
+        ),
+        shadowElevation = if (isComplete) 3.dp else 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
+            // ENCABEZADO CON ICONO Y TÍTULO
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Icono de la presentación
+                Surface(
+                    color = CreateGreenSoft,
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = when {
+                                presentation.name.contains("blister", true) -> Icons.Outlined.AllInbox
+                                presentation.name.contains("caja", true) -> Icons.Outlined.Inventory2
+                                presentation.name.contains("frasco", true) -> Icons.Outlined.Opacity
+                                else -> Icons.AutoMirrored.Outlined.Label
+                            },
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = presentation.name,
                             color = CreateTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            overflow = TextOverflow.Ellipsis
                         )
-                        // Marcador visual de presentación sugerida por IA.
-                        // Se mantiene hasta que el usuario edite la
-                        // presentación (en cuyo momento el flag pasa a false).
                         if (presentation.isAiSuggested) {
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "✨",
-                                fontSize = 14.sp
-                            )
+                            Text("✨", fontSize = 14.sp)
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = "Equivale a ${presentation.equivalenceText.ifBlank { "0" }} $unitLabel",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                }
-
-                if (isMain) {
-                    Surface(
-                        color = CreateGreenSoft,
-                        shape = RoundedCornerShape(999.dp)
-                    ) {
+                    if (isMain) {
                         Text(
-                            text = "Principal",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            text = "PRINCIPAL",
                             color = CreateGreen,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.sp
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(10.dp))
                 }
 
-                IconButton(onClick = onRemove) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.deleteiconitem),
-                        contentDescription = "Eliminar",
-                        tint = Color(0xFFD92D20)
-                    )
+                // Botón de eliminar tipo card
+                Surface(
+                    onClick = onRemove,
+                    color = CreateRed.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(40.dp),
+                    border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.1f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Eliminar",
+                            tint = CreateRed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+            
+            // RAYA SEPARADORA
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CreateBorder.copy(alpha = 0.6f))
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // INPUTS DE CANTIDAD Y PRECIO
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (bloquearEquivalencia) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Equivalencia",
-                            color = CreateTextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(58.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFFF6F7F9),
-                            border = BorderStroke(1.dp, CreateBorder)
-                        ) {
-                            Box(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                contentAlignment = Alignment.CenterStart
+                Box(modifier = Modifier.weight(1f)) {
+                    if (bloquearEquivalencia) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "EQUIVALENCIA",
+                                color = CreateTextSecondary,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.8.sp
+                            )
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                shape = RoundedCornerShape(28.dp),
+                                color = CreateBackground,
+                                border = BorderStroke(1.dp, CreateBorder)
                             ) {
-                                Text(
-                                    text = "${presentation.equivalenceText.ifBlank { "0" }} $unitLabel",
-                                    color = CreateTextPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Outlined.Inventory, null, tint = CreateTextSecondary.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "${presentation.equivalenceText} $unitLabel",
+                                        color = CreateTextPrimary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
+                                }
                             }
                         }
+                    } else {
+                        AppTextField(
+                            label = "EQUIVALENCIA",
+                            value = presentation.equivalenceText,
+                            placeholder = "Ej. 10",
+                            keyboardType = KeyboardType.Decimal,
+                            leadingIcon = Icons.Outlined.Inventory,
+                            trailingLabel = unitLabel,
+                            onValueChange = onEquivalenceChange
+                        )
                     }
-                } else {
-                    AppTextField(
-                        modifier = Modifier.weight(1f),
-                        label = "Equivalencia",
-                        value = presentation.equivalenceText,
-                        placeholder = "Ej. 1",
-                        keyboardType = KeyboardType.Decimal,
-                        onValueChange = onEquivalenceChange
-                    )
                 }
 
-                AppTextField(
-                    modifier = Modifier.weight(1f),
-                    label = "Precio venta",
-                    value = presentation.salePriceText,
-                    placeholder = "Ej. Bs 5.00",
-                    keyboardType = KeyboardType.Decimal,
-                    onValueChange = onPriceChange
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    AppTextField(
+                        label = "PRECIO VENTA",
+                        value = presentation.salePriceText,
+                        placeholder = "Ej. 50.00",
+                        keyboardType = KeyboardType.Decimal,
+                        leadingIcon = Icons.Outlined.AttachMoney,
+                        trailingLabel = "Bs",
+                        onValueChange = onPriceChange
+                    )
+                }
             }
 
             if (!error.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = error,
-                    color = Color(0xFFB42318),
-                    fontSize = 13.sp
+                    color = CreateRed,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -5403,7 +7142,7 @@ fun MainPresentationRadioGroup(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Presentacion principal para vender",
+            text = "Presentación principal para vender",
             color = CreateTextPrimary,
             fontWeight = FontWeight.SemiBold,
             fontSize = 16.sp,
@@ -5442,6 +7181,7 @@ fun MainPresentationRadioGroup(
                 fontSize = 13.sp
             )
         }
+
     }
 }
 
@@ -5459,28 +7199,37 @@ fun BottomStepActions(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 0.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (step != CreateProductStep.PRODUCTO) {
-                OutlinedButton(
-                    onClick = onPrevious,
-                    modifier = Modifier.weight(1f),
-                    enabled = !loading
-                ) {
-                    Text("Atras")
-                }
-            }
+            val isLast = step == CreateProductStep.RESUMEN
+
             Button(
                 onClick = onNext,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isLast) 62.dp else 54.dp)
+                    .then(
+                        if (isLast) {
+                            Modifier.graphicsLayer {
+                                translationY = if (loading) 0f else -2f
+                                shadowElevation = 12f
+                            }
+                        } else Modifier
+                    ),
                 enabled = nextEnabled && !loading,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CreateGreen,
                     contentColor = Color.White,
-                    disabledContainerColor = CreateBorder,
-                    disabledContentColor = CreateTextSecondary.copy(alpha = 0.5f)
+                    disabledContainerColor = CreateBorder.copy(alpha = 0.9f),
+                    disabledContentColor = CreateTextSecondary.copy(alpha = 0.55f)
+                ),
+                border = if (isLast) BorderStroke(1.dp, CreateGreen.copy(alpha = 0.5f)) else null,
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = if (isLast) 8.dp else 2.dp,
+                    pressedElevation = if (isLast) 2.dp else 4.dp
                 )
             ) {
                 Row(
@@ -5497,13 +7246,20 @@ fun BottomStepActions(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Procesando...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     } else {
-                        Text(nextLabel, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                        Text(
+                            text = if (isLast) "GUARDAR PRODUCTO" else nextLabel, 
+                            fontWeight = FontWeight.Black, 
+                            fontSize = if (isLast) 17.sp else 16.sp,
+                            letterSpacing = if (isLast) 0.5.sp else 0.sp
                         )
+                        if (!isLast) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -5589,6 +7345,7 @@ private fun AiPrescriptionInfoRow(requiresPrescription: Boolean) {
                 lineHeight = 16.sp
             )
         }
+
     }
 }
 
@@ -5619,7 +7376,7 @@ private fun CompactSwitchRow(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
@@ -5638,7 +7395,7 @@ private fun CompactSwitchRow(
             )
         }
         Switch(
-            checked = checked, 
+            checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
@@ -5650,323 +7407,6 @@ private fun CompactSwitchRow(
     }
 }
 
-
-@Composable
-private fun ReferenceCard(title: String, value: String) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = title,
-                color = CreateTextSecondary,
-                fontSize = 13.sp
-            )
-            Text(
-                text = value,
-                color = CreateTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProductReferenceStatusCard(
-    referenceState: ProductReferenceUiState,
-    onRetryReference: () -> Unit,
-    onOpenReference: () -> Unit,
-    onSkipReference: () -> Unit,
-    onSaveReference: (ProductReference) -> Unit
-) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Referencia inteligente",
-                color = CreateTextPrimary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp
-            )
-            when (referenceState.status) {
-                ProductReferenceStatus.LOADING -> {
-                    Text(
-                        text = "Buscando informacion confiable en español...",
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Estamos preparando palabras clave y referencia del producto.",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = CreateGreen,
-                        trackColor = CreateBorder
-                    )
-                    OutlinedButton(
-                        onClick = onSkipReference,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Continuar sin esperar")
-                    }
-                }
-                ProductReferenceStatus.READY -> {
-                    val reference = referenceState.reference
-                    val summary = reference?.toSummary()
-                    Text(
-                        text = "Referencia inteligente lista",
-                        color = CreateGreen,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Fuente: ${reference?.sourceName.orEmpty().ifBlank { "MedlinePlus en español" }}",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                    summary?.shortUse?.takeIf { it.isNotBlank() }?.let {
-                        ReferenceCard("Para que sirve", it)
-                    }
-                    summary?.keywords?.take(6)?.takeIf { it.isNotEmpty() }?.let {
-                        ReferenceChipCard("Palabras clave", it)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onOpenReference,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Ver informacion")
-                        }
-                        Button(
-                            onClick = { reference?.let(onSaveReference) },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Guardar como referencia")
-                        }
-                    }
-                    TextButton(onClick = onSkipReference) {
-                        Text("Omitir por ahora")
-                    }
-                }
-                ProductReferenceStatus.NOT_FOUND -> {
-                    Text(
-                        text = "No se encontró referencia confiable en español.",
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Puedes completarla manualmente.",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(
-                            onClick = onOpenReference,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Completar manualmente")
-                        }
-                        OutlinedButton(
-                            onClick = onSkipReference,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Omitir por ahora")
-                        }
-                    }
-                }
-                ProductReferenceStatus.ERROR -> {
-                    Text(
-                        text = "No se pudo consultar la fuente.",
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Revisa la conexión o completa la referencia manualmente.",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onRetryReference,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Reintentar")
-                        }
-                        Button(
-                            onClick = onOpenReference,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Completar manualmente")
-                        }
-                    }
-                    TextButton(onClick = onSkipReference) {
-                        Text("Omitir por ahora")
-                    }
-                }
-                ProductReferenceStatus.IDLE -> {
-                    Text(
-                        text = "La referencia se preparará en segundo plano cuando avances al paso 2.",
-                        color = CreateTextSecondary,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReferenceHeaderMeta(reference: ProductReference) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SummaryRow("Nombre escrito", reference.originalName)
-            SummaryRow("Coincidencia encontrada", reference.matchedName ?: "Sin coincidencia clara")
-            SummaryRow("RXCUI", reference.rxcui ?: "Sin RXCUI")
-            SummaryRow("Fuente", buildReferenceSourceText(reference))
-            SummaryRow("Confianza", "${(reference.confidence * 100).toInt()}%")
-        }
-    }
-}
-
-@Composable
-private fun ReferenceChipCard(title: String, items: List<String>) {
-    if (items.isEmpty()) return
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = title,
-                color = CreateTextSecondary,
-                fontSize = 13.sp
-            )
-            FlowRowCompact(items)
-        }
-    }
-}
-
-@Composable
-private fun FlowRowCompact(items: List<String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(3).forEach { row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                row.forEach { item ->
-                    Surface(
-                        color = CreateGreenSoft,
-                        shape = RoundedCornerShape(999.dp)
-                    ) {
-                        Text(
-                            text = item,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            color = CreateGreen,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EditableReferenceCard(
-    title: String,
-    value: String,
-    helper: String? = null,
-    onValueChange: (String) -> Unit
-) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = title,
-                color = CreateTextSecondary,
-                fontSize = 13.sp
-            )
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                )
-            )
-            helper?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    color = CreateTextSecondary,
-                    fontSize = 12.sp
-                )
-            }
-        }
-    }
-}
-
-private fun buildReferenceSourceText(reference: ProductReference): String {
-    return buildString {
-        append(reference.sourceName.ifBlank { "MedlinePlus en español" })
-        reference.sourceUrl?.takeIf { it.isNotBlank() }?.let {
-            append(" · ")
-            append(it)
-        }
-    }
-}
-
-private fun parseCommaList(raw: String): List<String> {
-    return raw.split(",")
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-        .distinct()
-}
 
 private fun String.stripAccents(): String {
     return java.text.Normalizer.normalize(this, java.text.Normalizer.Form.NFD)
@@ -5988,8 +7428,10 @@ private fun AppTextField(
     trailingIcon: @Composable (() -> Unit)? = null,
     leadingIcon: ImageVector? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    isSuccess: Boolean = false,
     focusRequester: FocusRequester? = null,
     onImeAction: (() -> Unit)? = null,
+    labelColor: Color? = null,
     onValueChange: (String) -> Unit
 ) {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
@@ -6000,81 +7442,41 @@ private fun AppTextField(
         if (label.isNotBlank()) {
             Text(
                 text = label,
-                color = if (error != null) CreateRed else CreateTextSecondary,
+                color = labelColor ?: if (error != null) CreateRed else CreateTextSecondary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 11.sp,
                 letterSpacing = 0.8.sp
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
         Surface(
             color = Color.White,
             shape = RoundedCornerShape(28.dp),
             border = BorderStroke(
-                width = if (hasFocus) 2.dp else 1.dp,
+                width = if (hasFocus || isSuccess) 2.dp else 1.dp,
                 color = when {
                     error != null -> CreateRed
+                    isSuccess -> CreateGreen
                     hasFocus -> CreateGreen
                     else -> CreateBorder
                 }
             ),
             shadowElevation = if (hasFocus) 3.dp else 0.dp
         ) {
-            OutlinedTextField(
+            val interactionSource = remember { MutableInteractionSource() }
+
+            BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(44.dp)
                     .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                     .bringIntoViewRequester(bringIntoViewRequester)
                     .onFocusChanged { hasFocus = it.isFocused },
                 singleLine = true,
-                leadingIcon = leadingIcon?.let {
-                    {
-                        Icon(
-                            imageVector = it,
-                            contentDescription = null,
-                            tint = if (hasFocus) CreateGreen else CreateTextSecondary.copy(alpha = 0.5f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                },
-                placeholder = {
-                    if (placeholder.isNotBlank()) {
-                        Text(
-                            text = placeholder,
-                            color = CreateTextSecondary.copy(alpha = 0.5f),
-                            fontSize = 15.sp
-                        )
-                    }
-                },
-                trailingIcon = if (trailingIcon != null || trailingLabel != null) {
-                    {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(end = 12.dp)
-                        ) {
-                            trailingIcon?.invoke()
-                            if (trailingLabel != null) {
-                                Text(
-                                    text = trailingLabel,
-                                    color = CreateTextSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                } else null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    errorBorderColor = Color.Transparent,
-                    cursorColor = CreateGreen,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                ),
+                interactionSource = interactionSource,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                 keyboardActions = KeyboardActions(
                     onDone = {
@@ -6085,11 +7487,70 @@ private fun AppTextField(
                         }
                     }
                 ),
-                isError = !error.isNullOrBlank(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
+                    fontSize = 16.sp,
+                    color = CreateTextPrimary
+                ),
+                decorationBox = { innerTextField ->
+                    TextFieldDefaults.DecorationBox(
+                        value = value,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = interactionSource,
+                        isError = !error.isNullOrBlank(),
+                        placeholder = {
+                            if (placeholder.isNotBlank()) {
+                                Text(
+                                    text = placeholder,
+                                    color = CreateTextSecondary.copy(alpha = 0.5f),
+                                    fontSize = 15.sp
+                                )
+                            }
+                        },
+                        leadingIcon = leadingIcon?.let {
+                            {
+                                Icon(
+                                    imageVector = it,
+                                    contentDescription = null,
+                                    tint = if (hasFocus) CreateGreen else CreateTextSecondary.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        trailingIcon = if (trailingIcon != null || trailingLabel != null) {
+                            {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 12.dp)
+                                ) {
+                                    trailingIcon?.invoke()
+                                    if (trailingLabel != null) {
+                                        Text(
+                                            text = trailingLabel,
+                                            color = CreateTextSecondary,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        } else null,
+                        shape = RoundedCornerShape(28.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            errorIndicatorColor = Color.Transparent,
+                            cursorColor = CreateGreen
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        container = {}
+                    )
+                }
             )
         }
 
@@ -6142,7 +7603,7 @@ private fun AppTextField(
 
 
 /**
- * Botón "📷 Escanear etiqueta" + estados (idle/loading/result/error).
+ * BotÃ³n "ðŸ“· Escanear etiqueta" + estados (idle/loading/result/error).
  *
  * Cuando hay un resultado nuevo, muestra una tarjeta con lo detectado y
  * dos acciones: [Aplicar] (rellena los campos) y [Descartar].
@@ -6152,13 +7613,15 @@ private fun LabelScannerRow(
     state: com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState,
     onRequestScan: () -> Unit,
     onApplyResult: (com.app.administradorfarmadon.ActivityInventario.reference.EtiquetaDetectada) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    showScanButton: Boolean = true
 ) {
     val statusLoading = com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.LOADING
     val statusReady = com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY
     val statusError = com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.ERROR
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (showScanButton) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -6197,6 +7660,7 @@ private fun LabelScannerRow(
                 }
             }
         }
+        }
 
         AnimatedVisibility(
             visible = state.status == statusReady && state.resultado != null,
@@ -6209,9 +7673,9 @@ private fun LabelScannerRow(
                 val estaVencido = periodo == "Vencido"
                 val vencDetectado = !r.vencimientoMmAa.isNullOrBlank()
 
-                // Auto-aplicar al aparecer la tarjeta READY: no hay botón
-                // "Aplicar" — los datos se inyectan al formulario apenas
-                // se detectan. Si el vencimiento está vencido NO se aplica
+                // Auto-aplicar al aparecer la tarjeta READY: no hay botÃ³n
+                // "Aplicar" â€” los datos se inyectan al formulario apenas
+                // se detectan. Si el vencimiento estÃ¡ vencido NO se aplica
                 // (la callback interna ya filtra fechas pasadas).
                 LaunchedEffect(r) {
                     onApplyResult(r)
@@ -6334,7 +7798,8 @@ private fun ExpirationDateField(
     error: String? = null,
     helper: String? = null,
     helperColor: Color = CreateTextSecondary,
-    placeholder: String = "",
+    isSuccess: Boolean = false,
+    enabled: Boolean = true,
     onValueChange: (String) -> Unit
 ) {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
@@ -6344,7 +7809,9 @@ private fun ExpirationDateField(
     val navigationBottom = WindowInsets.navigationBars.getBottom(density)
     val keyboardVisible = imeBottom > navigationBottom
 
-    // Estado del picker visual de fecha. Se abre al tocar el icono 📅.
+    val focusManager = LocalFocusManager.current
+
+    // Estado del picker visual de fecha. Se abre al tocar el campo.
     var showDatePicker by remember { mutableStateOf(false) }
 
     var hasFocus by remember { mutableStateOf(false) }
@@ -6373,78 +7840,100 @@ private fun ExpirationDateField(
         }
     }
 
-    Column {
-        Text(
-            text = label,
-            color = CreateTextPrimary,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp
-        )
+    Column(modifier = modifier) {
+        if (label.isNotBlank()) {
+            Text(
+                text = label,
+                color = if (!enabled) CreateTextSecondary.copy(alpha = 0.5f) else if (error != null) CreateRed else CreateTextSecondary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 11.sp,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = fieldValue,
-            onValueChange = { newValue ->
-                val deleting = newValue.text.length < fieldValue.text.length
-                val formatted = formatExpirationDateInput(newValue.text, deleting)
-
-                fieldValue = TextFieldValue(
-                    text = formatted,
-                    selection = TextRange(formatted.length)
-                )
-
-                onValueChange(formatted)
-            },
-            modifier = modifier
-                .fillMaxWidth()
-                .bringIntoViewRequester(bringIntoViewRequester)
-                .onFocusChanged { focusState ->
-                    hasFocus = focusState.isFocused
-                },
-            singleLine = true,
-            placeholder = {
-                Text(
-                    text = placeholder.ifBlank { "Mes/Año: 07/28" },
-                    color = CreateTextSecondary
-                )
-            },
-            trailingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "MM/AA",
-                        color = CreateTextSecondary,
-                        fontSize = 12.sp
-                    )
-                    IconButton(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Text(text = "📅", fontSize = 18.sp)
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    bringIntoViewScope.launch {
-                        delay(60)
-                        bringIntoViewRequester.bringIntoView()
-                    }
+        Surface(
+            color = if (enabled) Color.White else CreateBackground,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(
+                width = if (enabled && (hasFocus || isSuccess)) 2.dp else 1.dp,
+                color = when {
+                    !enabled -> CreateBorder.copy(alpha = 0.5f)
+                    error != null -> CreateRed
+                    isSuccess -> CreateGreen
+                    hasFocus -> CreateGreen
+                    else -> CreateBorder
                 }
             ),
-            isError = !error.isNullOrBlank(),
-            shape = RoundedCornerShape(18.dp)
-        )
+            shadowElevation = if (enabled && hasFocus) 3.dp else 0.dp,
+            modifier = Modifier.clickable(enabled = enabled) { 
+                showDatePicker = true 
+            }
+        ) {
+            val interactionSource = remember { MutableInteractionSource() }
 
-        if (!error.isNullOrBlank()) {
+            BasicTextField(
+                value = fieldValue,
+                onValueChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onFocusChanged { focusState ->
+                        hasFocus = focusState.isFocused
+                        if (enabled && focusState.isFocused) {
+                            showDatePicker = true
+                        }
+                    },
+                readOnly = true,
+                enabled = enabled,
+                singleLine = true,
+                interactionSource = interactionSource,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = if (enabled) CreateTextPrimary else CreateTextSecondary.copy(alpha = 0.5f)
+                ),
+                decorationBox = { innerTextField ->
+                    TextFieldDefaults.DecorationBox(
+                        value = fieldValue.text,
+                        innerTextField = innerTextField,
+                        enabled = enabled,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = interactionSource,
+                        isError = !error.isNullOrBlank(),
+                        placeholder = {
+                            Text(
+                                text = "MM/AA",
+                                color = if (enabled) CreateTextSecondary else CreateTextSecondary.copy(alpha = 0.3f)
+                            )
+                        },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            errorIndicatorColor = Color.Transparent
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        container = {}
+                    )
+                }
+            )
+        }
+
+        if (enabled && !error.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = error,
-                color = Color(0xFFB42318),
-                fontSize = 13.sp
+                color = CreateRed,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
             )
-        } else if (!helper.isNullOrBlank()) {
+        } else if (enabled && !helper.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -6460,68 +7949,535 @@ private fun ExpirationDateField(
                 Text(
                     text = helper,
                     color = helperColor,
-                    fontSize = 13.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
         }
     }
 
-    // Date picker visual: alternativa al tipeo manual. Al confirmar, mapeamos
-    // la fecha seleccionada a MM/AA y la inyectamos al campo. Solo permitimos
-    // fechas desde hoy hasta el año máximo permitido (year + 10).
     if (showDatePicker) {
-        val today = java.time.LocalDate.now()
-        val initialMillis = parseExpirationToMillis(value, today)
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialMillis,
-            yearRange = today.year..(today.year + 10),
-            selectableDates = object : androidx.compose.material3.SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    // Vencer en el pasado no tiene sentido al crear un lote.
-                    val startOfTodayUtc = today.atStartOfDay(
-                        java.time.ZoneOffset.UTC
-                    ).toInstant().toEpochMilli()
-                    return utcTimeMillis >= startOfTodayUtc
-                }
+        ExpirationMonthYearDialog(
+            value = value,
+            onDismiss = { 
+                showDatePicker = false
+                focusManager.clearFocus()
+            },
+            onConfirm = { formatted ->
+                fieldValue = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(formatted.length)
+                )
+                onValueChange(formatted)
+                showDatePicker = false
+                focusManager.clearFocus()
             }
         )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val millis = datePickerState.selectedDateMillis
-                    if (millis != null) {
-                        val ld = java.time.Instant.ofEpochMilli(millis)
-                            .atZone(java.time.ZoneOffset.UTC)
-                            .toLocalDate()
-                        val mm = ld.monthValue.toString().padStart(2, '0')
-                        val aa = (ld.year % 100).toString().padStart(2, '0')
-                        val formatted = "$mm/$aa"
-                        fieldValue = TextFieldValue(
-                            text = formatted,
-                            selection = TextRange(formatted.length)
-                        )
-                        onValueChange(formatted)
-                    }
-                    showDatePicker = false
-                }) { Text("Aceptar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancelar")
+    }
+}
+
+@Composable
+fun FullDateField(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    error: String? = null,
+    helper: String? = null,
+    helperColor: Color = CreateTextSecondary,
+    isSuccess: Boolean = false,
+    enabled: Boolean = true,
+    onValueChange: (String) -> Unit
+) {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val focusManager = LocalFocusManager.current
+    var showDatePicker by remember { mutableStateOf(false) }
+    var hasFocus by remember { mutableStateOf(false) }
+
+    var fieldValue by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = value,
+                selection = TextRange(value.length)
+            )
+        )
+    }
+
+    LaunchedEffect(value) {
+        if (fieldValue.text != value) {
+            fieldValue = TextFieldValue(text = value, selection = TextRange(value.length))
+        }
+    }
+
+    Column(modifier = modifier) {
+        if (label.isNotBlank()) {
+            Text(
+                text = label,
+                color = if (!enabled) CreateTextSecondary.copy(alpha = 0.5f) else if (error != null) CreateRed else CreateTextSecondary,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 11.sp,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        Surface(
+            color = if (enabled) Color.White else CreateBackground,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(
+                width = if (enabled && (hasFocus || isSuccess)) 2.dp else 1.dp,
+                color = when {
+                    !enabled -> CreateBorder.copy(alpha = 0.5f)
+                    error != null -> CreateRed
+                    isSuccess -> CreateGreen
+                    hasFocus -> CreateGreen
+                    else -> CreateBorder
                 }
-            },
-            colors = DatePickerDefaults.colors()
+            ),
+            shadowElevation = if (enabled && hasFocus) 3.dp else 0.dp,
+            modifier = Modifier.clickable(enabled = enabled) { 
+                showDatePicker = true 
+            }
         ) {
-            DatePicker(state = datePickerState)
+            val interactionSource = remember { MutableInteractionSource() }
+
+            BasicTextField(
+                value = fieldValue,
+                onValueChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onFocusChanged { focusState ->
+                        hasFocus = focusState.isFocused
+                        if (enabled && focusState.isFocused) {
+                            showDatePicker = true
+                        }
+                    },
+                readOnly = true,
+                enabled = enabled,
+                singleLine = true,
+                interactionSource = interactionSource,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = if (enabled) CreateTextPrimary else CreateTextSecondary.copy(alpha = 0.5f)
+                ),
+                decorationBox = { innerTextField ->
+                    TextFieldDefaults.DecorationBox(
+                        value = fieldValue.text,
+                        innerTextField = innerTextField,
+                        enabled = enabled,
+                        singleLine = true,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = interactionSource,
+                        isError = !error.isNullOrBlank(),
+                        placeholder = {
+                            Text(
+                                text = "DD/MM/AAAA",
+                                color = if (enabled) CreateTextSecondary else CreateTextSecondary.copy(alpha = 0.3f)
+                            )
+                        },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            errorIndicatorColor = Color.Transparent
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        container = {}
+                    )
+                }
+            )
+        }
+
+        if (enabled && !error.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = error,
+                color = CreateRed,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        } else if (enabled && !helper.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = helper,
+                color = helperColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+
+    if (showDatePicker) {
+        FullDatePickerDialog(
+            value = value,
+            onDismiss = { 
+                showDatePicker = false
+                focusManager.clearFocus()
+            },
+            onConfirm = { formatted ->
+                fieldValue = TextFieldValue(text = formatted, selection = TextRange(formatted.length))
+                onValueChange(formatted)
+                showDatePicker = false
+                focusManager.clearFocus()
+            }
+        )
+    }
+}
+
+@Composable
+private fun FullDatePickerDialog(
+    value: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val today = LocalDate.now()
+    
+    // Parse current value or use today
+    val initialDate = try {
+        val parts = value.split("/")
+        if (parts.size == 3) {
+            LocalDate.of(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+        } else today
+    } catch (e: Exception) {
+        today
+    }
+
+    var selectedYear by remember { mutableStateOf(initialDate.year) }
+    var selectedMonth by remember { mutableStateOf(initialDate.monthValue) }
+    var selectedDay by remember { mutableStateOf(initialDate.dayOfMonth) }
+
+    // Ensure selectedDay is valid for the selected month/year
+    val daysInMonth = remember(selectedMonth, selectedYear) {
+        YearMonth.of(selectedYear, selectedMonth).lengthOfMonth()
+    }
+    
+    LaunchedEffect(daysInMonth) {
+        if (selectedDay > daysInMonth) {
+            selectedDay = daysInMonth
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            shadowElevation = 16.dp,
+            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.15f))
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().background(PremiumGradient)) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Text(
+                        text = "Vencimiento del pago",
+                        color = CreateTextPrimary,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+
+                    // SELECTOR DE AÑO
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Año:", color = CreateTextSecondary, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp))
+                        OutlinedButton(
+                            onClick = { selectedYear-- },
+                            enabled = selectedYear > today.year - 5,
+                            modifier = Modifier.size(44.dp),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text("-", fontSize = 20.sp) }
+                        
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            color = Color.White.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = selectedYear.toString(),
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                color = CreateTextPrimary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { selectedYear++ },
+                            enabled = selectedYear < today.year + 10,
+                            modifier = Modifier.size(44.dp),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text("+", fontSize = 20.sp) }
+                    }
+
+                    // SELECTOR DE MES
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Mes:", color = CreateTextSecondary, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp))
+                        val monthName = YearMonth.of(selectedYear, selectedMonth).month.getDisplayName(java.time.format.TextStyle.FULL, Locale("es", "ES"))
+                            .replaceFirstChar { it.uppercase() }
+                        
+                        IconButton(onClick = { if (selectedMonth > 1) selectedMonth-- else selectedMonth = 12 }) {
+                            Icon(Icons.Default.ChevronRight, null, modifier = Modifier.graphicsLayer { rotationZ = 180f })
+                        }
+                        
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            color = Color.White.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = monthName,
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                color = CreateTextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        IconButton(onClick = { if (selectedMonth < 12) selectedMonth++ else selectedMonth = 1 }) {
+                            Icon(Icons.Default.ChevronRight, null)
+                        }
+                    }
+
+                    // GRID DE DÍAS
+                    Text("Día:", color = CreateTextSecondary, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        for (day in 1..daysInMonth) {
+                            val isSelected = selectedDay == day
+                            Surface(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedDay = day },
+                                color = if (isSelected) CreateGreen else Color.White.copy(alpha = 0.3f),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = day.toString(),
+                                        color = if (isSelected) Color.White else CreateTextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f).height(54.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Cancelar", fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                val d = selectedDay.toString().padStart(2, '0')
+                                val m = selectedMonth.toString().padStart(2, '0')
+                                onConfirm("$d/$m/$selectedYear")
+                            },
+                            modifier = Modifier.weight(1f).height(54.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                        ) {
+                            Text("Confirmar", fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpirationMonthYearDialog(
+    value: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val today = LocalDate.now()
+    val currentMonth = today.monthValue
+    val currentYear = today.year
+    val initialParts = value.split("/")
+    var selectedYear by remember(value) {
+        mutableStateOf((initialParts.getOrNull(1)?.toIntOrNull()?.plus(2000) ?: currentYear).coerceIn(currentYear, currentYear + 10))
+    }
+    var selectedMonth by remember(value, selectedYear) {
+        val initialMonth = initialParts.getOrNull(0)?.toIntOrNull()
+            ?.takeIf { it in 1..12 }
+            ?: currentMonth
+        mutableStateOf(
+            if (selectedYear == currentYear) initialMonth.coerceAtLeast(currentMonth) else initialMonth
+        )
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            shadowElevation = 16.dp,
+            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.15f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PremiumGradient)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    Text(
+                        text = "Vencimiento del lote",
+                        color = CreateTextPrimary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        text = "Selecciona mes y año. No se muestran meses vencidos.",
+                        color = CreateTextSecondary,
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                selectedYear = (selectedYear - 1).coerceAtLeast(currentYear)
+                                if (selectedYear == currentYear) selectedMonth = selectedMonth.coerceAtLeast(currentMonth)
+                            },
+                            enabled = selectedYear > currentYear,
+                            modifier = Modifier.size(52.dp),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            color = Color.White.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.2f))
+                        ) {
+                            Text(
+                                text = selectedYear.toString(),
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = CreateGreen,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { selectedYear = (selectedYear + 1).coerceAtMost(currentYear + 10) },
+                            enabled = selectedYear < currentYear + 10,
+                            modifier = Modifier.size(52.dp),
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(0.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Text("+", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        (1..12).forEach { month ->
+                            val enabled = selectedYear > currentYear || month >= currentMonth
+                            val isSelected = selectedMonth == month
+
+                            Surface(
+                                modifier = Modifier
+                                    .size(width = 64.dp, height = 44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(enabled = enabled) { selectedMonth = month },
+                                color = if (isSelected) CreateGreen else if (enabled) Color.White.copy(alpha = 0.4f) else CreateBackground.copy(alpha = 0.5f),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = month.toString().padStart(2, '0'),
+                                        color = if (isSelected) Color.White else if (enabled) CreateTextPrimary else CreateTextSecondary.copy(alpha = 0.4f),
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f).height(54.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Text("Cancelar", color = CreateTextSecondary, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                val mm = selectedMonth.toString().padStart(2, '0')
+                                val aa = (selectedYear % 100).toString().padStart(2, '0')
+                                onConfirm("$mm/$aa")
+                            },
+                            modifier = Modifier.weight(1f).height(54.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                        ) {
+                            Text("Aplicar", fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 /**
  * Convierte un texto "MM/AA" a millis UTC para inicializar el DatePicker.
- * Si el texto está vacío o es inválido, retorna la fecha actual.
+ * Si el texto estÃ¡ vacÃ­o o es invÃ¡lido, retorna la fecha actual.
  */
 private fun parseExpirationToMillis(
     value: String,
@@ -6539,19 +8495,19 @@ private fun parseExpirationToMillis(
 }
 
 /**
- * Picker de categoría dirigido por IA (Gemini).
+ * Picker de categorÃ­a dirigido por IA (Gemini).
  *
- * Renderiza distintas vistas según el `status`:
- *  - INITIAL: tarjeta vacía invitando a escribir el nombre del producto.
+ * Renderiza distintas vistas segÃºn el `status`:
+ *  - INITIAL: tarjeta vacÃ­a invitando a escribir el nombre del producto.
  *  - LOADING: tarjeta con shimmer animado mientras Gemini consulta.
- *  - READY: tarjeta hermosa con el emoji + categoría + confianza + razón.
+ *  - READY: tarjeta hermosa con el emoji + categorÃ­a + confianza + razÃ³n.
  *           El campo `state.category` ya fue auto-rellenado por el caller,
- *           así que aquí solo hay un botón discreto para "escribir manualmente".
+ *           asÃ­ que aquÃ­ solo hay un botÃ³n discreto para "escribir manualmente".
  *  - MANUAL / FALLBACK_MANUAL: aparece el text field tradicional con
- *           autocomplete sobre las categorías existentes.
+ *           autocomplete sobre las categorÃ­as existentes.
  *
  * El text field NO se muestra fuera de los estados MANUAL/FALLBACK_MANUAL;
- * eso evita la confusión visual de "dos lugares para escribir".
+ * eso evita la confusiÃ³n visual de "dos lugares para escribir".
  */
 @Composable
 private fun CategoryAutocompleteField(
@@ -6562,12 +8518,10 @@ private fun CategoryAutocompleteField(
     error: String?,
     controlType: CreateProductControlType?,
     controlTypeError: String?,
-    isWaitingForAi: Boolean = false, // <--- 1. AÑADE EL PARÁMETRO AQUÍ
     onValueChange: (String) -> Unit,
     onControlTypeChange: (CreateProductControlType) -> Unit,
 
     suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
-    onAcceptSuggestion: (CategorySuggestion) -> Unit = {},
     onSwitchToManual: () -> Unit = {},
     onBackToAi: () -> Unit = {},
     onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
@@ -6577,7 +8531,7 @@ private fun CategoryAutocompleteField(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // 1. NUEVO: Creamos un requester específico para la tarjeta de carga
+    // 1. NUEVO: Creamos un requester especÃ­fico para la tarjeta de carga
     val loadingRequester = remember { BringIntoViewRequester() }
 
     val suggestedControlType = remember(suggestionState.sugerenciaTipoManual, value, suggestionState.suggestion, categorySelectedFromAi) {
@@ -6599,60 +8553,24 @@ private fun CategoryAutocompleteField(
     // 2. NUEVO: Forzar el scroll hacia la tarjeta cuando el estado cambie a LOADING
     LaunchedEffect(suggestionState.status) {
         if (suggestionState.status == CategorySuggestionStatus.LOADING) {
-            delay(150) // Breve pausa para dejar que la animación nazca
+            delay(150) // Breve pausa para dejar que la animaciÃ³n nazca
             loadingRequester.bringIntoView()
         }
     }
 
     Column(
-        modifier = modifier, // 3. NUEVO: Pasamos el modifier principal al contenedor padre
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val isAnalyzing = suggestionState.status == CategorySuggestionStatus.LOADING || isWaitingForAi
+            val isAnalyzing = suggestionState.status == CategorySuggestionStatus.LOADING ||
+                suggestionState.estaCargandoAsistencia
             val isReady = suggestionState.status == CategorySuggestionStatus.READY
+            val isManual = suggestionState.status == CategorySuggestionStatus.MANUAL ||
+                suggestionState.status == CategorySuggestionStatus.FALLBACK_MANUAL
+            val isInitial = suggestionState.status == CategorySuggestionStatus.INITIAL
 
-            var hasSectionPopped by remember { mutableStateOf(false) }
-            LaunchedEffect(isReady, value.isNotBlank()) {
-                if (isReady || value.isNotBlank()) hasSectionPopped = true
-            }
-
-            LaunchedEffect(productName) {
-                if (productName.isBlank()) {
-                    hasSectionPopped = false
-                }
-            }
-
-            val showCategorySection = hasSectionPopped && !isAnalyzing
-
-            AnimatedVisibility(
-                visible = showCategorySection,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                CategoryManualEntry(
-                    modifier = Modifier, // 4. NUEVO: Quitamos el modifier de aquí para no duplicar el requester
-                    value = value,
-                    options = options,
-                    error = error,
-                    showBackToAi = false,
-                    onValueChange = onValueChange,
-                    onCategorySelectedFromSuggestion = { selected ->
-                        onCategorySelectedFromSuggestion(selected)
-                        focusManager.clearFocus(force = true)
-                        keyboardController?.hide()
-                    },
-                    onBackToAi = onBackToAi,
-                    suggestionState = suggestionState,
-                    label = "CATEGORÍA",
-                    placeholder = "Ej. Analgésicos",
-                    leadingIcon = Icons.Outlined.Grass,
-                    trailingIcon = null,
-                    suppressSuggestions = categorySelectedFromAi
-                )
-            }
-
-            // Estado de carga
+            // 1. ESTADO DE CARGA / ANÁLISIS
             AnimatedVisibility(
                 visible = isAnalyzing,
                 enter = fadeIn() + expandVertically(),
@@ -6661,7 +8579,7 @@ private fun CategoryAutocompleteField(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .bringIntoViewRequester(loadingRequester), // 5. NUEVO: Añadimos el requester a la tarjeta de carga
+                        .bringIntoViewRequester(loadingRequester),
                     color = Color.White,
                     shape = RoundedCornerShape(22.dp),
                     border = BorderStroke(1.dp, CreateBorder)
@@ -6693,330 +8611,128 @@ private fun CategoryAutocompleteField(
                 }
             }
 
+            // 2. SUGERENCIA IA (NUEVA UX PREMIUM: Sólo se muestra si NO estamos en manual)
+            AnimatedVisibility(
+                visible = isReady && suggestionState.suggestion != null && !isManual && value.isBlank(),
+                enter = fadeIn() + slideInVertically { it / 4 },
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                suggestionState.suggestion?.let { suggestion ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "CATEGORÍA SUGERIDA",
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+
+                        // TARJETA DE SELECCIÓN COMPACTA Y SIN ICONOS
+                        Surface(
+                            modifier = Modifier
+                                .wrapContentWidth()
+                                .clickable { onCategorySelectedFromSuggestion(suggestion.categoria) },
+                            color = Color.White,
+                            shape = RoundedCornerShape(16.dp),
+                            shadowElevation = 2.dp,
+                            border = BorderStroke(1.5.dp, CreateGreen.copy(alpha = 0.4f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = suggestion.categoria,
+                                    color = CreateGreen,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .background(CreateGreen.copy(alpha = 0.1f), CircleShape)
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "ESCOGER",
+                                        color = CreateGreen,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+
+                        // Botón sutil para forzar manual
+                        TextButton(
+                            onClick = onSwitchToManual,
+                            modifier = Modifier.align(Alignment.Start),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp), tint = CreateTextSecondary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Escribir manualmente",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CreateTextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 3. ENTRADA MANUAL (SÓLO SI SE SOLICITA O SI YA HAY UN VALOR SELECCIONADO/ESCRITO)
+            // Se muestra si el usuario lo pide (isManual) o si ya tenemos un valor (value no vacío)
+            val showManualEntry = isManual || value.isNotBlank()
+            val isCategoryValid = value.isNotBlank() && error == null
+
+            AnimatedVisibility(
+                visible = showManualEntry,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                CategoryManualEntry(
+                    modifier = Modifier,
+                    value = value,
+                    options = options,
+                    error = error,
+                    isSuccess = isCategoryValid,
+                    showBackToAi = false, // V28.5: Desactivado para no distraer al usuario tras su decisión
+                    onValueChange = onValueChange,
+                    onCategorySelectedFromSuggestion = { selected ->
+                        onCategorySelectedFromSuggestion(selected)
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                    },
+                    onBackToAi = onBackToAi,
+                    suggestionState = suggestionState,
+                    label = "CATEGORÍA",
+                    placeholder = "Ej. Analgésicos",
+                    leadingIcon = Icons.Outlined.Grass,
+                    trailingIcon = null,
+                    suppressSuggestions = categorySelectedFromAi
+                )
+            }
+
             // Selector de tipo de producto
             AnimatedVisibility(
                 visible = value.isNotBlank(),
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                CreateSectionCard(
-                    title = "¿Cómo se controla este producto?",
-                    subtitle = "Selecciona según su forma física"
-                ) {
-                    ProductTypeSelector(
-                        selected = controlType,
-                        error = controlTypeError,
-                        suggestedType = suggestedControlType,
-                        showSuggestionBadge = suggestedControlType != null,
-                        onSelected = onControlTypeChange
-                    )
-                }
-            }
-        }
-    }
-}
-
-
-
-
-
-
-@Composable
-private fun AiResultCard(
-    suggestion: CategorySuggestion,
-    onSwitchToManual: () -> Unit,
-    onAccept: (CategorySuggestion) -> Unit
-) {
-    // Animación de aparición: escala + fade.
-    val appearance = remember { Animatable(0.85f) }
-    LaunchedEffect(suggestion.categoria) {
-        appearance.snapTo(0.85f)
-        appearance.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = 0.55f,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
-        // Auto-aceptar: registramos la decisión apenas se muestra el resultado.
-        // El usuario no ve botón "Usar"; si no le gusta presiona el botón
-        // pequeño "Escribir otra manualmente" más abajo.
-        onAccept(suggestion)
-    }
-
-    val tipoLabel = when (suggestion.tipoControl) {
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD ->
-            "Parece control por unidad"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO ->
-            "Parece control por peso (g / kg)"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO ->
-            "Parece control por volumen (mL / L)"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.DESCONOCIDO ->
-            null
-    }
-    val tipoEmoji = when (suggestion.tipoControl) {
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD -> "🔢"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO -> "⚖️"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO -> "🧪"
-        com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.DESCONOCIDO -> "❓"
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFF1FBF5),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.45f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 18.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "✨", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Detectado por IA",
-                    color = CreateGreen,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
-                    letterSpacing = 0.4.sp
+                ProductTypeSelector(
+                    selected = controlType,
+                    error = controlTypeError,
+                    suggestedType = suggestedControlType,
+                    showSuggestionBadge = suggestedControlType != null,
+                    onSelected = onControlTypeChange
                 )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Bloque interior blanco: categoría arriba, divisor sutil, tipo abajo.
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsScale(appearance.value),
-                color = Color.White,
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.3f))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = suggestion.emoji,
-                        fontSize = 34.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "CATEGORÍA",
-                        color = CreateTextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = suggestion.categoria,
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    if (!suggestion.existeEnLista) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Surface(
-                            color = CreateOrangeSoft,
-                            shape = RoundedCornerShape(999.dp)
-                        ) {
-                            Text(
-                                text = "Categoría nueva",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                color = CreateOrange,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    if (tipoLabel != null) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(CreateBorder)
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "TIPO DE CONTROL",
-                            color = CreateTextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = tipoEmoji, fontSize = 22.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = tipoLabel,
-                                color = CreateTextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                        if (suggestion.razonTipo.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = suggestion.razonTipo,
-                                color = CreateTextSecondary,
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-
-                    // --- NUEVA SECCIÓN: PRESENTACIONES SUGERIDAS POR IA ---
-                    if (suggestion.presentacionesSugeridas.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(CreateBorder)
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "PRESENTACIONES SUGERIDAS",
-                            color = CreateTextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            suggestion.presentacionesSugeridas.forEach { sug ->
-                                Surface(
-                                    color = Color(0xFFF8F9FB),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, CreateBorder)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(text = "✨", fontSize = 10.sp)
-                                        Text(
-                                            text = sug.nombre,
-                                            color = CreateTextPrimary,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
-                                        )
-                                        Text(
-                                            text = "x${sug.equivalenciaUnidadBase}",
-                                            color = CreateGreen,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Bloque receta médica
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(CreateBorder)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "RECETA MÉDICA",
-                        color = CreateTextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val recetaEmoji = if (suggestion.requiereReceta) "📋" else "🟢"
-                    val recetaLabel = if (suggestion.requiereReceta)
-                        "Requiere receta médica"
-                    else "No requiere receta"
-                    val recetaColor = if (suggestion.requiereReceta) CreateOrange else CreateGreen
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = recetaEmoji, fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = recetaLabel,
-                            color = recetaColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                    if (suggestion.razonReceta.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = suggestion.razonReceta,
-                            color = CreateTextSecondary,
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Barra de confianza visual.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(suggestion.confianza / 100f)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(CreateGreen)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "${suggestion.confianza}%",
-                    color = CreateGreen,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
-            }
-
-            if (suggestion.razon.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "“${suggestion.razon}”",
-                    color = CreateTextSecondary,
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onSwitchToManual) {
-                    Text("Cambiar manualmente")
-                }
             }
         }
     }
@@ -7028,13 +8744,14 @@ private fun CategoryManualEntry(
     value: String,
     options: List<String>,
     error: String?,
+    isSuccess: Boolean = false,
     showBackToAi: Boolean,
     onValueChange: (String) -> Unit,
     onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
     onBackToAi: () -> Unit,
     suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
     label: String = "",
-    placeholder: String = "Ej. Analgesicos",
+    placeholder: String = "Ej. Analgésicos",
     leadingIcon: ImageVector? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     suppressSuggestions: Boolean = false
@@ -7042,7 +8759,7 @@ private fun CategoryManualEntry(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var hasCategoryFocus by remember { mutableStateOf(false) }
-    
+
     val suggestionsRequester = remember { BringIntoViewRequester() }
 
     val suggestions = remember(value, hasCategoryFocus, options, suggestionState.asistenciaManualCategorias, suggestionState.suggestion, suppressSuggestions) {
@@ -7054,7 +8771,7 @@ private fun CategoryManualEntry(
             .filter { it.isNotBlank() }
             .distinctBy { it.trim().stripAccents().lowercase() }
 
-        // --- MEJORA: Eliminamos la restricción de !hasCategoryFocus ---
+        // --- MEJORA: Eliminamos la restricciÃ³n de !hasCategoryFocus ---
         // Ahora, si la IA tiene un resultado (mainAiResult), se muestra SIEMPRE.
         // Si no hay IA, mantenemos el comportamiento anterior (esperar foco o valor).
 
@@ -7081,7 +8798,7 @@ private fun CategoryManualEntry(
     // Auto-scroll para que el teclado no tape las sugerencias
     LaunchedEffect(suggestions.isNotEmpty(), hasCategoryFocus) {
         if (suggestions.isNotEmpty() && hasCategoryFocus) {
-            delay(400) // Un poquito más de delay para asegurar que el teclado terminó
+            delay(400) // Un poquito mÃ¡s de delay para asegurar que el teclado terminÃ³
             suggestionsRequester.bringIntoView()
         }
     }
@@ -7092,6 +8809,7 @@ private fun CategoryManualEntry(
             label = label,
             value = value,
             error = error,
+            isSuccess = isSuccess,
             placeholder = placeholder,
             leadingIcon = leadingIcon,
             trailingIcon = trailingIcon ?: if (value.isNotBlank() && error == null) {
@@ -7107,7 +8825,7 @@ private fun CategoryManualEntry(
             exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
         ) {
             Column(modifier = Modifier.bringIntoViewRequester(suggestionsRequester)) {
-                // Etiqueta de sugerencia solicitada: solo si no hay foco y el valor está vacío (modo silencioso)
+                // Etiqueta de sugerencia solicitada: solo si no hay foco y el valor estÃ¡ vacÃ­o (modo silencioso)
                 if (!hasCategoryFocus && value.isBlank() && mainAiResult != null && suggestions.contains(mainAiResult)) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -7132,7 +8850,7 @@ private fun CategoryManualEntry(
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         suggestions.forEachIndexed { index, option ->
                             val isAiSuggestion = mainAiResult != null && option.equals(mainAiResult, ignoreCase = true)
-                            
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -7171,7 +8889,7 @@ private fun CategoryManualEntry(
                         }
                     }
                 }
-                // Espacio extra para que el scroll baje un poco más y no quede pegado al teclado
+                // Espacio extra para que el scroll baje un poco mÃ¡s y no quede pegado al teclado
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
@@ -7302,6 +9020,7 @@ private fun SelectionField(
                 }
             )
         }
+
     }
 }
 
@@ -7380,32 +9099,95 @@ private fun parseCreateProductNumber(value: String): Double {
 }
 
 fun calculateTotalBaseStock(state: CreateProductState): Double {
-    val unitMultiplier = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") 1000.0 else 1.0
-    return when (state.stockEntryMode) {
+    val rawAmount = when (state.stockEntryMode) {
         null -> 0.0
-        CreateProductStockEntryMode.UNIDAD -> parseCreateProductNumber(state.receivedUnitsText) * unitMultiplier
+        CreateProductStockEntryMode.UNIDAD -> {
+            val quantity = parseCreateProductNumber(state.receivedUnitsText)
+            val content = parseCreateProductNumber(state.unitsPerItemText)
+            if (state.controlType == CreateProductControlType.UNIDAD) {
+                if (content > 0.0) quantity * content else quantity
+            } else if (content > 0.0) {
+                quantity * content
+            } else {
+                0.0
+            }
+        }
         CreateProductStockEntryMode.CAJA -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
-            val perBox = parseCreateProductNumber(state.unitsPerBoxText)
-            val perItem = parseCreateProductNumber(state.unitsPerItemText)
-            val content = if (state.controlType == CreateProductControlType.UNIDAD || perItem <= 0.0) 1.0 else perItem * unitMultiplier
-            boxes * perBox * content
+            val itemsPerBox = parseCreateProductNumber(state.unitsPerBoxText)
+            val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
+            
+            if (state.controlType == CreateProductControlType.UNIDAD) {
+                val totalItems = boxes * itemsPerBox
+                if (unitsPerItem > 0.0) totalItems * unitsPerItem else totalItems
+            } else if (unitsPerItem > 0.0) {
+                // Para Líquido/Peso: Cajas * Envases en cada caja * Contenido de cada envase
+                boxes * itemsPerBox * unitsPerItem
+            } else {
+                0.0
+            }
         }
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
-            val packages = parseCreateProductNumber(state.packagesPerBoxText)
-            val perPackage = parseCreateProductNumber(state.unitsPerPackageText)
-            val perItem = parseCreateProductNumber(state.unitsPerItemText)
-            val content = if (state.controlType == CreateProductControlType.UNIDAD || perItem <= 0.0) 1.0 else perItem * unitMultiplier
-            boxes * packages * perPackage * content
+            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText).takeIf { it > 0 } ?: 1.0
+            val unitsPerPackage = parseCreateProductNumber(state.unitsPerPackageText)
+            boxes * packagesPerBox * unitsPerPackage
         }
+    }
+
+    // Normalizar a unidad base (g o mL) si se usaron unidades grandes (kg o L)
+    return if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
+        rawAmount * 1000.0
+    } else {
+        rawAmount
     }
 }
 
 fun calculateBaseMinimumStock(state: CreateProductState): Double {
-    val units = state.minimumStockUnits.takeIf { it > 0 }?.toDouble()
-        ?: parseCreateProductNumber(state.minimumStockText)
-    return units.coerceAtLeast(0.0)
+    val selectedUnits = state.minimumStockUnits.takeIf { it > 0 }?.toDouble()
+        ?: parseCreateProductNumber(state.minimumStockText).takeIf { it > 0.0 }
+        ?: 0.0
+    if (selectedUnits <= 0.0) return 0.0
+
+    return when (resolveMinimumStockControlMode(state)) {
+        StockControlMode.DIVISIBLE -> {
+            // V21.0: Escalar el valor visual a la unidad base para cálculos internos
+            if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
+                selectedUnits * 1000.0
+            } else {
+                selectedUnits
+            }
+        }
+        StockControlMode.INDIVISIBLE -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO,
+            CreateProductControlType.PESO -> {
+                val basePorContenedor = parseCreateProductNumber(state.unitsPerItemText)
+                    .takeIf { it > 0.0 }
+                    ?: 1.0
+                
+                // Si la unidad del contenedor está en kg/L, la basePorContenedor ya viene en gramos/mL (por el diálogo)
+                selectedUnits * basePorContenedor
+            }
+            CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
+                CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+                    val unidadesPorBlister = parseCreateProductNumber(state.unitsPerPackageText)
+                        .takeIf { it > 0.0 }
+                        ?: 1.0
+                    selectedUnits * unidadesPorBlister
+                }
+                CreateProductStockEntryMode.CAJA -> {
+                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText).takeIf { it > 0.0 } ?: 1.0
+                    selectedUnits * unitsPerItem
+                }
+                CreateProductStockEntryMode.UNIDAD -> {
+                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText).takeIf { it > 0.0 } ?: 1.0
+                    selectedUnits * unitsPerItem
+                }
+                else -> selectedUnits
+            }
+            null -> selectedUnits
+        }
+    }.coerceAtLeast(0.0)
 }
 
 fun getPurchasePresentationName(mode: CreateProductStockEntryMode?): String {
@@ -7442,7 +9224,11 @@ fun isStockEntryModeValidForControlType(
     controlType: CreateProductControlType?
 ): Boolean {
     if (mode == null || controlType == null) return false
-    return true
+    return when (controlType) {
+        CreateProductControlType.LIQUIDO,
+        CreateProductControlType.PESO -> mode != CreateProductStockEntryMode.CAJA_CON_PAQUETES
+        CreateProductControlType.UNIDAD -> true
+    }
 }
 
 fun isStockEntryModeValidForControlType(
@@ -7461,6 +9247,7 @@ fun CreateProductState.resetStockEntryConfiguration(): CreateProductState {
         unitsPerItemText = "",
         stockEntryUnit = "",
         minimumStockText = "",
+        minimumStockUnit = "",
         minimumStockUnits = 0,
         purchaseCost = "",
         stockEntryConfigured = false,
@@ -7480,7 +9267,7 @@ fun formatCreateProductNumber(value: Double): String {
  * Devuelve el total recibido del lote actual en unidad base
  * (g, mL o unidades). Se usa para calcular sugerencias derivadas
  * (stock mínimo automático, costo unitario, etc.) sin duplicar la
- * lógica del cálculo principal.
+ * lógica del cÃ¡lculo principal.
  */
 /**
  * Devuelve un identificador del "grupo de sinónimos" al que pertenece el
@@ -7553,27 +9340,11 @@ fun mergePresentacionEvitandoDuplicado(
 }
 
 private fun calculateRecibidoBase(state: CreateProductState): Double {
-    return calculateInitialStockValue(state)
+    return calculateTotalBaseStock(state)
 }
 
 private fun calculateInitialStockValue(state: CreateProductState): Double {
-    return when (state.stockEntryMode) {
-        null -> 0.0
-        CreateProductStockEntryMode.UNIDAD -> {
-            parseCreateProductNumber(state.receivedUnitsText)
-        }
-
-        CreateProductStockEntryMode.CAJA -> {
-            parseCreateProductNumber(state.boxesReceivedText) *
-                    parseCreateProductNumber(state.unitsPerBoxText)
-        }
-
-        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-            parseCreateProductNumber(state.boxesReceivedText) *
-                    parseCreateProductNumber(state.packagesPerBoxText) *
-                    parseCreateProductNumber(state.unitsPerPackageText)
-        }
-    }
+    return calculateTotalBaseStock(state)
 }
 
 /**
@@ -7598,18 +9369,38 @@ fun getEffectiveStockControlMode(state: CreateProductState): StockControlMode {
  *  - En DIVISIBLE: cuenta el total de unidades base (tabletas, etc).
  */
 fun calculateTotalPhysicalUnits(state: CreateProductState): Int {
-    return when (getEffectiveStockControlMode(state)) {
+    return when (resolveMinimumStockControlMode(state)) {
         StockControlMode.INDIVISIBLE -> {
-            // En modo envase, la unidad física es el recipiente mayor recibido.
-            when (state.stockEntryMode) {
-                CreateProductStockEntryMode.UNIDAD -> parseCreateProductNumber(state.receivedUnitsText).toInt()
-                CreateProductStockEntryMode.CAJA -> parseCreateProductNumber(state.boxesReceivedText).toInt()
-                CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseCreateProductNumber(state.boxesReceivedText).toInt()
+            when (state.controlType) {
+                CreateProductControlType.LIQUIDO,
+                CreateProductControlType.PESO -> when (state.stockEntryMode) {
+                    CreateProductStockEntryMode.UNIDAD -> parseCreateProductNumber(state.receivedUnitsText).toInt()
+                    CreateProductStockEntryMode.CAJA -> (
+                        parseCreateProductNumber(state.boxesReceivedText) *
+                            parseCreateProductNumber(state.unitsPerBoxText)
+                        ).toInt()
+                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> (
+                        parseCreateProductNumber(state.boxesReceivedText) *
+                            (parseCreateProductNumber(state.packagesPerBoxText).takeIf { it > 0 } ?: 1.0)
+                        ).toInt()
+                    null -> 0
+                }
+                CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
+                    CreateProductStockEntryMode.UNIDAD -> parseCreateProductNumber(state.receivedUnitsText).toInt()
+                    CreateProductStockEntryMode.CAJA -> (
+                        parseCreateProductNumber(state.boxesReceivedText) *
+                            parseCreateProductNumber(state.unitsPerBoxText)
+                        ).toInt()
+                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> (
+                        parseCreateProductNumber(state.boxesReceivedText) *
+                            (parseCreateProductNumber(state.packagesPerBoxText).takeIf { it > 0 } ?: 1.0)
+                        ).toInt()
+                    null -> 0
+                }
                 null -> 0
             }
         }
         StockControlMode.DIVISIBLE -> {
-            // En modo divisible, la unidad física es la unidad base contable.
             calculateInitialStockValue(state).toInt()
         }
     }.coerceAtLeast(0)
@@ -7652,22 +9443,103 @@ fun calculateValidStockOptions(totalPhysicalUnits: Int, mode: StockControlMode):
  * Retorna la etiqueta de la unidad física (singular o plural).
  */
 fun getPhysicalUnitLabel(state: CreateProductState, quantity: Int): String {
-    val mode = getEffectiveStockControlMode(state)
+    val mode = resolveMinimumStockControlMode(state)
     val isPlural = quantity != 1
 
     return when (mode) {
         StockControlMode.INDIVISIBLE -> {
-            val baseLabel = when (state.controlType) {
+            when (state.controlType) {
                 CreateProductControlType.LIQUIDO -> if (isPlural) "frascos" else "frasco"
                 CreateProductControlType.PESO -> if (isPlural) "envases" else "envase"
-                else -> if (isPlural) "cajas" else "caja"
+                CreateProductControlType.UNIDAD -> {
+                    when (state.stockEntryMode) {
+                        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> if (isPlural) "blísteres" else "blíster"
+                        CreateProductStockEntryMode.CAJA -> {
+                             val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
+                             if (unitsPerItem > 1.0) {
+                                 if (isPlural) "frascos/empaques" else "frasco/empaque"
+                             } else {
+                                 if (isPlural) "unidades" else "unidad"
+                             }
+                        }
+                        CreateProductStockEntryMode.UNIDAD -> {
+                             val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
+                             if (unitsPerItem > 1.0) {
+                                 if (isPlural) "frascos/empaques" else "frasco/empaque"
+                             } else {
+                                 if (isPlural) "unidades" else "unidad"
+                             }
+                        }
+                        else -> if (isPlural) "unidades" else "unidad"
+                    }
+                }
+                null -> if (isPlural) "unidades" else "unidad"
             }
-            baseLabel
         }
         StockControlMode.DIVISIBLE -> {
             if (isPlural) "unidades" else "unidad"
         }
     }
+}
+
+fun resolveMinimumStockControlMode(state: CreateProductState): StockControlMode {
+    state.stockControlMode?.let { return it }
+
+    return when (state.controlType) {
+        CreateProductControlType.LIQUIDO,
+        CreateProductControlType.PESO -> StockControlMode.INDIVISIBLE
+        CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> StockControlMode.INDIVISIBLE
+            CreateProductStockEntryMode.CAJA -> {
+                // V22.1: Si la caja contiene items discretos (ej. frascos con tabletas), 
+                // permitimos control por contenedor indivisible.
+                if (parseCreateProductNumber(state.unitsPerItemText) > 1.0) {
+                    StockControlMode.INDIVISIBLE
+                } else {
+                    StockControlMode.DIVISIBLE
+                }
+            }
+            CreateProductStockEntryMode.UNIDAD,
+            null -> StockControlMode.DIVISIBLE
+        }
+        null -> StockControlMode.DIVISIBLE
+    }
+}
+
+fun resolveMinimumStockLabel(
+    state: CreateProductState,
+    quantity: Int,
+    mode: StockControlMode = resolveMinimumStockControlMode(state)
+): String {
+    val singular = quantity == 1
+
+    return when (mode) {
+        StockControlMode.DIVISIBLE -> when (state.controlType) {
+            CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
+            CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
+            else -> if (singular) "unidad" else "unidades"
+        }
+        StockControlMode.INDIVISIBLE -> when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> if (singular) "frasco" else "frascos"
+            CreateProductControlType.PESO -> if (singular) "envase" else "envases"
+            CreateProductControlType.UNIDAD -> {
+                if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) {
+                    if (singular) "blíster" else "blísteres"
+                } else {
+                    if (singular) "unidad" else "unidades"
+                }
+            }
+            null -> if (singular) "unidad" else "unidades"
+        }
+    }
+}
+
+fun resolveMinimumStockStoredUnit(
+    state: CreateProductState,
+    quantity: Int,
+    mode: StockControlMode = resolveMinimumStockControlMode(state)
+): String {
+    return resolveMinimumStockLabel(state, quantity, mode)
 }
 
 private fun calculateInitialStockInt(state: CreateProductState): Int {
@@ -7676,52 +9548,79 @@ private fun calculateInitialStockInt(state: CreateProductState): Int {
         .coerceAtLeast(0)
 }
 
-private fun buildInitialStockEntrySummary(state: CreateProductState): String {
-    val unit = state.controlType?.baseUnitLabel ?: "unidades"
+fun buildInitialStockEntrySummary(state: CreateProductState): String {
+    val unit = resolveStockUnitLabel(state)
+    
+    fun plural(n: Double, singular: String, plural: String): String {
+        return if (n == 1.0) singular else plural
+    }
+
+    fun itemLabel(n: Double): String {
+        return when (state.controlType) {
+            CreateProductControlType.LIQUIDO -> plural(n, "frasco", "frascos")
+            CreateProductControlType.PESO -> plural(n, "envase", "envases")
+            else -> plural(n, "unidad", "unidades")
+        }
+    }
 
     return when (state.stockEntryMode) {
         null -> ""
 
         CreateProductStockEntryMode.UNIDAD -> {
             val quantity = parseCreateProductNumber(state.receivedUnitsText)
+            val content = parseCreateProductNumber(state.unitsPerItemText)
             if (quantity <= 0.0) return ""
 
-            "${formatCreateProductNumber(quantity)} $unit disponibles en inventario."
+            val total = calculateTotalBaseStock(state)
+            val visualTotal = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") total / 1000.0 else total
+            
+            if (state.controlType == CreateProductControlType.UNIDAD) {
+                if (content > 1.0) {
+                    "Recibiste ${formatCreateProductNumber(quantity)} ${itemLabel(quantity)} (${formatCreateProductNumber(content)} u. c/u). Total: ${formatCreateProductNumber(visualTotal)} $unit."
+                } else {
+                    "Recibiste ${formatCreateProductNumber(quantity)} $unit."
+                }
+            } else {
+                "Recibiste ${formatCreateProductNumber(quantity)} ${itemLabel(quantity)} de ${formatCreateProductNumber(content)} ${state.stockEntryUnit.ifBlank { unit }}."
+            }
         }
 
         CreateProductStockEntryMode.CAJA -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
             val unitsPerBox = parseCreateProductNumber(state.unitsPerBoxText)
-            val total = boxes * unitsPerBox
+            val total = calculateTotalBaseStock(state)
+            val visualTotal = if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") total / 1000.0 else total
 
             if (boxes <= 0.0 || unitsPerBox <= 0.0) return ""
 
-            "${formatCreateProductNumber(boxes)} cajas x " +
-                    "${formatCreateProductNumber(unitsPerBox)} $unit = " +
-                    "${formatCreateProductNumber(total)} $unit disponibles en inventario."
+            "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "caja", "cajas")} con ${formatCreateProductNumber(unitsPerBox)} ${itemLabel(unitsPerBox)} cada una. Total: ${formatCreateProductNumber(visualTotal)} $unit."
         }
 
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
-            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText)
             val unitsPerPackage = parseCreateProductNumber(state.unitsPerPackageText)
-            val total = boxes * packagesPerBox * unitsPerPackage
+            val total = boxes * unitsPerPackage
 
-            if (boxes <= 0.0 || packagesPerBox <= 0.0 || unitsPerPackage <= 0.0) return ""
+            if (boxes <= 0.0 || unitsPerPackage <= 0.0) return ""
 
-            "${formatCreateProductNumber(boxes)} cajas x " +
-                    "${formatCreateProductNumber(packagesPerBox)} paquetes x " +
-                    "${formatCreateProductNumber(unitsPerPackage)} $unit = " +
-                    "${formatCreateProductNumber(total)} $unit disponibles en inventario."
+            "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "blíster", "blísters")} con ${formatCreateProductNumber(unitsPerPackage)} $unit cada uno. Total: ${formatCreateProductNumber(total)} $unit."
         }
     }
 }
 
-private fun buildStockAvailableSummary(state: CreateProductState): String {
+fun buildStockAvailableSummary(state: CreateProductState): String {
     val total = calculateInitialStockValue(state)
     val totalText = formatCreateProductNumber(total)
-    val unit = state.controlType?.baseUnitLabel ?: "unidades"
+    val unit = resolveStockUnitLabel(state)
     return "$totalText $unit"
+}
+
+private fun resolveStockUnitLabel(state: CreateProductState): String {
+    return when (state.controlType) {
+        CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
+        CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
+        else -> "unidades"
+    }
 }
 
 private fun formatBs(value: String?): String {
@@ -7857,12 +9756,14 @@ private fun evaluateExpirationStatus(value: String): ExpirationStatus? {
         )
     }
 
-    // Crear fecha de vencimiento (último día del mes)
-    val expirationDate = runCatching {
-        YearMonth.of(fullYear, month).atEndOfMonth()
-    }.getOrNull()
+    // Crear fecha de vencimiento (Comparación de Mes/Año)
+    val expiryYearMonth = try {
+        YearMonth.of(fullYear, month)
+    } catch (e: Exception) {
+        null
+    }
 
-    if (expirationDate == null) {
+    if (expiryYearMonth == null) {
         return ExpirationStatus(
             kind = ExpirationStatusKind.INVALIDO,
             message = "Fecha inválida",
@@ -7870,8 +9771,8 @@ private fun evaluateExpirationStatus(value: String): ExpirationStatus? {
         )
     }
 
-    val today = LocalDate.now()
-    if (expirationDate.isBefore(today)) {
+    val currentYearMonth = YearMonth.now()
+    if (expiryYearMonth.isBefore(currentYearMonth)) {
         return ExpirationStatus(
             kind = ExpirationStatusKind.VENCIDO,
             message = "Este lote ya venció",
@@ -7883,8 +9784,8 @@ private fun evaluateExpirationStatus(value: String): ExpirationStatus? {
     // Evitamos números puntuales ("18 meses") y mostramos rangos breves
     // que dan una idea accionable de proximidad.
     val monthsLeft = ChronoUnit.MONTHS.between(
-        YearMonth.from(today),
-        YearMonth.from(expirationDate)
+        currentYearMonth,
+        expiryYearMonth
     )
 
     return when {
@@ -8005,11 +9906,15 @@ private fun BarcodeSection(
     onClear: () -> Unit
 ) {
     val isConfirmed = barcode.isNotBlank() && !isManualMode
+    val isBarcodeValid = barcode.isNotBlank() && error == null
 
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CreateBorder),
+        border = BorderStroke(
+            width = if (isBarcodeValid) 2.dp else 1.dp,
+            color = if (isBarcodeValid) CreateGreen else CreateBorder
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -8118,9 +10023,9 @@ private fun BarcodeSection(
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.width(16.dp))
-                    
+
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Código de producto",
@@ -8169,7 +10074,7 @@ private fun BarcodeSection(
                     }
                 }
             }
-            
+
             if (!error.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -8182,7 +10087,3 @@ private fun BarcodeSection(
         }
     }
 }
-
-
-
-

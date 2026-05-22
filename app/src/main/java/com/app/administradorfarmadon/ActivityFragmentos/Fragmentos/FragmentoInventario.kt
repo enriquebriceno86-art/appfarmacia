@@ -1,2362 +1,1416 @@
 package com.app.administradorfarmadon.ActivityFragmentos.Fragmentos
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.Color
 import android.os.Bundle
-import androidx.core.graphics.toColorInt
-import android.os.Handler
-import android.os.Looper
-import com.app.administradorfarmadon.ActivityFragmentos.showElegantemente
-import com.app.administradorfarmadon.ActivityFragmentos.hideElegantemente
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
-import android.widget.ArrayAdapter
-import android.widget.PopupMenu
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
-import androidx.core.view.isVisible
-import androidx.core.widget.addTextChangedListener
-import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.app.administradorfarmadon.ActivityInventario.CategoriaProductos
-import com.app.administradorfarmadon.ActivityInventario.ProductUtils
-import com.app.administradorfarmadon.ActivityInventario.HistorialMovimientosInventarioActivity
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.AdapterInventarioAlertasHorizontal
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.AdapterProductosInventariosRecycler
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.toMoldeProductos
-import com.app.administradorfarmadon.ActivityInventario.bulk.BulkImportActivity
-import com.app.administradorfarmadon.ActivitysInicio.AlertasActivity
-import com.app.administradorfarmadon.databinding.DialogAlertasVencimientoBinding
-import com.app.administradorfarmadon.databinding.ItemAlertaLoteBinding
-import com.app.administradorfarmadon.ActivityInventario.CrearProducto
-import com.app.administradorfarmadon.R
-import com.app.administradorfarmadon.ClasesDatabase.DbPaths
-import com.app.administradorfarmadon.ClasesDatabase.MonedaHelper
-import com.app.administradorfarmadon.databinding.FragmentFragmentoInventarioBinding
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.chip.Chip
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.card.MaterialCardView
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import com.google.android.material.snackbar.Snackbar
-import android.app.DatePickerDialog
-import com.google.android.material.datepicker.CalendarConstraints
-import com.google.android.material.datepicker.DateValidatorPointBackward
-import com.google.android.material.datepicker.MaterialDatePicker
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asCoroutineDispatcher
+import androidx.camera.core.ExperimentalGetImage
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import androidx.core.util.Pair as AndroidxPair
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.ui.unit.sp
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.administradorfarmadon.ActivityFragmentos.Fragmentos.logicainventario.BuscadorEscanerViewModel
+import com.app.administradorfarmadon.ActivityFragmentos.Fragmentos.logicainventario.FiltroAlerta
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockFisicoBase
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockMinimoBase
+import com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay
+import com.app.administradorfarmadon.ClasesDatabase.FeedbackCajaController
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Place
+import android.content.Intent
+import com.app.administradorfarmadon.ActivityInventario.CrearProducto
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.material.icons.outlined.Inventory
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 
 class FragmentoInventario : Fragment() {
-    private var productosListener: ValueEventListener? = null
-    private var productosRef: DatabaseReference? = null
-    private var categoriasRef: DatabaseReference? = null
-    private var categoriasListener: ValueEventListener? = null
-    private var movimientosRef: DatabaseReference? = null
-    private var movimientosListener: ValueEventListener? = null
-    private var datosActivos = false
-    private var cargaInicialInventarioCompletada = false
-    private var loadingInicialInventarioActivo = false
-    private var productosInicialesListos = false
-    private var movimientosInicialesListos = false
-    private val handlerSeguridadInventario = Handler(Looper.getMainLooper())
-    private var runnableTimeoutLoadingInventario: Runnable? = null
-
-    private var _binding: FragmentFragmentoInventarioBinding? = null
-    private val binding get() = _binding!!
-
-    private val listaProductos = mutableListOf<MoldeProductos>()
-    private val listaCategorias = mutableListOf<String>()
-    private lateinit var adapter: AdapterProductosInventariosRecycler
-    private var adapterAlertas: AdapterInventarioAlertasHorizontal? = null
-    private lateinit var movimientosAdapter: AdapterMovimientosInventario
-    private var dialogMovimientos: BottomSheetDialog? = null
-    private var dialogDetalleMovimiento: BottomSheetDialog? = null
-    private var dialogMovimientosAdapter: AdapterMovimientosInventario? = null
-    private var dialogRecyclerMovimientos: RecyclerView? = null
-    private var dialogTvMovimientosVacio: TextView? = null
-    private var dialogTvSubtituloMovimientos: TextView? = null
-    private var dialogTvResumenMovimientos: TextView? = null
-    private var movimientosRecientes: List<MovimientoInventarioUi> = emptyList()
-    private var todosLosMovimientos: List<MovimientoInventarioUi> = emptyList()
-    private var filtroActual = "TODOS"
-    private var categoriaSeleccionada = "Todas las categorías"
-
-    private enum class FiltroFecha { HOY, PERSONALIZADO, RANGO }
-    private var filtroFechaMovimientos = FiltroFecha.HOY
-    private var fechaPersonalizada: Calendar? = null
-    // Rango personalizado (feature: filtro por rango de fechas)
-    private var fechaRangoInicio: Calendar? = null
-    private var fechaRangoFin: Calendar? = null
-
-    // Referencias a chips del panel tablet (persistentes en la vista)
-    private var tabletChipHoy: Chip? = null
-    private var tabletChipFecha: Chip? = null
-    private var tabletChipRango: Chip? = null
-
-    // Búsqueda y filtro tipo en movimientos (features 1 & 2)
-    private var textoBusquedaMovimientos = ""
-    private var filtroTipoMovimiento = "TODOS"
-    private var tabletEditBuscarMovimientos: android.widget.EditText? = null
-
-    // Filtro por producto específico (feature 3)
-    private var filtroProductoMovimientos: String? = null  // indice del producto, null = todos
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentFragmentoInventarioBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        setupFiltroEstado()
-        setupListeners()
-        initRecycler()
-        initRecyclerMovimientos()
-        configurarAccionesMovimientos()
-        configurarFiltroFechaTablet()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        activarDatosSiVisible()
-    }
-
-    override fun onHiddenChanged(hidden: Boolean) {
-        super.onHiddenChanged(hidden)
-        if (hidden) {
-            desactivarDatos()
-        } else {
-            activarDatosSiVisible()
-        }
-    }
-
-    private fun setupListeners() {
-        binding.editBuscarProducto.addTextChangedListener {
-            aplicarFiltro(it.toString())
-        }
-
-        binding.btnFiltroCategoria.setOnClickListener {
-            mostrarDialogoCategorias()
-        }
-
-        binding.btnInfoColores?.setOnClickListener {
-            mostrarResumenInventario()
-        }
-
-        binding.editBuscarProducto.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                ocultarTeclado()
-                binding.editBuscarProducto.clearFocus()
-                true
-            } else {
-                false
-            }
-        }
-
-        binding.btnLimpiarBusqueda.setOnClickListener {
-            resetTodoYMostrarTodos()
-        }
-
-        binding.btnAgregarPrimerProducto?.setOnClickListener {
-            startActivity(Intent(requireContext(), CrearProducto::class.java))
-        }
-
-        binding.floatingbotoncrearproducto.setOnClickListener {
-            startActivity(Intent(requireContext(), CrearProducto::class.java))
-        }
-
-        binding.root.findViewById<View>(R.id.btnMovimientosInventario)?.setOnClickListener {
-            startActivity(Intent(requireContext(), HistorialMovimientosInventarioActivity::class.java))
-        }
-
-        binding.root.findViewById<View>(R.id.btnImportarMasivo)?.setOnClickListener {
-            startActivity(Intent(requireContext(), BulkImportActivity::class.java))
-        }
-
-        binding.cardAlertaLotesVencer.setOnClickListener {
-            abrirAlertas(AlertasActivity.ALERTA_POR_VENCER)
-        }
-
-        binding.root.findViewById<View>(R.id.cardAlertaStockBajoTablet)?.setOnClickListener {
-            abrirAlertas(AlertasActivity.ALERTA_BAJO_STOCK)
-        }
-
-        configurarStatusChips()
-    }
-
-    // ── Chips de estado (Todos / Suficiente / Stock bajo / Agotado-vence) ───
-    private fun configurarStatusChips() {
-        val cardTodos = binding.root.findViewById<View>(R.id.statusCardTodos)
-        val cardSuficiente = binding.root.findViewById<View>(R.id.statusCardSuficiente)
-        val cardStockBajo = binding.root.findViewById<View>(R.id.statusCardStockBajo)
-        val cardAgotado = binding.root.findViewById<View>(R.id.statusCardAgotado)
-
-        cardTodos?.visibility = View.GONE
-        cardSuficiente?.setOnClickListener { toggleFiltroEstado("PROXIMOS_VENCER") }
-        cardStockBajo?.setOnClickListener { toggleFiltroEstado("BAJO_STOCK") }
-        cardAgotado?.setOnClickListener { toggleFiltroEstado("AGOTADO_O_VENCE") }
-
-        binding.root.findViewById<View>(R.id.chipCategoriaActiva)?.setOnClickListener {
-            limpiarCategoriaActiva()
-        }
-
-        actualizarStatusChipsUi()
-        actualizarChipCategoriaActiva()
-    }
-
-    private fun limpiarCategoriaActiva() {
-        categoriaSeleccionada = "Todas las categorías"
-        binding.btnFiltroCategoria.strokeColor =
-            ColorStateList.valueOf("#E5E7EB".toColorInt())
-        binding.btnFiltroCategoria.backgroundTintList =
-            ColorStateList.valueOf(Color.TRANSPARENT)
-        binding.btnFiltroCategoria.iconTint =
-            ColorStateList.valueOf("#1A1C1E".toColorInt())
-        actualizarChipCategoriaActiva()
-        aplicarFiltro(binding.editBuscarProducto.text.toString())
-    }
-
-    private fun actualizarChipCategoriaActiva() {
-        val b = _binding ?: return
-        val chip = b.root.findViewById<View>(R.id.chipCategoriaActiva) ?: return
-        val tv = b.root.findViewById<TextView>(R.id.tvCategoriaActiva)
-        if (categoriaSeleccionada.isNotBlank() && categoriaSeleccionada != "Todas las categorías") {
-            tv?.text = categoriaSeleccionada
-            chip.visibility = View.VISIBLE
-        } else {
-            chip.visibility = View.GONE
-        }
-    }
-
-    private fun toggleFiltroEstado(nuevoFiltro: String) {
-        filtroActual = if (filtroActual == nuevoFiltro) "TODOS" else nuevoFiltro
-        actualizarStatusChipsUi()
-        aplicarFiltro(binding.editBuscarProducto.text.toString())
-    }
-
-    private fun actualizarStatusChipsUi() {
-        if (_binding == null) return
-        val activo = filtroActual
-        aplicarEstiloChipEstado(
-            cardId = R.id.statusCardSuficiente,
-            closeId = R.id.ivCloseSuficiente,
-            seleccionado = activo == "PROXIMOS_VENCER",
-            colorActivoBg = "#FEF3C7",
-            colorActivoStroke = "#B45309",
-            mostrarCierre = true
-        )
-        aplicarEstiloChipEstado(
-            cardId = R.id.statusCardStockBajo,
-            closeId = R.id.ivCloseStockBajo,
-            seleccionado = activo == "BAJO_STOCK",
-            colorActivoBg = "#FEF3C7",
-            colorActivoStroke = "#B54708",
-            mostrarCierre = true
-        )
-        aplicarEstiloChipEstado(
-            cardId = R.id.statusCardAgotado,
-            closeId = R.id.ivCloseAgotado,
-            seleccionado = activo == "AGOTADO_O_VENCE",
-            colorActivoBg = "#FEE4E2",
-            colorActivoStroke = "#B42318",
-            mostrarCierre = true
-        )
-    }
-
-    private fun aplicarEstiloChipEstado(
-        cardId: Int,
-        closeId: Int,
-        seleccionado: Boolean,
-        colorActivoBg: String,
-        colorActivoStroke: String,
-        mostrarCierre: Boolean
-    ) {
-        val b = _binding ?: return
-        val card = b.root.findViewById<MaterialCardView>(cardId) ?: return
-        val close = b.root.findViewById<View>(closeId)
-        if (seleccionado) {
-            card.setCardBackgroundColor(colorActivoBg.toColorInt())
-            card.strokeColor = colorActivoStroke.toColorInt()
-            card.strokeWidth = (1.5f * resources.displayMetrics.density).toInt()
-            close?.visibility = if (mostrarCierre) View.VISIBLE else View.GONE
-        } else {
-            card.setCardBackgroundColor(0xFFFFFFFF.toInt())
-            card.strokeColor = "#E4E7EC".toColorInt()
-            card.strokeWidth = (1f * resources.displayMetrics.density).toInt()
-            close?.visibility = View.GONE
-        }
-    }
-
-    private fun abrirAlertas(tipo: String) {
-        startActivity(
-            Intent(requireContext(), AlertasActivity::class.java).apply {
-                putExtra(AlertasActivity.EXTRA_ALERTA_INICIAL, tipo)
-            }
-        )
-    }
-
-    private fun cargarCategorias() {
-        categoriasRef = FirebaseDatabase.getInstance()
-            .getReference("Inventario")
-            .child("CategoriasInventario")
-        categoriasListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                listaCategorias.clear()
-                for (child in snapshot.children) {
-                    child.getValue(CategoriaProductos::class.java)?.nombre?.let {
-                        listaCategorias.add(it)
-                    }
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) = Unit
-        }
-        categoriasRef?.addValueEventListener(categoriasListener!!)
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun mostrarDialogoCategorias() {
-        if (listaCategorias.isEmpty()) return
-
-        if (requireContext().isTablet()) {
-            mostrarPopupCategoriasTablet()
-            return
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("Seleccionar categoría")
-            .setAdapter(
-                ArrayAdapter(
-                    requireContext(),
-                    android.R.layout.simple_list_item_1,
-                    listaCategorias
-                )
-            ) { _, which ->
-                val elegida = listaCategorias[which]
-                // Toggle: si vuelves a tocar la categoría que ya estaba activa, la quitas.
-                categoriaSeleccionada = if (categoriaSeleccionada == elegida) {
-                    "Todas las categorías"
-                } else {
-                    elegida
-                }
-
-                val esTabletAhora = requireContext().isTablet()
-                if (categoriaSeleccionada == "Todas las categorías") {
-                    if (!esTabletAhora) binding.btnFiltroCategoria.text = "Categorías"
-                    binding.btnFiltroCategoria.strokeColor =
-                        ColorStateList.valueOf("#E5E7EB".toColorInt())
-                    binding.btnFiltroCategoria.backgroundTintList =
-                        ColorStateList.valueOf(Color.TRANSPARENT)
-                    binding.btnFiltroCategoria.setTextColor("#1A1C1E".toColorInt())
-                    binding.btnFiltroCategoria.iconTint =
-                        ColorStateList.valueOf("#1A1C1E".toColorInt())
-                } else {
-                    if (!esTabletAhora) binding.btnFiltroCategoria.text = categoriaSeleccionada
-                    if (esTabletAhora) {
-                        // En tablet el chip "categoría activa" ya es el indicador; mantenemos el botón neutro.
-                        binding.btnFiltroCategoria.strokeColor =
-                            ColorStateList.valueOf("#E5E7EB".toColorInt())
-                        binding.btnFiltroCategoria.backgroundTintList =
-                            ColorStateList.valueOf(Color.TRANSPARENT)
-                        binding.btnFiltroCategoria.iconTint =
-                            ColorStateList.valueOf("#1A1C1E".toColorInt())
-                    } else {
-                        binding.btnFiltroCategoria.strokeColor =
-                            ColorStateList.valueOf("#0E8F63".toColorInt())
-                        binding.btnFiltroCategoria.backgroundTintList =
-                            ColorStateList.valueOf("#E8F5E9".toColorInt())
-                        binding.btnFiltroCategoria.setTextColor("#0E8F63".toColorInt())
-                        binding.btnFiltroCategoria.iconTint =
-                            ColorStateList.valueOf("#0E8F63".toColorInt())
-                    }
-                }
-
-                if (esTabletAhora) actualizarChipCategoriaActiva()
-                aplicarFiltro(binding.editBuscarProducto.text.toString())
-            }
-            .show()
-    }
-
-    private fun mostrarPopupCategoriasTablet() {
-        val anchor: View = binding.btnFiltroCategoria
-        val popup = PopupMenu(requireContext(), anchor)
-        listaCategorias.forEachIndexed { index, nombre ->
-            val item = popup.menu.add(0, index, index, nombre)
-            if (nombre == categoriaSeleccionada) {
-                item.title = "✓  $nombre"
-            }
-        }
-        popup.setOnMenuItemClickListener { item ->
-            val elegida = listaCategorias[item.itemId]
-            categoriaSeleccionada = if (categoriaSeleccionada == elegida) {
-                "Todas las categorías"
-            } else {
-                elegida
-            }
-            actualizarChipCategoriaActiva()
-            aplicarFiltro(binding.editBuscarProducto.text.toString())
-            true
-        }
-        popup.show()
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun resetTodoYMostrarTodos() {
-        binding.editBuscarProducto.setText("")
-        filtroActual = "TODOS"
-        categoriaSeleccionada = "Todas las categorías"
-        if (requireContext().isTablet()) {
-            actualizarStatusChipsUi()
-            actualizarChipCategoriaActiva()
-        }
-
-        if (!requireContext().isTablet()) binding.btnFiltroCategoria.text = "Categorías"
-        binding.btnFiltroCategoria.strokeColor =
-            ColorStateList.valueOf("#E5E7EB".toColorInt())
-        binding.btnFiltroCategoria.backgroundTintList =
-            ColorStateList.valueOf(Color.TRANSPARENT)
-        binding.btnFiltroCategoria.setTextColor("#1A1C1E".toColorInt())
-        binding.btnFiltroCategoria.iconTint =
-            ColorStateList.valueOf("#1A1C1E".toColorInt())
-
-        actualizarBtnFiltro()
-        aplicarFiltro("")
-    }
-
-    private fun initRecycler() {
-        val esTablet = requireContext().isTablet()
-        adapter = AdapterProductosInventariosRecycler(
-            onVerHistorialClick = if (esTablet) {
-                { producto -> mostrarHistorialProducto(producto) }
-            } else {
-                null   // En móvil no se muestra el botón Historial para no apretar la tarjeta
-            }
-        )
-        binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@FragmentoInventario.adapter
-        }
-
-        // Mejorar el hint del buscador para indicar la búsqueda clínica (V4.1)
-        binding.editBuscarProducto.hint = "Buscar nombre, categoría o síntoma (ej. fiebre)..."
-
-        // Carrusel horizontal de productos en alerta — solo en móvil
-        if (!esTablet) {
-            initRecyclerAlertas()
-        }
-    }
-
-    private fun initRecyclerAlertas() {
-        val recyclerAlertas = binding.root.findViewById<RecyclerView>(R.id.recyclerAlertasInventario) ?: return
-        val nuevoAdapter = AdapterInventarioAlertasHorizontal()
-        adapterAlertas = nuevoAdapter
-        recyclerAlertas.layoutManager = LinearLayoutManager(
-            requireContext(),
-            LinearLayoutManager.HORIZONTAL,
-            false
-        )
-        recyclerAlertas.adapter = nuevoAdapter
-        recyclerAlertas.setHasFixedSize(false)
-    }
-
-    /**
-     * Construye la lista de productos en alerta (vencidos, por vencer, sin stock o stock bajo)
-     * a partir de la lista FILTRADA visible. Si no hay alertas, oculta el carrusel.
-     */
-    private fun actualizarCarruselAlertas(productosVisibles: List<MoldeProductos>) {
-        if (requireContext().isTablet()) return
-        val recyclerAlertas = binding.root.findViewById<RecyclerView>(R.id.recyclerAlertasInventario)
-            ?: return
-        val adapterAlertas = adapterAlertas ?: return
-
-        val alertas = productosVisibles.filter { producto ->
-            if (!producto.estadodelproducto) return@filter false
-            val cantidadActual = producto.cantidadinicial.toIntOrNull() ?: 0
-            val stockMinimo = producto.stockminimo.toIntOrNull() ?: 0
-            val estadoVencimiento = ProductUtils.obtenerEstadoVencimiento(producto).orEmpty()
-            val stockBajo = stockMinimo > 0 && cantidadActual <= stockMinimo
-            val vencidoOPorVencer = estadoVencimiento == "VENCIDO" || estadoVencimiento == "POR_VENCER"
-            stockBajo || vencidoOPorVencer || cantidadActual <= 0
-        }.sortedWith(
-            // Prioridad: vencidos > por vencer > sin stock > stock bajo
-            compareBy(
-                { producto ->
-                    when (ProductUtils.obtenerEstadoVencimiento(producto).orEmpty()) {
-                        "VENCIDO" -> 0
-                        "POR_VENCER" -> 1
-                        else -> 2
-                    }
-                },
-                { producto ->
-                    if ((producto.cantidadinicial.toIntOrNull() ?: 0) <= 0) 0 else 1
-                }
-            )
-        )
-
-        if (alertas.isEmpty()) {
-            recyclerAlertas.visibility = View.GONE
-        } else {
-            recyclerAlertas.visibility = View.VISIBLE
-            adapterAlertas.updateList(alertas)
-        }
-    }
-
-    /**
-     * El resumen global vive en el panel de info. La lista principal queda limpia.
-     */
-    private fun actualizarHeaderProductosInventario(productosVisibles: List<MoldeProductos>) {
-        binding.root.findViewById<View>(R.id.headerProductosInventario)?.isVisible = false
-    }
-
-    private fun initRecyclerMovimientos() {
-        movimientosAdapter = crearAdapterMovimientos()
-
-        binding.recyclerViewMovimientos.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = movimientosAdapter
-            setHasFixedSize(false)
-        }
-    }
-
-    private fun crearAdapterMovimientos(): AdapterMovimientosInventario {
-        return AdapterMovimientosInventario { movimiento ->
-            dialogMovimientos?.dismiss()
-            mostrarDetalleMovimientoInventario(movimiento)
-        }
-    }
-
-    private fun configurarAccionesMovimientos() {
-        if (requireContext().isTablet()) return
-        binding.root.findViewById<View>(R.id.bottomSheetMovimientos)?.visibility = View.GONE
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun configurarFiltroFechaTablet() {
-        if (!isAdded || !requireContext().isTablet()) return
-        tabletChipHoy = binding.root.findViewById(R.id.chipHoyTablet)
-        tabletChipFecha = binding.root.findViewById(R.id.chipFechaTablet)
-        tabletChipRango = binding.root.findViewById(R.id.chipRangoTablet)
-        tabletEditBuscarMovimientos = binding.root.findViewById(R.id.editBuscarMovimientosTablet)
-
-        tabletChipHoy?.setOnClickListener {
-            filtroFechaMovimientos = FiltroFecha.HOY
-            aplicarFiltroFecha()
-        }
-        tabletChipFecha?.setOnClickListener {
-            mostrarDatePickerMovimientos { fecha ->
-                fechaPersonalizada = fecha
-                filtroFechaMovimientos = FiltroFecha.PERSONALIZADO
-                tabletChipFecha?.text = "📅 " + SimpleDateFormat("d MMM", Locale.Builder().setLanguage("es").build()).format(fecha.time)
-                sincronizarChipsFiltro(tabletChipHoy, tabletChipFecha, tabletChipRango)
-                aplicarFiltroFecha()
-            }
-        }
-        // Chip Rango (feature: filtro por rango de fechas)
-        tabletChipRango?.setOnClickListener {
-            mostrarRangePickerMovimientos { inicio, fin ->
-                fechaRangoInicio = inicio
-                fechaRangoFin = fin
-                filtroFechaMovimientos = FiltroFecha.RANGO
-                tabletChipRango?.text = "📆 " + etiquetaCortaRango(inicio, fin)
-                sincronizarChipsFiltro(tabletChipHoy, tabletChipFecha, tabletChipRango)
-                aplicarFiltroFecha()
-            }
-        }
-
-        // Búsqueda en movimientos (feature 1)
-        tabletEditBuscarMovimientos?.addTextChangedListener {
-            textoBusquedaMovimientos = it?.toString().orEmpty()
-            aplicarFiltroFecha()
-        }
-
-        // Filtro por tipo (feature 2)
-        val chipTodos = binding.root.findViewById<Chip>(R.id.chipTodosTipoTablet)
-        val chipVentas = binding.root.findViewById<Chip>(R.id.chipVentasTipoTablet)
-        val chipIngresos = binding.root.findViewById<Chip>(R.id.chipIngresosTipoTablet)
-        val chipAjustes = binding.root.findViewById<Chip>(R.id.chipAjustesTipoTablet)
-        val chipDevoluciones = binding.root.findViewById<Chip>(R.id.chipDevolucionesTipoTablet)
-        val chipCreaciones = binding.root.findViewById<Chip>(R.id.chipCreacionesTipoTablet)
-        chipTodos?.setOnClickListener { filtroTipoMovimiento = "TODOS"; aplicarFiltroFecha() }
-        chipVentas?.setOnClickListener { filtroTipoMovimiento = "VENTAS"; aplicarFiltroFecha() }
-        chipIngresos?.setOnClickListener { filtroTipoMovimiento = "INGRESOS"; aplicarFiltroFecha() }
-        chipAjustes?.setOnClickListener { filtroTipoMovimiento = "AJUSTES"; aplicarFiltroFecha() }
-        chipDevoluciones?.setOnClickListener { filtroTipoMovimiento = "DEVOLUCIONES"; aplicarFiltroFecha() }
-        chipCreaciones?.setOnClickListener { filtroTipoMovimiento = "CREACIONES"; aplicarFiltroFecha() }
-    }
-
-    private fun aplicarFiltroFecha() {
-        if (!isAdded || _binding == null) return
-        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val hoy = fmt.format(Date())
-
-        // 1) Filtro por fecha
-        var filtrados = when (filtroFechaMovimientos) {
-            FiltroFecha.HOY ->
-                todosLosMovimientos.filter { it.fechaPath == hoy }
-            FiltroFecha.PERSONALIZADO -> {
-                val fecha = fechaPersonalizada
-                if (fecha == null) todosLosMovimientos
-                else {
-                    val fechaStr = fmt.format(fecha.time)
-                    todosLosMovimientos.filter { it.fechaPath == fechaStr }
-                }
-            }
-            FiltroFecha.RANGO -> {
-                val inicio = fechaRangoInicio
-                val fin = fechaRangoFin
-                if (inicio == null || fin == null) todosLosMovimientos
-                else {
-                    val desde = fmt.format(inicio.time)
-                    val hasta = fmt.format(fin.time)
-                    // Asegura que desde <= hasta sin importar el orden de selección
-                    val (d, h) = if (desde <= hasta) desde to hasta else hasta to desde
-                    todosLosMovimientos.filter { it.fechaPath.isNotEmpty() && it.fechaPath in d..h }
-                }
-            }
-        }
-
-        // 2) Filtro por tipo (feature 2)
-        if (filtroTipoMovimiento != "TODOS") {
-            filtrados = filtrados.filter { coincideTipo(it.tipo, filtroTipoMovimiento) }
-        }
-
-        // 3) Filtro por producto específico (feature 3)
-        val indiceProductoFiltro = filtroProductoMovimientos
-        if (indiceProductoFiltro != null) {
-            filtrados = filtrados.filter { it.indiceProducto == indiceProductoFiltro }
-        }
-
-        // 4) Búsqueda por texto (feature 1)
-        val texto = textoBusquedaMovimientos.trim().lowercase()
-        if (texto.isNotEmpty()) {
-            filtrados = filtrados.filter { mov ->
-                mov.titulo.lowercase().contains(texto) ||
-                    mov.descripcion.lowercase().contains(texto) ||
-                    mov.nombreProducto.lowercase().contains(texto) ||
-                    mov.indiceProducto.lowercase().contains(texto)
-            }
-        }
-
-        actualizarUiMovimientos(filtrados)
-    }
-
-    private fun coincideTipo(tipo: String, filtro: String): Boolean {
-        val t = tipo.lowercase()
-        return when (filtro) {
-            // Devolución debe tener prioridad sobre "venta" porque el tipo es "devolucion_venta".
-            "DEVOLUCIONES" -> t.contains("devolu")
-            "VENTAS"     -> !t.contains("devolu") && (t.contains("venta") || t.contains("salida_venta"))
-            "INGRESOS"   -> t.contains("ingreso") || t.contains("entrada")
-            "AJUSTES"    -> t.contains("ajuste")
-            "CREACIONES" -> t.contains("creac") || t.contains("creado") || t.contains("nuevo")
-            else         -> true
-        }
-    }
-
-    private fun mostrarDatePickerMovimientos(onDateSelected: (Calendar) -> Unit) {
-        if (!isAdded) return
-        val cal = fechaPersonalizada ?: Calendar.getInstance()
-        val picker = DatePickerDialog(
-            requireContext(),
-            { _, year, month, day ->
-                onDateSelected(Calendar.getInstance().apply { set(year, month, day) })
-            },
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH),
-            cal.get(Calendar.DAY_OF_MONTH)
-        )
-        // HUMANO: Sin fechas futuras. El usuario solo puede mirar movimientos
-        // que ya ocurrieron: desde siempre hasta hoy inclusive.
-        picker.datePicker.maxDate = System.currentTimeMillis()
-        picker.show()
-    }
-
-    /**
-     * HUMANO: Abre un MaterialDatePicker en modo rango. El usuario elige un
-     * día de inicio y otro de fin, y recibimos ambos en milisegundos UTC.
-     * Convertimos a Calendar local normalizando a medianoche para comparar
-     * fechaPath con seguridad.
-     */
-    private fun mostrarRangePickerMovimientos(onRangeSelected: (Calendar, Calendar) -> Unit) {
-        if (!isAdded) return
-
-        // HUMANO: El rango es siempre "hoy hacia atrás". El usuario no puede elegir
-        // fechas futuras porque no hay movimientos allí. setEnd limita hasta qué mes
-        // se puede navegar en el calendario; el validator bloquea los días posteriores
-        // a hoy dentro del mes actual.
-        val hoyUtc = MaterialDatePicker.todayInUtcMilliseconds()
-        val constraints = CalendarConstraints.Builder()
-            .setEnd(hoyUtc)
-            .setValidator(DateValidatorPointBackward.now())
-            .build()
-
-        val builder = MaterialDatePicker.Builder.dateRangePicker()
-            .setTitleText("Selecciona un rango de fechas")
-            .setCalendarConstraints(constraints)
-
-        val inicioPrevio = fechaRangoInicio?.timeInMillis
-        val finPrevio = fechaRangoFin?.timeInMillis
-        if (inicioPrevio != null && finPrevio != null &&
-            inicioPrevio <= hoyUtc && finPrevio <= hoyUtc
-        ) {
-            builder.setSelection(AndroidxPair(inicioPrevio, finPrevio))
-        }
-
-        val picker = builder.build()
-        picker.addOnPositiveButtonClickListener { seleccion ->
-            val startMs = seleccion.first ?: return@addOnPositiveButtonClickListener
-            val endMs = seleccion.second ?: return@addOnPositiveButtonClickListener
-            val inicio = Calendar.getInstance().apply {
-                timeInMillis = startMs
-                // Normaliza: el picker devuelve UTC 00:00; pasamos al día local
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }
-            val fin = Calendar.getInstance().apply {
-                timeInMillis = endMs
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }
-            onRangeSelected(inicio, fin)
-        }
-        picker.show(childFragmentManager, "rangoMovimientos")
-    }
-
-    /** Texto corto para pintar dentro del chip, ej: "3–9 Nov" o "28 Oct – 2 Nov". */
-    private fun etiquetaCortaRango(inicio: Calendar, fin: Calendar): String {
-        val esp = Locale.Builder().setLanguage("es").build()
-        val mesIgual = inicio.get(Calendar.MONTH) == fin.get(Calendar.MONTH) &&
-            inicio.get(Calendar.YEAR) == fin.get(Calendar.YEAR)
-        return if (mesIgual) {
-            val mesTxt = SimpleDateFormat("MMM", esp).format(fin.time)
-            "${inicio.get(Calendar.DAY_OF_MONTH)}–${fin.get(Calendar.DAY_OF_MONTH)} $mesTxt"
-        } else {
-            val fmtCorto = SimpleDateFormat("d MMM", esp)
-            "${fmtCorto.format(inicio.time)} – ${fmtCorto.format(fin.time)}"
-        }
-    }
-
-    private fun sincronizarChipsFiltro(
-        chipHoy: Chip?,
-        chipFecha: Chip?,
-        chipRango: Chip?
-    ) {
-        when (filtroFechaMovimientos) {
-            FiltroFecha.HOY -> chipHoy?.isChecked = true
-            FiltroFecha.PERSONALIZADO -> chipFecha?.isChecked = true
-            FiltroFecha.RANGO -> chipRango?.isChecked = true
-        }
-    }
-
-    @SuppressLint("SetTextI18n", "InflateParams")
-    private fun mostrarDialogoMovimientos() {
-        if (!isAdded || requireContext().isTablet()) return
-        if (dialogMovimientos?.isShowing == true) return
-
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.dialog_movimientos_inventario, null, false)
-
-        dialogRecyclerMovimientos = dialogView.findViewById(R.id.recyclerViewMovimientosDialog)
-        dialogTvMovimientosVacio = dialogView.findViewById(R.id.tvMovimientosVacioDialog)
-        dialogTvSubtituloMovimientos = dialogView.findViewById(R.id.tvSubtituloMovimientosDialog)
-        dialogTvResumenMovimientos = dialogView.findViewById(R.id.tvResumenMovimientosDialog)
-
-        dialogMovimientosAdapter = crearAdapterMovimientos()
-        dialogRecyclerMovimientos?.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = dialogMovimientosAdapter
-            setHasFixedSize(false)
-        }
-
-        // Chips de filtro de fecha (mobile dialog)
-        val chipHoy = dialogView.findViewById<Chip>(R.id.chipHoyDialog)
-        val chipFecha = dialogView.findViewById<Chip>(R.id.chipFechaDialog)
-        val chipRango = dialogView.findViewById<Chip>(R.id.chipRangoDialog)
-        sincronizarChipsFiltro(chipHoy, chipFecha, chipRango)
-
-        chipHoy?.setOnClickListener {
-            filtroFechaMovimientos = FiltroFecha.HOY
-            sincronizarChipsFiltro(chipHoy, chipFecha, chipRango)
-            aplicarFiltroFecha()
-        }
-        chipRango?.setOnClickListener {
-            mostrarRangePickerMovimientos { inicio, fin ->
-                fechaRangoInicio = inicio
-                fechaRangoFin = fin
-                filtroFechaMovimientos = FiltroFecha.RANGO
-                chipRango.text = "📆 " + etiquetaCortaRango(inicio, fin)
-                sincronizarChipsFiltro(chipHoy, chipFecha, chipRango)
-                aplicarFiltroFecha()
-            }
-        }
-        // Búsqueda en movimientos (feature 1)
-        val editBuscar = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editBuscarMovimientosDialog)
-        editBuscar?.setText(textoBusquedaMovimientos)
-        editBuscar?.addTextChangedListener {
-            textoBusquedaMovimientos = it?.toString().orEmpty()
-            aplicarFiltroFecha()
-        }
-
-        // Alerta stock bajo (feature 4)
-        val cardAlerta = dialogView.findViewById<MaterialCardView>(R.id.cardAlertaStockBajoDialog)
-        val tvAlerta = dialogView.findViewById<TextView>(R.id.tvAlertaStockBajoDialog)
-        val cantidadBajoStock = listaProductos.count { p ->
-            val cantidad = p.cantidadinicial.toIntOrNull() ?: 0
-            val minimo = p.stockminimo.toIntOrNull() ?: 0
-            cantidad <= minimo && p.estadodelproducto
-        }
-        if (cantidadBajoStock > 0) {
-            cardAlerta?.visibility = View.VISIBLE
-            tvAlerta?.text = "⚠️ $cantidadBajoStock producto${if (cantidadBajoStock == 1) "" else "s"} con stock bajo o agotado"
-        }
-
-        // Título especial si es historial de un producto
-        val indiceHistorial = filtroProductoMovimientos
-        if (indiceHistorial != null) {
-            val nombreProducto = listaProductos.find { it.indice == indiceHistorial }?.nombre ?: indiceHistorial
-            dialogView.findViewById<TextView>(R.id.tvSubtituloMovimientosDialog)?.text = "Historial de: $nombreProducto"
-        }
-
-        chipFecha?.setOnClickListener {
-            mostrarDatePickerMovimientos { fecha ->
-                fechaPersonalizada = fecha
-                filtroFechaMovimientos = FiltroFecha.PERSONALIZADO
-                chipFecha.text = "📅 " + SimpleDateFormat("d MMM", Locale.Builder().setLanguage("es").build()).format(fecha.time)
-                sincronizarChipsFiltro(chipHoy, chipFecha, chipRango)
-                aplicarFiltroFecha()
-            }
-        }
-
-        val dialog = BottomSheetDialog(requireContext())
-        dialog.setContentView(dialogView)
-        dialog.setOnShowListener {
-            ocultarBotonesFlotantes()
-            dialog.behavior.skipCollapsed = true
-            dialog.behavior.isFitToContents = true
-            dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
-        }
-        dialog.setOnDismissListener {
-            mostrarBotonesFlotantes()
-            dialogMovimientos = null
-            dialogMovimientosAdapter = null
-            dialogRecyclerMovimientos = null
-            dialogTvMovimientosVacio = null
-            dialogTvSubtituloMovimientos = null
-            dialogTvResumenMovimientos = null
-            // Limpiar filtros específicos al cerrar
-            filtroProductoMovimientos = null
-            textoBusquedaMovimientos = ""
-            filtroTipoMovimiento = "TODOS"
-        }
-
-        dialogMovimientos = dialog
-        actualizarUiMovimientos(movimientosRecientes)
-        dialog.show()
-    }
-
-    @SuppressLint("InflateParams")
-    private fun mostrarDetalleMovimientoInventario(movimiento: MovimientoInventarioUi) {
-        if (!isAdded) return
-        dialogDetalleMovimiento?.dismiss()
-
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.dialog_detalle_movimiento_inventario, null, false)
-
-        dialogView.findViewById<TextView>(R.id.tvTituloDetalleMovimiento).text =
-            movimiento.titulo.ifBlank { getString(R.string.movimientos_inventario_detalle_titulo_default) }
-        dialogView.findViewById<TextView>(R.id.tvSubtituloDetalleMovimiento).text =
-            buildString {
-                append(movimiento.hora.ifBlank { getString(R.string.movimientos_inventario_valor_sin_hora) })
-                if (movimiento.nombreUsuario.isNotBlank()) {
-                    append(" | ")
-                    append(movimiento.nombreUsuario)
-                }
-            }
-
-        dialogView.findViewById<TextView>(R.id.tvValorProductoDetalleMovimiento).text =
-            resolverNombreProductoMovimiento(movimiento)
-        dialogView.findViewById<TextView>(R.id.tvValorPresentacionDetalleMovimiento).text =
-            formatearPresentacionDetalleMovimiento(movimiento)
-        dialogView.findViewById<TextView>(R.id.tvValorCantidadDetalleMovimiento).text =
-            formatearCantidadDetalleMovimiento(movimiento)
-        val layoutLotes = dialogView.findViewById<View>(R.id.layoutLotesDetalleMovimiento)
-        val tvLotes = dialogView.findViewById<TextView>(R.id.tvValorLotesDetalleMovimiento)
-        if (movimiento.detalleLotes.isNotBlank()) {
-            layoutLotes.visibility = View.VISIBLE
-            tvLotes.text = movimiento.detalleLotes
-        } else {
-            layoutLotes.visibility = View.GONE
-        }
-        dialogView.findViewById<TextView>(R.id.tvValorUsuarioDetalleMovimiento).text =
-            movimiento.nombreUsuario.ifBlank { getString(R.string.movimientos_inventario_valor_sin_usuario) }
-        dialogView.findViewById<TextView>(R.id.tvValorMotivoDetalleMovimiento).text =
-            movimiento.motivo.ifBlank { getString(R.string.movimientos_inventario_valor_sin_motivo) }
-        val unidadBaseMovimiento = listaProductos
-            .find { it.indice == movimiento.indiceProducto }
-            ?.unidadbase?.takeIf { it.isNotBlank() } ?: "unidades"
-        dialogView.findViewById<TextView>(R.id.tvValorStockAntesDetalleMovimiento).text =
-            formatearStockDetalleMovimiento(movimiento.stockAntes, unidadBaseMovimiento)
-        dialogView.findViewById<TextView>(R.id.tvValorStockDespuesDetalleMovimiento).text =
-            formatearStockDetalleMovimiento(movimiento.stockDespues, unidadBaseMovimiento)
-        dialogView.findViewById<TextView>(R.id.tvValorReferenciaDetalleMovimiento).text =
-            resolverReferenciaDetalleMovimiento(movimiento)
-
-        val dialog = BottomSheetDialog(requireContext())
-        dialog.setContentView(dialogView)
-        dialog.setOnShowListener {
-            ocultarBotonesFlotantes()
-            dialog.behavior.skipCollapsed = true
-            dialog.behavior.isFitToContents = true
-            dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
-        }
-        dialog.setOnDismissListener {
-            mostrarBotonesFlotantes()
-            if (dialogDetalleMovimiento === dialog) {
-                dialogDetalleMovimiento = null
-            }
-        }
-
-        dialogView.findViewById<MaterialButton>(R.id.btnCerrarDetalleMovimiento)
-            .setOnClickListener { dialog.dismiss() }
-
-        dialogDetalleMovimiento = dialog
-        dialog.show()
-    }
-
-    private fun resolverNombreProductoMovimiento(movimiento: MovimientoInventarioUi): String {
-        if (movimiento.nombreProducto.isNotBlank()) return movimiento.nombreProducto
-
-        val descripcion = movimiento.descripcion.trim()
-        if (descripcion.isBlank()) {
-            return movimiento.indiceProducto.ifBlank {
-                getString(R.string.movimientos_inventario_valor_no_identificado)
-            }
-        }
-
-        val patrones = listOf(
-            Regex("(?i)para\\s+(.+?)(?:\\.\\s+lotes|$)"),
-            Regex("(?i)de\\s+(.+)$"),
-            Regex("(?i)se\\s+cre[oó]\\s+(.+)$"),
-            Regex("(?i)se\\s+actualiz[oó]\\s+(.+)$"),
-            Regex("(?i)se\\s+elimin[oó]\\s+(.+)$"),
-            Regex("(?i)entr[oó]\\s+mercader[ií]a\\s+para\\s+(.+)$"),
-            Regex("(?i)se\\s+ajust[oó]\\s+(.+)$")
-        )
-
-        return patrones.firstNotNullOfOrNull { patron ->
-            patron.find(descripcion)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
-        } ?: descripcion
-    }
-
-    private fun formatearCantidadConSigno(cantidad: Int, esSalida: Boolean): String {
-        return when {
-            cantidad < 0 -> cantidad.toString()
-            cantidad > 0 -> "${if (esSalida) "-" else "+"}$cantidad"
-            else -> "0"
-        }
-    }
-
-    private fun formatearCantidadDetalleMovimiento(movimiento: MovimientoInventarioUi): String {
-        val cantidad = movimiento.cantidad ?: return getString(R.string.movimientos_inventario_valor_no_registrado)
-        val esSalida = esMovimientoSalida(movimiento)
-        val unidadBase = listaProductos
-            .find { it.indice == movimiento.indiceProducto }
-            ?.unidadbase?.takeIf { it.isNotBlank() } ?: "unidades"
-        val cantidadMovimiento = movimiento.cantidadMovimiento
-        val unidadMovimiento = movimiento.unidadMovimiento.trim()
-        val cantidadBaseTexto = formatearCantidadConSigno(cantidad, esSalida)
-        val cantidadMovimientoTexto = cantidadMovimiento
-            ?.takeIf { it != 0 }
-            ?.let { formatearCantidadConSigno(it, esSalida) }
-        return if (cantidadMovimientoTexto != null && unidadMovimiento.isNotBlank()) {
-            buildString {
-                append("Movimiento registrado: ")
-                append(cantidadMovimientoTexto)
-                append(" ")
-                append(unidadMovimiento)
-                append("\n")
-                append("Total del movimiento en unidad base: ")
-                append(cantidadBaseTexto)
-                append(" ")
-                append(unidadBase)
-            }
-        } else {
-            "Movimiento registrado: $cantidadBaseTexto $unidadBase"
-        }
-    }
-
-    private fun formatearStockDetalleMovimiento(stock: Int?, unidadBase: String = "unidades"): String {
-        return stock?.let { "$it $unidadBase" }
-            ?: getString(R.string.movimientos_inventario_valor_no_registrado)
-    }
-
-    private fun formatearPresentacionDetalleMovimiento(movimiento: MovimientoInventarioUi): String {
-        val unidadBase = listaProductos
-            .find { it.indice == movimiento.indiceProducto }
-            ?.unidadbase?.takeIf { it.isNotBlank() } ?: "unidades"
-        val unidadMovimiento = movimiento.unidadMovimiento.trim()
-            .ifBlank { movimiento.presentacion.trim() }
-        val unidadesPorMovimiento = movimiento.unidadesPorMovimiento?.takeIf { it > 0 }
-
-        return when {
-            unidadMovimiento.isBlank() -> "Unidad base principal: $unidadBase"
-            unidadesPorMovimiento != null && unidadesPorMovimiento > 1 -> {
-                "Presentaci\u00f3n usada: $unidadMovimiento\nEquivalencia: 1 $unidadMovimiento = $unidadesPorMovimiento $unidadBase"
-            }
-            unidadMovimiento.equals(unidadBase, ignoreCase = true) -> {
-                "Unidad base principal: $unidadBase"
-            }
-            else -> "Presentaci\u00f3n usada: $unidadMovimiento"
-        }
-    }
-
-    private fun DataSnapshot.obtenerDetalleLotesMovimientoTexto(): String {
-        val metadata = child("metadata")
-        val detallePlano = metadata.child("detalleLotesTexto")
-            .getValue(String::class.java)
-            .orEmpty()
-            .trim()
-        if (detallePlano.isNotBlank()) return detallePlano
-
-        val detalles = metadata.child("lotesConsumidosDetalle").children.mapNotNull { detalle ->
-            val numero = detalle.child("numero").getValue(String::class.java).orEmpty().trim()
-                .ifBlank { detalle.child("clave").getValue(String::class.java).orEmpty().trim() }
-            val cantidad = detalle.child("cantidad").value?.toString()?.toIntOrNull()
-            if (numero.isBlank() || cantidad == null || cantidad <= 0) {
-                null
-            } else {
-                "$numero: $cantidad"
-            }
-        }
-        if (detalles.isNotEmpty()) return detalles.joinToString(", ")
-
-        val loteNumero = metadata.child("loteNumeroConsumido")
-            .getValue(String::class.java)
-            .orEmpty()
-            .trim()
-            .ifBlank {
-                metadata.child("loteNumero")
-                    .getValue(String::class.java)
-                    .orEmpty()
-                    .trim()
-            }
-        if (loteNumero.isBlank()) return ""
-
-        val cantidad = child("cantidad").value?.toString()?.toIntOrNull()
-        return if (cantidad != null && cantidad > 0) {
-            "$loteNumero: $cantidad"
-        } else {
-            loteNumero
-        }
-    }
-
-    private fun resolverReferenciaDetalleMovimiento(movimiento: MovimientoInventarioUi): String {
-        val referencia = movimiento.referenciaId.trim()
-        if (referencia.isBlank()) return getString(R.string.movimientos_inventario_valor_sin_referencia)
-
-        return when {
-            esMovimientoDevolucionInventario(movimiento) -> "Venta relacionada"
-            esSalidaPorVentaMovimiento(movimiento) -> "Venta relacionada"
-            referencia.equals("ajuste_manual", ignoreCase = true) -> getString(R.string.movimientos_inventario_referencia_ajuste_manual)
-            referencia.equals("ingreso_stock", ignoreCase = true) -> getString(R.string.movimientos_inventario_referencia_ingreso_stock)
-            referencia.equals(movimiento.indiceProducto, ignoreCase = true) -> getString(
-                R.string.movimientos_inventario_referencia_indice,
-                referencia
-            )
-            else -> referencia.humanizarReferenciaInterna()
-        }
-    }
-
-    private fun esSalidaPorVentaMovimiento(movimiento: MovimientoInventarioUi): Boolean {
-        return movimiento.tipo.lowercase(Locale.getDefault()).contains("salida_venta")
-    }
-
-    private fun esMovimientoDevolucionInventario(movimiento: MovimientoInventarioUi): Boolean {
-        return movimiento.tipo.lowercase(Locale.getDefault()).contains("devolucion")
-    }
-
-    private fun esMovimientoSalida(movimiento: MovimientoInventarioUi): Boolean {
-        val tipo = movimiento.tipo.lowercase(Locale.getDefault())
-        return tipo.contains("salida") || tipo.contains("eliminado")
-    }
-
-    private fun ocultarBotonesFlotantes() {
-        binding.floatingbotoncrearproducto.hide()
-        binding.root.findViewById<View>(R.id.btnMovimientosInventario)?.isVisible = false
-    }
-
-    private fun mostrarBotonesFlotantes() {
-        binding.floatingbotoncrearproducto.show()
-        binding.root.findViewById<View>(R.id.btnMovimientosInventario)?.isVisible = true
-    }
-
-    private fun iniciarLecturaProductos() {
-        // V16.15: Buscador Remoto - Solo cargamos los primeros 40 por defecto
-        val queryInicial = FirebaseDatabase.getInstance()
-            .getReference("Inventario")
-            .child("Productos")
-            .orderByChild("nombre")
-            .limitToFirst(40)
-
-        productosRef = FirebaseDatabase.getInstance().getReference("Inventario").child("Productos")
-        productosListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (!isAdded) return
-                
-                lifecycleScope.launch(Dispatchers.Default) {
-                    val tempProductos = mutableListOf<MoldeProductos>()
-                    for (child in snapshot.children) {
-                        child.toMoldeProductos()?.let { tempProductos.add(it) }
-                    }
-                    
-                    withContext(Dispatchers.Main) {
-                        listaProductos.clear()
-                        listaProductos.addAll(tempProductos)
-                        // Ejecutamos aplicarFiltro sin query para aplicar los chips/categorias iniciales
-                        mostrarResultadosRemotos()
-                        marcarProductosInicialesListos()
-                        
-                        if (movimientosListener == null) {
-                            iniciarLecturaMovimientos()
-                        }
-                    }
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Inventario", "Error productos: ${error.message}")
-                marcarProductosInicialesListos()
-            }
-        }
-        // Usamos addListenerForSingleValueEvent para la carga inicial
-        queryInicial.addListenerForSingleValueEvent(productosListener as ValueEventListener)
-    }
-
-    private var searchJob: kotlinx.coroutines.Job? = null
-
-    private fun aplicarFiltro(textoBusqueda: String = "") {
-        if (_binding == null) return
-        val query = textoBusqueda.trim()
-        
-        // V16.15: Lógica de Búsqueda Remota por Peticion
-        searchJob?.cancel()
-        searchJob = lifecycleScope.launch {
-            if (query.length < 2) {
-                if (query.isEmpty()) {
-                    iniciarLecturaProductos()
-                }
-                return@launch
-            }
-            
-            delay(500) // Debounce
-            
-            val remoteQuery = FirebaseDatabase.getInstance()
-                .getReference("Inventario")
-                .child("Productos")
-                .orderByChild("nombre")
-                .startAt(query)
-                .endAt(query + "\uf8ff")
-                .limitToFirst(50)
-
-            remoteQuery.get().addOnSuccessListener { snapshot ->
-                lifecycleScope.launch(Dispatchers.Default) {
-                    val resultados = mutableListOf<MoldeProductos>()
-                    for (child in snapshot.children) {
-                        child.toMoldeProductos()?.let { resultados.add(it) }
-                    }
-                    withContext(Dispatchers.Main) {
-                        listaProductos.clear()
-                        listaProductos.addAll(resultados)
-                        mostrarResultadosRemotos(query)
-                    }
+        return ComposeView(requireContext()).apply {
+            setContent {
+                MaterialTheme {
+                    val viewModel: BuscadorEscanerViewModel = viewModel()
+                    InventarioScreen(viewModel)
                 }
             }
         }
     }
+}
 
-    private fun mostrarResultadosRemotos(query: String = "") {
-        if (_binding == null) return
-        
-        // Aplicamos los filtros secundarios (Categoría, Estado Chips) sobre los resultados en listaProductos
-        val filtradosFinales = listaProductos.filter { producto ->
-            
-            val coincideChip = when (filtroActual) {
-                "BAJO_STOCK" -> {
-                    (producto.cantidadinicial.toIntOrNull() ?: 0) <=
-                        (producto.stockminimo.toIntOrNull() ?: 0)
-                }
-                "SUFICIENTE" -> {
-                    (producto.cantidadinicial.toIntOrNull() ?: 0) >
-                        (producto.stockminimo.toIntOrNull() ?: 0)
-                }
-                "VENCIDOS" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                    .any { ProductUtils.estaVencido(it) }
-                "AGOTADO_O_VENCE" -> {
-                    val agotado = (producto.cantidadinicial.toIntOrNull() ?: 0) <= 0
-                    val vencidoOPorVencer = ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                        .let { lista ->
-                            lista.any { ProductUtils.estaVencido(it) } ||
-                                lista.mapNotNull { ProductUtils.diasHastaVencerLote(it) }
-                                    .any { it in 0..90 }
-                        }
-                    agotado || vencidoOPorVencer
-                }
-                "PROXIMOS_VENCER" -> ProductUtils.obtenerVencimientosParaEvaluacion(producto)
-                    .mapNotNull { ProductUtils.diasHastaVencerLote(it) }
-                    .any { it in 0..90 }
-                else -> true
-            }
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
+@Composable
+fun InventarioScreen(viewModel: BuscadorEscanerViewModel) {
+    val state by viewModel.state.collectAsState()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val feedbackController = remember { FeedbackCajaController(context) }
+    
+    // V28.5: Sincronización proactiva al regresar a la pantalla
+    LaunchedEffect(Unit) {
+        viewModel.refrescar()
+    }
 
-            val coincideCategoria = if (categoriaSeleccionada == "Todas las categorías") {
-                true
-            } else {
-                producto.categoria == categoriaSeleccionada
-            }
+    val listState = rememberLazyListState()
+    val isAtTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 100 } }
+    val showTitle by remember { derivedStateOf { isAtTop && state.busquedaQuery.isEmpty() && !state.busquedaInteligenteActiva } }
 
-            coincideChip && coincideCategoria
-        }
-
-        val hayFiltrosActivos = query.isNotEmpty() ||
-                filtroActual != "TODOS" ||
-                categoriaSeleccionada != "Todas las categorías"
-
-        actualizarEstadoVacio(
-            filtradosFinales.isEmpty(),
-            hayFiltrosActivos,
-            query
-        )
-        
-        adapter.updateList(filtradosFinales)
-        
-        val soloProductos = filtradosFinales
-        actualizarCarruselAlertas(soloProductos)
-        if (requireContext().isTablet()) {
-            actualizarContadoresChipsEstado()
-            actualizarAlertaStockBajoTablet()
-        }
-        
-        if (query.isNotEmpty() && soloProductos.isNotEmpty()) {
-            mostrarAlertaInventario(soloProductos)
-        }
-        actualizarPrioridadInventario()
-
-        if (filtradosFinales.isNotEmpty()) {
-            binding.recyclerView.scrollToPosition(0)
+    // Manejo de sonido de error al no encontrar producto
+    LaunchedEffect(state.productoNoEncontrado) {
+        if (state.productoNoEncontrado) {
+            delay(1000) // Esperar 1 segundo para no chocar con el sonido del escáner
+            feedbackController.error(null)
         }
     }
 
-    private fun mostrarAlertaInventario(productos: List<MoldeProductos>) {
-        if (!isAdded || _binding == null) return
-
-        val activos = productos.filter { it.estadodelproducto }
-
-        val vencidos = activos.filter {
-            ProductUtils.obtenerEstadoVencimiento(it).orEmpty() == "VENCIDO"
-        }
-
-        val porVencer = activos.filter {
-            ProductUtils.obtenerEstadoVencimiento(it).orEmpty() == "POR_VENCER"
-        }
-
-        val bajoStock = activos.filter { p ->
-            val stock = p.cantidadinicial.trim().toIntOrNull() ?: 0
-            val minimo = p.stockminimo.trim().toIntOrNull() ?: 0
-            minimo > 0 && stock <= minimo
-        }
-
-        val mensaje = when {
-            vencidos.size == 1 -> "🔴 Vencido: ${vencidos.first().nombre}"
-            vencidos.size > 1 -> "🔴 ${vencidos.size} productos vencidos"
-
-            porVencer.size == 1 -> "🟡 Por vencer: ${porVencer.first().nombre}"
-            porVencer.size > 1 -> "🟡 ${porVencer.size} productos por vencer"
-
-            bajoStock.size == 1 -> "🔴 Stock bajo: ${bajoStock.first().nombre}"
-            bajoStock.size > 1 -> "🔴 ${bajoStock.size} productos con stock bajo"
-
-            else -> return
-        }
-
-        Snackbar.make(binding.root, mensaje, 7000)
-            .setAction("Ver") {
-                when {
-                    vencidos.isNotEmpty() -> filtroActual = "VENCIDOS"
-                    porVencer.isNotEmpty() -> filtroActual = "PROXIMOS_VENCER"
-                    bajoStock.isNotEmpty() -> filtroActual = "BAJO_STOCK"
-                }
-
-                actualizarBtnFiltro()
-                aplicarFiltro(binding.editBuscarProducto.text.toString())
-            }
-            .setBackgroundTint("#1F2937".toColorInt())
-            .setTextColor(Color.WHITE)
-            .show()
-    }
-
-    private fun iniciarLecturaMovimientos() {
-        val hoy = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        movimientosRef = FirebaseDatabase.getInstance()
-            .getReference(DbPaths.ROOT_MOVIMIENTOS)
-            .child("movimientosInventario")
-            .child(hoy) // V16.14: Solo descargamos movimientos de HOY por defecto
-            
-        movimientosListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (!isAdded || _binding == null) return
-
-                lifecycleScope.launch(Dispatchers.Default) {
-                    val movimientos = mutableListOf<MovimientoInventarioUi>()
-                    for (movimientoSnapshot in snapshot.children) {
-                        val indiceProducto = movimientoSnapshot.child("indiceProducto")
-                            .getValue(String::class.java)
-                            .orEmpty()
-                        val titulo = movimientoSnapshot.child("titulo").getValue(String::class.java).orEmpty()
-                        val descripcion = movimientoSnapshot.child("descripcion").getValue(String::class.java).orEmpty()
-
-                        if (titulo.isBlank() && descripcion.isBlank()) continue
-
-                        val tsRaw = movimientoSnapshot.child("timestamp").value
-                        val timestamp = when (tsRaw) {
-                            is Long -> tsRaw
-                            is Double -> tsRaw.toLong()
-                            is Int -> tsRaw.toLong()
-                            is String -> tsRaw.toLongOrNull() ?: 0L
-                            else -> 0L
-                        }
-
-                        movimientos.add(
-                            MovimientoInventarioUi(
-                                indiceProducto = indiceProducto,
-                                tipo = movimientoSnapshot.child("tipo").getValue(String::class.java).orEmpty(),
-                                titulo = titulo,
-                                descripcion = descripcion,
-                                hora = movimientoSnapshot.child("hora").getValue(String::class.java).orEmpty(),
-                                nombreUsuario = movimientoSnapshot.child("nombreUsuario").getValue(String::class.java).orEmpty(),
-                                referenciaId = movimientoSnapshot.child("referenciaId").getValue(String::class.java).orEmpty(),
-                                cantidad = movimientoSnapshot.child("cantidad").value?.toString()?.toIntOrNull(),
-                                stockAntes = movimientoSnapshot.child("stockAntes").value?.toString()?.toIntOrNull(),
-                                stockDespues = movimientoSnapshot.child("stockDespues").value?.toString()?.toIntOrNull(),
-                                timestamp = timestamp,
-                                nombreProducto = movimientoSnapshot.child("metadata").child("nombreProducto").getValue(String::class.java).orEmpty(),
-                                presentacion = movimientoSnapshot.child("metadata").child("presentacion").getValue(String::class.java).orEmpty(),
-                                cantidadMovimiento = movimientoSnapshot.child("metadata").child("cantidadIngresada").value?.toString()?.toIntOrNull() 
-                                    ?: movimientoSnapshot.child("metadata").child("cantidadEgresada").value?.toString()?.toIntOrNull(),
-                                unidadMovimiento = movimientoSnapshot.child("metadata").child("unidadIngreso").getValue(String::class.java).orEmpty()
-                                    .ifBlank { movimientoSnapshot.child("metadata").child("unidadEgreso").getValue(String::class.java).orEmpty() }
-                                    .ifBlank { movimientoSnapshot.child("metadata").child("unidadAjuste").getValue(String::class.java).orEmpty() },
-                                unidadesPorMovimiento = movimientoSnapshot.child("metadata").child("unidadesPorIngreso").value?.toString()?.toIntOrNull()
-                                    ?: movimientoSnapshot.child("metadata").child("unidadesPorEgreso").value?.toString()?.toIntOrNull()
-                                    ?: movimientoSnapshot.child("metadata").child("unidadesPorAjuste").value?.toString()?.toIntOrNull(),
-                                motivo = movimientoSnapshot.child("motivo").getValue(String::class.java).orEmpty(),
-                                detalleLotes = movimientoSnapshot.obtenerDetalleLotesMovimientoTexto(),
-                                fechaPath = hoy
-                            )
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF7F9FC))) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 2.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showTitle,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Text(
+                            text = "Inventario",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF111827),
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.busquedaQuery,
+                            onValueChange = { viewModel.actualizarBusqueda(it) },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Buscar producto...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (state.busquedaQuery.isNotEmpty()) {
+                                    IconButton(onClick = { 
+                                        viewModel.actualizarBusqueda("")
+                                        focusManager.clearFocus()
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Limpiar búsqueda"
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Search
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    if (state.busquedaInteligenteActiva && state.busquedaQuery.isNotBlank()) {
+                                        viewModel.agregarTermino(state.busquedaQuery)
+                                    } else {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                    }
+                                }
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFF3F4F6),
+                                unfocusedContainerColor = Color(0xFFF3F4F6),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            )
+                        )
+                        
+                        IconButton(
+                            onClick = { 
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                viewModel.setEstaEscaneando(true) 
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(Color(0xFFF3F4F6), RoundedCornerShape(12.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Escanear código",
+                                tint = Color(0xFF15A05C)
+                            )
+                        }
+                    }
 
-                    withContext(Dispatchers.Main) {
-                        todosLosMovimientos = movimientos.sortedByDescending { it.timestamp }
-                        aplicarFiltroFecha()
-                        marcarMovimientosInicialesListos()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Fila de Filtros y Categorías
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Toggle Búsqueda Inteligente (Premium Magic Chip)
+                        MagicSymptomChip(
+                            selected = state.busquedaInteligenteActiva,
+                            onClick = { viewModel.toggleBusquedaInteligente() }
+                        )
+
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = !state.busquedaInteligenteActiva,
+                            enter = fadeIn() + expandHorizontally(),
+                            exit = fadeOut() + shrinkHorizontally()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                // Divisor Visual Sutil
+                                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE5EAF0)))
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // Chips de Categorías (Scroll Horizontal)
+                                LazyRow(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(end = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    items(state.categorias) { cat ->
+                                        val isSelected = state.categoriaSeleccionada == cat
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.seleccionarCategoria(cat) },
+                                            label = { 
+                                                Text(
+                                                    cat,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                ) 
+                                            },
+                                            shape = RoundedCornerShape(20.dp),
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Color(0xFFE8F5EE),
+                                                selectedLabelColor = Color(0xFF15A05C),
+                                                containerColor = Color.Transparent,
+                                                labelColor = Color(0xFF6B7280)
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                borderColor = Color(0xFFE5EAF0),
+                                                selectedBorderColor = Color(0xFF15A05C).copy(alpha = 0.5f),
+                                                borderWidth = 1.dp,
+                                                selectedBorderWidth = 1.5.dp,
+                                                enabled = true,
+                                                selected = isSelected
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (state.busquedaInteligenteActiva && state.busquedaQuery.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { viewModel.agregarTermino(state.busquedaQuery) },
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp), tint = Color(0xFF15A05C))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Añadir síntoma: '${state.busquedaQuery}'", color = Color(0xFF15A05C), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    if (state.busquedaInteligenteActiva && state.terminosSeleccionados.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.terminosSeleccionados.forEach { termino ->
+                                InputChip(
+                                    selected = true,
+                                    onClick = { viewModel.eliminarTermino(termino) },
+                                    label = { Text(termino) },
+                                    trailingIcon = { 
+                                        Icon(
+                                            Icons.Default.Close, 
+                                            null, 
+                                            modifier = Modifier.size(16.dp)
+                                        ) 
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // V22.1: El carrusel de alertas se separó de nuevo para mayor claridad visual
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !state.busquedaInteligenteActiva,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            val alerts = listOfNotNull(
+                                if (state.conteoVencidos > 0) Triple(FiltroAlerta.VENCIDOS, "Vencidos", Color(0xFFD32F2F)) else null,
+                                if (state.conteoStockBajo > 0) Triple(FiltroAlerta.STOCK_BAJO, "Stock Bajo", Color(0xFFEF6C00)) else null,
+                                if (state.conteoPorVencer > 0) Triple(FiltroAlerta.POR_VENCER, "Por Vencer", Color(0xFFFBC02D)) else null,
+                                if (state.conteoSinCodigo > 0) Triple(FiltroAlerta.SIN_CODIGO, "Sin Código", Color(0xFF616161)) else null
+                            )
+
+                            if (alerts.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 0.dp)
+                                ) {
+                                    items(alerts) { (tipo, titulo, color) ->
+                                        val isSelected = state.filtroAlertaActivo == tipo
+                                        val count = when(tipo) {
+                                            FiltroAlerta.VENCIDOS -> state.conteoVencidos
+                                            FiltroAlerta.STOCK_BAJO -> state.conteoStockBajo
+                                            FiltroAlerta.POR_VENCER -> state.conteoPorVencer
+                                            FiltroAlerta.SIN_CODIGO -> state.conteoSinCodigo
+                                            else -> 0
+                                        }
+
+                                        Surface(
+                                            onClick = { viewModel.toggleFiltroAlerta(tipo) },
+                                            color = if (isSelected) color.copy(alpha = 0.1f) else Color.White,
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(
+                                                1.dp, 
+                                                if (isSelected) color else color.copy(alpha = 0.2f)
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(modifier = Modifier.size(6.dp).background(color, CircleShape))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "$count $titulo",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                                    color = if (isSelected) color else Color(0xFF374151)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            if (state.estaCargando) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF15A05C))
+                }
+            } else {
+                val isExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+                
+                // Ocultar teclado al arrastrar la lista
+                LaunchedEffect(listState.isScrollInProgress) {
+                    if (listState.isScrollInProgress) {
+                        focusManager.clearFocus()
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (state.productosFiltrados.isEmpty()) {
+                        EmptyInventoryState(
+                            query = state.busquedaQuery,
+                            isIntelligent = state.busquedaInteligenteActiva,
+                            onClear = { viewModel.actualizarBusqueda("") },
+                            onCreate = {
+                                val intent = Intent(context, CrearProducto::class.java)
+                                context.startActivity(intent)
+                            }
+                        )
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.productosFiltrados) { producto ->
+                                ProductCard(
+                                    producto = producto,
+                                    terminosResaltados = state.terminosSeleccionados,
+                                    resaltado = state.indiceResaltado == producto.indice,
+                                    onEdit = {
+                                        val intent = Intent(context, com.app.administradorfarmadon.ActivityInventario.EditarProductodelInventario::class.java).apply {
+                                            putExtra("indice", producto.indice)
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // BOTÓN FLOTANTE PREMIUM (Efecto Agua/3D)
+                    // Se oculta automáticamente durante el scroll o búsqueda por síntomas
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !listState.isScrollInProgress && !state.busquedaInteligenteActiva,
+                        enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)) + fadeIn(),
+                        exit = scaleOut() + fadeOut(),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(24.dp)
+                    ) {
+                        FluidFloatingActionButton(
+                            expanded = isExpanded,
+                            onClick = {
+                                val intent = Intent(context, CrearProducto::class.java)
+                                context.startActivity(intent)
+                            }
+                        )
                     }
                 }
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                if (!isAdded || _binding == null) return
-                actualizarUiMovimientos(emptyList())
-                Log.e("InventarioMov", "Error movimientos: ${error.message}")
-                marcarMovimientosInicialesListos()
-            }
-        }
-        movimientosRef?.addValueEventListener(movimientosListener!!)
-    }
-
-    private fun actualizarUiMovimientos(recientes: List<MovimientoInventarioUi>) {
-        val b = _binding ?: return
-        movimientosRecientes = recientes
-        
-        // UX Mobile: Historial solo si hay movimientos reales
-        b.btnMovimientosInventario?.isVisible = todosLosMovimientos.isNotEmpty()
-
-        val hayMovimientos = recientes.isNotEmpty()
-        val etiquetaPeriodo = when (filtroFechaMovimientos) {
-            FiltroFecha.HOY -> "hoy"
-            FiltroFecha.PERSONALIZADO -> fechaPersonalizada?.let {
-                SimpleDateFormat("d 'de' MMMM", Locale.Builder().setLanguage("es").build()).format(it.time)
-            } ?: "fecha personalizada"
-            FiltroFecha.RANGO -> {
-                val inicio = fechaRangoInicio
-                val fin = fechaRangoFin
-                if (inicio != null && fin != null) {
-                    val fmtLargo = SimpleDateFormat("d 'de' MMM", Locale.Builder().setLanguage("es").build())
-                    "del ${fmtLargo.format(inicio.time)} al ${fmtLargo.format(fin.time)}"
-                } else "rango personalizado"
-            }
-        }
-        val textoSubtitulo = if (hayMovimientos) {
-            "${recientes.size} movimiento${if (recientes.size == 1) "" else "s"} · $etiquetaPeriodo"
-        } else {
-            "Sin movimientos · $etiquetaPeriodo"
-        }
-        val textoBadge = if (hayMovimientos) "${recientes.size}" else "0"
-
-        if (requireContext().isTablet()) {
-            movimientosAdapter.updateList(recientes)
-            b.recyclerViewMovimientos.isVisible = hayMovimientos
-            b.tvMovimientosVacio.isVisible = !hayMovimientos
-            b.root.findViewById<TextView>(R.id.tvSubtituloMovimientos)?.text = textoSubtitulo
-            b.root.findViewById<TextView>(R.id.tvResumenMovimientos)?.text = textoBadge
-            // Actualizar alerta stock bajo en panel tablet (feature 4)
-            actualizarAlertaStockBajoTablet()
-            return
         }
 
-        dialogMovimientosAdapter?.updateList(recientes)
-        dialogRecyclerMovimientos?.isVisible = hayMovimientos
-        dialogTvMovimientosVacio?.isVisible = !hayMovimientos
-        dialogTvSubtituloMovimientos?.text = textoSubtitulo
-        dialogTvResumenMovimientos?.text = textoBadge
-    }
-
-    private fun actualizarContadoresChipsEstado() {
-        val b = _binding ?: return
-        val baseCategoria = if (categoriaSeleccionada == "Todas las categorías") {
-            listaProductos
-        } else {
-            listaProductos.filter { it.categoria == categoriaSeleccionada }
-        }
-
-        val contarPorEstado: (String) -> Int = { estado ->
-            InventarioFilterRules.filtrarProductos(
-                productos = baseCategoria,
-                criteria = InventarioFilterCriteria(
-                    textoBusqueda = "",
-                    filtroActual = estado,
-                    categoriaSeleccionada = categoriaSeleccionada
-                )
-            ).filtrados.size
-        }
-
-        b.root.findViewById<TextView>(R.id.tvCountSuficiente)?.text =
-            contarPorEstado("PROXIMOS_VENCER").toString()
-        b.root.findViewById<TextView>(R.id.tvCountStockBajo)?.text =
-            contarPorEstado("BAJO_STOCK").toString()
-        b.root.findViewById<TextView>(R.id.tvCountAgotado)?.text =
-            contarPorEstado("AGOTADO_O_VENCE").toString()
-    }
-
-
-
-    @SuppressLint("SetTextI18n")
-    private fun actualizarAlertaStockBajoTablet() {
-        val b = _binding ?: return
-        if (!isAdded || !requireContext().isTablet()) return
-        val alertaTabletEstado = InventarioSummaryRules.construirStockBajoTablet(listaProductos)
-        val cardResumen = b.root.findViewById<MaterialCardView>(R.id.cardAlertaStockBajoTablet)
-        val textoResumen = b.root.findViewById<TextView>(R.id.tvAlertaStockBajoTablet)
-        if (alertaTabletEstado.mostrar) {
-            cardResumen?.visibility = View.VISIBLE
-            textoResumen?.text = alertaTabletEstado.mensaje
-        } else {
-            cardResumen?.visibility = View.GONE
-        }
-    }
-
-    // ── Alertas de vencimiento de lotes ──────────────────────────────────────
-
-    private data class LoteAlerta(
-        val nombreProducto: String,
-        val numeroLote: String,
-        val vencimiento: String,
-        val diasRestantes: Int   // negativo = ya vencido
-    )
-
-    /** Días entre hoy y el último día del mes MM/AA. Negativo si ya venció. */
-    private fun diasHastaVencerLote(vencimiento: String): Int? {
-        val fechaNormalizada = vencimiento.replace("_", "/")
-        return ProductUtils.diasHastaVencerLote(fechaNormalizada)
-    }
-
-    private fun verificarAlertasLotes() {
-        val b = _binding ?: return
-        if (!isAdded) return
-        val alertasEstado = InventarioSummaryRules.construirAlertasLotes(
-            productos = listaProductos,
-            resolverDiasHastaVencerLote = ::diasHastaVencerLote
-        )
-        val alertasDialogo = alertasEstado.alertas.map {
-            LoteAlerta(
-                nombreProducto = it.nombreProducto,
-                numeroLote = it.numeroLote,
-                vencimiento = it.vencimiento,
-                diasRestantes = it.diasRestantes
+        if (state.estaEscaneando) {
+            @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+            BarcodeScannerOverlay(
+                onBarcodeDetected = { result ->
+                    viewModel.procesarCodigoEscaneado(result.code)
+                },
+                onDismiss = {
+                    viewModel.setEstaEscaneando(false)
+                }
             )
         }
 
-        val bannerCardResumen = b.cardAlertaLotesVencer
-        val bannerTextoResumen = b.tvTextoAlertaLotes
+        if (state.productoNoEncontrado) {
+            ProductNotFoundDialog(
+                codigo = state.ultimoCodigoEscaneado,
+                onDismiss = { viewModel.limpiarErrorEscaneo() },
+                onRegistrar = {
+                    viewModel.limpiarErrorEscaneo()
+                    val intent = Intent(context, CrearProducto::class.java).apply {
+                        putExtra("codigo_escaneado", state.ultimoCodigoEscaneado)
+                    }
+                    context.startActivity(intent)
+                }
+            )
+        }
+    }
+}
 
-        if (!alertasEstado.mostrarBanner) {
-            bannerCardResumen.visibility = View.GONE
-            return
+@Composable
+fun ProductNotFoundDialog(
+    codigo: String,
+    onDismiss: () -> Unit,
+    onRegistrar: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            shadowElevation = 12.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Icono animado
+                val infiniteTransition = rememberInfiniteTransition(label = "warning")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 1f, targetValue = 1.15f,
+                    animationSpec = infiniteRepeatable(tween(600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                        .background(Color(0xFFFFF7ED), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "No encontrado",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF111827)
+                    )
+                    Text(
+                        text = "El código $codigo no existe en tu inventario.",
+                        fontSize = 15.sp,
+                        color = Color(0xFF6B7280),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+
+                // BOTÓN REGISTRAR PREMIUM (Estilo 3D, Agua/Skeleton)
+                val shimmerTransition = rememberInfiniteTransition(label = "shimmer")
+                val shimmerPos by shimmerTransition.animateFloat(
+                    initialValue = -1000f, targetValue = 1000f,
+                    animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing)), label = "pos"
+                )
+
+                val gradientBrush = Brush.linearGradient(
+                    colors = listOf(Color(0xFFEA580C), Color(0xFFDC2626), Color(0xFFEA580C)),
+                    start = androidx.compose.ui.geometry.Offset(shimmerPos, 0f),
+                    end = androidx.compose.ui.geometry.Offset(shimmerPos + 500f, 500f)
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onRegistrar() },
+                    color = Color.Transparent
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(gradientBrush)
+                            .padding(1.dp), // Efecto borde
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "REGISTRAR PRODUCTO",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Omitir por ahora", color = Color(0xFF9CA3AF), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FluidFloatingActionButton(
+    modifier: Modifier = Modifier,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    val shimmerTransition = rememberInfiniteTransition(label = "fab_shimmer")
+    val shimmerPos by shimmerTransition.animateFloat(
+        initialValue = -1000f, targetValue = 1000f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing)), label = "pos"
+    )
+
+    val gradientBrush = Brush.linearGradient(
+        colors = listOf(Color(0xFF15A05C), Color(0xFF0F7A3A), Color(0xFF15A05C)),
+        start = androidx.compose.ui.geometry.Offset(shimmerPos, 0f),
+        end = androidx.compose.ui.geometry.Offset(shimmerPos + 500f, 500f)
+    )
+
+    Surface(
+        modifier = modifier
+            .height(56.dp)
+            .widthIn(min = 56.dp)
+            .graphicsLayer {
+                shadowElevation = 12f
+                shape = RoundedCornerShape(28.dp)
+                clip = true
+            }
+            .clickable { onClick() },
+        color = Color.Transparent,
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(gradientBrush)
+                .padding(horizontal = if (expanded) 20.dp else 0.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = expanded,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandHorizontally(),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkHorizontally()
+                ) {
+                    Row {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "NUEVO PRODUCTO",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MagicSymptomChip(
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shimmerTransition = rememberInfiniteTransition(label = "magic_shimmer")
+    val shimmerPos by shimmerTransition.animateFloat(
+        initialValue = -500f,
+        targetValue = 500f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_pos"
+    )
+
+    val activeGradient = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF2563EB), // Azul
+            Color(0xFF8B5CF6), // Morado
+            Color(0xFFD946EF), // Rosa/Magenta
+            Color(0xFF2563EB)  // Cierre para ciclo
+        ),
+        start = Offset(shimmerPos, 0f),
+        end = Offset(shimmerPos + 300f, 300f)
+    )
+
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable { onClick() },
+        color = if (selected) Color.Transparent else Color(0xFFF3F4F6),
+        border = if (!selected) BorderStroke(1.dp, Color(0xFFE5EAF0)) else null,
+        shadowElevation = if (selected) 4.dp else 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .then(if (selected) Modifier.background(activeGradient) else Modifier)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = if (selected) Color.White else Color(0xFF6B7280),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "SÍNTOMAS",
+                    color = if (selected) Color.White else Color(0xFF4B5563),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyInventoryState(
+    query: String,
+    isIntelligent: Boolean,
+    onClear: () -> Unit,
+    onCreate: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "empty_state")
+    
+    // Animación de flotación para el icono (Efecto 3D)
+    val floatAnim by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Icono con profundidad y sombra
+        Box(
+            modifier = Modifier
+                .offset(y = floatAnim.dp)
+                .size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // Sombra del icono
+            Surface(
+                modifier = Modifier
+                    .size(80.dp)
+                    .offset(y = 30.dp)
+                    .graphicsLayer(alpha = 0.1f, scaleX = 1.2f, scaleY = 0.4f),
+                color = Color.Black,
+                shape = CircleShape
+            ) {}
+            
+            // Contenedor del icono con gradiente
+            Surface(
+                modifier = Modifier.size(100.dp),
+                shape = CircleShape,
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                Box(
+                    modifier = Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFFF3F4F6), Color(0xFFE5EAF0))
+                        )
+                    ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isIntelligent) Icons.Default.AutoAwesome else Icons.Outlined.SearchOff,
+                        contentDescription = null,
+                        tint = if (isIntelligent) Color(0xFF8B5CF6) else Color(0xFF9CA3AF),
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
         }
 
-        bannerTextoResumen.text = alertasEstado.textoBanner
-        val resumenBgColor = if (alertasEstado.vencidos > 0) 0xFFFEE2E2.toInt() else 0xFFFEF3C7.toInt()
-        val resumenStrokeColor = if (alertasEstado.vencidos > 0) 0xFFDC2626.toInt() else 0xFFF59E0B.toInt()
-        val resumenTextColor = if (alertasEstado.vencidos > 0) 0xFF7F1D1D.toInt() else 0xFF92400E.toInt()
-        bannerCardResumen.setCardBackgroundColor(resumenBgColor)
-        bannerCardResumen.strokeColor = resumenStrokeColor
-        bannerTextoResumen.setTextColor(resumenTextColor)
-        bannerCardResumen.visibility = View.VISIBLE
-        bannerCardResumen.setOnClickListener { mostrarDialogoAlertasVencimiento(alertasDialogo) }
-    }
+        Spacer(modifier = Modifier.height(32.dp))
 
-    private fun actualizarPrioridadInventario() {
-        val b = _binding ?: return
-        if (!isAdded) return
-
-        val resumen = InventarioSummaryRules.construirResumen(listaProductos)
-        val alertasLotes = InventarioSummaryRules.construirAlertasLotes(
-            productos = listaProductos,
-            resolverDiasHastaVencerLote = ::diasHastaVencerLote
+        // Tipografía tipo Uber (Clean, Heavy, Modern)
+        Text(
+            text = if (query.isEmpty()) "No hay productos aquí" else "Sin resultados",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black,
+            color = Color(0xFF111827),
+            textAlign = TextAlign.Center,
+            letterSpacing = (-0.5).sp
         )
 
-        val titulo: String
-        val detalle: String
-        val accion: String
-        val onClick: () -> Unit
+        Spacer(modifier = Modifier.height(12.dp))
 
+        Text(
+            text = if (query.isEmpty()) 
+                "Esta categoría aún está vacía. Comienza agregando tu primer producto." 
+                else "No encontramos nada que coincida con \"$query\". Prueba con otros términos.",
+            fontSize = 16.sp,
+            color = Color(0xFF6B7280),
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Botones de acción
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (query.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = onClear,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE5EAF0))
+                ) {
+                    Text("Limpiar", color = Color(0xFF4B5563), fontWeight = FontWeight.Bold)
+                }
+            }
+
+            if (!isIntelligent) {
+                Button(
+                    onClick = onCreate,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15A05C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Nuevo Producto", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProductCard(
+    producto: MoldeProductos,
+    terminosResaltados: List<String> = emptyList(),
+    resaltado: Boolean = false,
+    onEdit: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "highlight")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "alpha"
+    )
+    
+    val estadoVencimiento = remember(producto) { com.app.administradorfarmadon.ActivityInventario.ProductUtils.obtenerEstadoVencimiento(producto) }
+    val currentStock = remember(producto) { producto.stockFisicoBase() }
+    val minStock = remember(producto) { producto.stockMinimoBase() }
+    
+    val esStockBajo = remember(currentStock, minStock) { 
+        currentStock < minStock && minStock > 0
+    }
+
+    // Lógica del Semáforo de Vencimiento
+    val colorSemaforo = remember(producto) {
+        val loteProximo = com.app.administradorfarmadon.ActivityInventario.ProductUtils.obtenerLoteConVencimientoMasProximo(producto)
+        val dias = loteProximo?.vencimiento?.let { 
+            com.app.administradorfarmadon.ActivityInventario.ProductUtils.diasHastaVencerLote(it) 
+        }
+        
         when {
-            alertasLotes.vencidos > 0 -> {
-                titulo = "Mover primero lotes vencidos"
-                detalle = if (alertasLotes.vencidos == 1) {
-                    "Hay 1 lote vencido. Conviene revisarlo antes de seguir vendiendo."
-                } else {
-                    "Hay ${alertasLotes.vencidos} lotes vencidos. Conviene revisarlos antes de seguir vendiendo."
-                }
-                accion = "Ver lotes"
-                onClick = {
-                    mostrarDialogoAlertasVencimiento(alertasLotes.alertas.map {
-                        LoteAlerta(it.nombreProducto, it.numeroLote, it.vencimiento, it.diasRestantes)
-                    })
-                }
-            }
-            alertasLotes.proximos > 0 -> {
-                titulo = "Vender primero los lotes por vencer"
-                detalle = if (alertasLotes.proximos == 1) {
-                    "Hay 1 lote proximo a vencer. Conviene darle salida primero."
-                } else {
-                    "Hay ${alertasLotes.proximos} lotes proximos a vencer. Conviene darles salida primero."
-                }
-                accion = "Ver lotes"
-                onClick = {
-                    mostrarDialogoAlertasVencimiento(alertasLotes.alertas.map {
-                        LoteAlerta(it.nombreProducto, it.numeroLote, it.vencimiento, it.diasRestantes)
-                    })
-                }
-            }
-            resumen.bajoStock > 0 -> {
-                titulo = "Conviene reponer algunos productos"
-                detalle = if (resumen.bajoStock == 1) {
-                    "Hay 1 producto con stock bajo. Puedes filtrarlo rapido desde aqui."
-                } else {
-                    "Hay ${resumen.bajoStock} productos con stock bajo. Puedes filtrarlos rapido desde aqui."
-                }
-                accion = "Filtrar bajo stock"
-                onClick = {
-                    filtroActual = "BAJO_STOCK"
-                    actualizarBtnFiltro()
-                    aplicarFiltro(b.editBuscarProducto.text.toString())
-                }
-            }
-            else -> {
-                titulo = "Inventario en orden"
-                detalle = if (resumen.total == 0) {
-                    "Todavia no hay productos cargados en inventario."
-                } else {
-                    "No se detectan productos criticos para reponer o mover primero."
-                }
-                accion = "Ver todo"
-                onClick = {
-                    filtroActual = "TODOS"
-                    actualizarBtnFiltro()
-                    aplicarFiltro(b.editBuscarProducto.text.toString())
-                }
-            }
-        }
-
-        b.tvTituloPrioridadInventario.text = titulo
-        b.tvResumenPrioridadInventario.text = detalle
-        b.tvAccionPrioridadInventario.text = accion
-        b.cardPrioridadInventario.setOnClickListener { onClick() }
-        b.tvAccionPrioridadInventario.setOnClickListener { onClick() }
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun mostrarDialogoAlertasVencimiento(alertas: List<LoteAlerta>) {
-        if (!isAdded) return
-        val dialogBinding = DialogAlertasVencimientoBinding.inflate(layoutInflater)
-        val container = dialogBinding.containerAlertasLotes
-
-        val vencidos = alertas.count { it.diasRestantes < 0 }
-        val proximos = alertas.count { it.diasRestantes in 0..60 }
-
-        dialogBinding.tvResumenAlertas.text = "${alertas.size} lote${if (alertas.size == 1) "" else "s"} requieren atención"
-
-        if (vencidos > 0) {
-            dialogBinding.chipVencidos.visibility = View.VISIBLE
-            dialogBinding.tvConteoVencidos.text = "$vencidos vencido${if (vencidos == 1) "" else "s"}"
-        }
-        if (proximos > 0) {
-            dialogBinding.chipProximosVencer.visibility = View.VISIBLE
-            dialogBinding.tvConteoProximos.text = "$proximos por vencer"
-        }
-
-        alertas.forEach { alerta ->
-            val rowBinding = ItemAlertaLoteBinding.inflate(layoutInflater, container, false)
-            rowBinding.tvNombreProductoAlerta.text = alerta.nombreProducto
-            rowBinding.tvNumeroLoteAlerta.text = "Lote ${alerta.numeroLote}"
-            rowBinding.tvVencimientoAlerta.text = "Vence ${alerta.vencimiento}"
-
-            when {
-                alerta.diasRestantes < 0 -> {
-                    rowBinding.barraUrgencia.setBackgroundColor(0xFFDC2626.toInt())
-                    rowBinding.cardEstadoAlerta.setCardBackgroundColor(0xFFFEE2E2.toInt())
-                    rowBinding.tvEstadoAlerta.text = "VENCIDO"
-                    rowBinding.tvEstadoAlerta.setTextColor(0xFFDC2626.toInt())
-                }
-                alerta.diasRestantes <= 7 -> {
-                    rowBinding.barraUrgencia.setBackgroundColor(0xFFEA580C.toInt())
-                    rowBinding.cardEstadoAlerta.setCardBackgroundColor(0xFFFEF3C7.toInt())
-                    rowBinding.tvEstadoAlerta.text = "${alerta.diasRestantes}d"
-                    rowBinding.tvEstadoAlerta.setTextColor(0xFFEA580C.toInt())
-                }
-                alerta.diasRestantes <= 30 -> {
-                    rowBinding.barraUrgencia.setBackgroundColor(0xFFF59E0B.toInt())
-                    rowBinding.cardEstadoAlerta.setCardBackgroundColor(0xFFFEF3C7.toInt())
-                    rowBinding.tvEstadoAlerta.text = "${alerta.diasRestantes}d"
-                    rowBinding.tvEstadoAlerta.setTextColor(0xFF92400E.toInt())
-                }
-                else -> {
-                    rowBinding.barraUrgencia.setBackgroundColor(0xFF6B7280.toInt())
-                    rowBinding.cardEstadoAlerta.setCardBackgroundColor(0xFFF3F4F6.toInt())
-                    rowBinding.tvEstadoAlerta.text = "${alerta.diasRestantes}d"
-                    rowBinding.tvEstadoAlerta.setTextColor(0xFF374151.toInt())
-                }
-            }
-
-            container.addView(rowBinding.root)
-        }
-
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogBinding.root)
-            .setPositiveButton("Cerrar", null)
-            .show()
-    }
-
-
-
-    @SuppressLint("SetTextI18n")
-    private fun mostrarHistorialProducto(producto: MoldeProductos) {
-        if (!isAdded) return
-        filtroProductoMovimientos = producto.indice
-        filtroTipoMovimiento = "TODOS"
-        textoBusquedaMovimientos = ""
-        // HUMANO: Default histórico = últimos 7 días usando rango.
-        // Antes usaba FiltroFecha.SEMANA, que ya no existe como chip; el rango
-        // hace lo mismo y además queda reflejado visualmente en el chip Rango.
-        val hoyCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }
-        val hace6Cal = (hoyCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -6) }
-        fechaRangoInicio = hace6Cal
-        fechaRangoFin = hoyCal
-        filtroFechaMovimientos = FiltroFecha.RANGO
-        aplicarFiltroFecha()
-        if (!requireContext().isTablet()) {
-            mostrarDialogoMovimientos()
-        } else {
-            // Tablet: actualizar subtítulo del panel para indicar filtro activo
-            val nombreProducto = producto.nombre.ifBlank { producto.indice }
-            binding.root.findViewById<TextView>(R.id.tvSubtituloMovimientos)?.text =
-                "Historial de: $nombreProducto"
-            // Reflejar el rango en el chip Rango
-            tabletChipRango?.text = "📆 " + etiquetaCortaRango(hace6Cal, hoyCal)
-            sincronizarChipsFiltro(tabletChipHoy, tabletChipFecha, tabletChipRango)
+            dias == null -> Color.Transparent
+            dias < 30 -> Color(0xFFD32F2F) // Rojo: < 1 mes
+            dias < 90 -> Color(0xFFEA580C) // Naranja: < 3 meses
+            dias > 180 -> Color(0xFF15A05C) // Verde: > 6 meses
+            else -> Color(0xFF9CA3AF) // Gris: entre 3 y 6 meses (Vigente normal)
         }
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun actualizarEstadoVacio(isEmpty: Boolean, hayFiltrosActivos: Boolean, query: String = "") {
-        val b = _binding ?: return
-        val estadoVacio = InventarioSummaryRules.construirEstadoVacio(isEmpty, hayFiltrosActivos, query)
-        val numProductos = listaProductos.size
-        val inventarioRealmenteVacio = numProductos == 0
-        val mostrarBotonCrearInicial = inventarioRealmenteVacio && !hayFiltrosActivos
+    var showInfoSheet by remember { mutableStateOf(false) }
+    var lotesCargados by remember { mutableStateOf<List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto>?>(null) }
+    var cargandoLotes by remember { mutableStateOf(false) }
 
-        b.layoutEmptySearch.isVisible = estadoVacio.mostrarVacio
-        b.recyclerView.isVisible = estadoVacio.mostrarLista
-        b.btnAgregarPrimerProducto?.isVisible = mostrarBotonCrearInicial
-        b.floatingbotoncrearproducto.isVisible = !inventarioRealmenteVacio
-        
-        // UX Mobile: Reaparición progresiva de controles
-        val mostrarBusqueda = numProductos > 0
-        val mostrarFiltros = numProductos > 3
-        val mostrarAccionesSecundarias = numProductos > 5
-
-        b.cardbuscador.isVisible = mostrarBusqueda
-        b.btnFiltroEstado?.isVisible = mostrarFiltros
-        b.btnFiltroCategoria?.isVisible = mostrarFiltros
-        b.btnImportarMasivo?.isVisible = mostrarAccionesSecundarias
-        b.btnInfoColores?.isVisible = mostrarAccionesSecundarias
-
-        // Historial: mostrar solo si existen movimientos reales
-        b.btnMovimientosInventario?.isVisible = todosLosMovimientos.isNotEmpty()
-
-        // Ocultar el título "Productos" cuando no hay nada que mostrar
-        b.root.findViewById<TextView>(R.id.tvTituloProductosInventario)?.isVisible =
-            estadoVacio.mostrarLista
-
-        if (estadoVacio.mostrarVacio) {
-            b.tvTituloEmpty.text = estadoVacio.titulo
-            b.tvDescEmpty.text = estadoVacio.descripcion
-            b.btnLimpiarBusqueda.visibility = if (estadoVacio.mostrarBotonLimpiar) View.VISIBLE else View.GONE
-        }
-    }
-
-    private fun activarDatosSiVisible() {
-        if (!isAdded || _binding == null || isHidden || datosActivos) return
-        if (!cargaInicialInventarioCompletada) {
-            mostrarSkeletonInventarioInicial()
-        }
-        datosActivos = true
-        cargarCategorias()
-        iniciarLecturaProductos()
-        iniciarLecturaMovimientos()
-    }
-
-    private fun desactivarDatos() {
-        productosListener?.let { productosRef?.removeEventListener(it) }
-        categoriasListener?.let { categoriasRef?.removeEventListener(it) }
-        movimientosListener?.let { movimientosRef?.removeEventListener(it) }
-        productosListener = null
-        productosRef = null
-        categoriasListener = null
-        categoriasRef = null
-        movimientosListener = null
-        movimientosRef = null
-        datosActivos = false
-    }
-
-    private fun mostrarSkeletonInventarioInicial() {
-        val b = _binding ?: return
-        if (loadingInicialInventarioActivo) return
-
-        loadingInicialInventarioActivo = true
-        productosInicialesListos = false
-        movimientosInicialesListos = requireContext().isTablet().not()
-
-        b.layoutSkeletonInventarioInicial.showElegantemente(140L)
-
-        runnableTimeoutLoadingInventario?.let(handlerSeguridadInventario::removeCallbacks)
-        val runnable = Runnable { ocultarSkeletonInventarioInicial() }
-        runnableTimeoutLoadingInventario = runnable
-        handlerSeguridadInventario.postDelayed(runnable, 2500L)
-    }
-
-    private fun marcarProductosInicialesListos() {
-        productosInicialesListos = true
-        evaluarOcultamientoSkeletonInventario()
-    }
-
-    private fun marcarMovimientosInicialesListos() {
-        movimientosInicialesListos = true
-        evaluarOcultamientoSkeletonInventario()
-    }
-
-    private fun evaluarOcultamientoSkeletonInventario() {
-        if (!loadingInicialInventarioActivo) return
-        if (!productosInicialesListos || !movimientosInicialesListos) return
-        ocultarSkeletonInventarioInicial()
-    }
-
-    private fun ocultarSkeletonInventarioInicial() {
-        if (!loadingInicialInventarioActivo) return
-        loadingInicialInventarioActivo = false
-        cargaInicialInventarioCompletada = true
-
-        runnableTimeoutLoadingInventario?.let(handlerSeguridadInventario::removeCallbacks)
-        runnableTimeoutLoadingInventario = null
-
-        handlerSeguridadInventario.postDelayed({
-            _binding?.layoutSkeletonInventarioInicial?.hideElegantemente(180L)
-        }, 60L)
-    }
-
-    private fun setupFiltroEstado() {
-        actualizarBtnFiltro()
-        binding.btnFiltroEstado.setOnClickListener { anchor ->
-            val popup = PopupMenu(requireContext(), anchor)
-            popup.menu.add(0, 1, 1, "Bajo stock")
-            popup.menu.add(0, 2, 2, "Por vencer")
-            popup.menu.add(0, 3, 3, "Vencidos")
-            popup.setOnMenuItemClickListener { item ->
-                val seleccionado = when (item.itemId) {
-                    1 -> "BAJO_STOCK"
-                    2 -> "PROXIMOS_VENCER"
-                    3 -> "VENCIDOS"
-                    else -> "TODOS"
+    LaunchedEffect(showInfoSheet) {
+        if (showInfoSheet && lotesCargados == null) {
+            cargandoLotes = true
+            val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+            db.getReference(com.app.administradorfarmadon.ClasesDatabase.DbPaths.INVENTARIO_PRODUCTO_LOTES)
+                .child(producto.indice)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val list = mutableListOf<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto>()
+                    snapshot.children.forEach { child ->
+                        child.getValue(com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto::class.java)?.let {
+                            list.add(it)
+                        }
+                    }
+                    lotesCargados = list
+                    cargandoLotes = false
                 }
-                // Toggle: si ya estaba activo el mismo filtro, vuelve a TODOS
-                filtroActual = if (filtroActual == seleccionado) "TODOS" else seleccionado
-                actualizarBtnFiltro()
-                aplicarFiltro(binding.editBuscarProducto.text.toString())
-                true
-            }
-            popup.show()
+                .addOnFailureListener { cargandoLotes = false }
         }
     }
 
-    private fun actualizarBtnFiltro() {
-        val label: String
-        val textColor: Int
-        val strokeColor: Int
-        val bgColor: Int
-        when (filtroActual) {
-            "BAJO_STOCK" -> {
-                label = "Bajo stock"
-                textColor = "#A95A37".toColorInt()
-                strokeColor = "#F4D8C8".toColorInt()
-                bgColor = "#FFF1E8".toColorInt()
-            }
-            "PROXIMOS_VENCER" -> {
-                label = "Por vencer"
-                textColor = "#8D5B14".toColorInt()
-                strokeColor = "#F0E1A8".toColorInt()
-                bgColor = "#FFF7DB".toColorInt()
-            }
-            "VENCIDOS" -> {
-                label = "Vencidos"
-                textColor = "#C04F4A".toColorInt()
-                strokeColor = "#F5C8C5".toColorInt()
-                bgColor = "#FDECEC".toColorInt()
-            }
-            else -> {
-                label = "Filtrar"
-                textColor = "#475467".toColorInt()
-                strokeColor = "#E5E7EB".toColorInt()
-                bgColor = Color.TRANSPARENT
-            }
-        }
-        binding.btnFiltroEstado.text = label
-        binding.btnFiltroEstado.setTextColor(textColor)
-        binding.btnFiltroEstado.strokeColor = ColorStateList.valueOf(strokeColor)
-        binding.btnFiltroEstado.backgroundTintList = ColorStateList.valueOf(bgColor)
-        binding.btnFiltroEstado.iconTint = ColorStateList.valueOf(textColor)
-    }
-
-    private fun mostrarInfoColores() {
-        val ctx = requireContext()
-        val contenido = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(64, 32, 64, 8)
-        }
-        data class Fila(val color: Int, val titulo: String, val desc: String)
-        listOf(
-            Fila(0xFF12B76A.toInt(), "Verde — Suficiente", "El stock está por encima del mínimo."),
-            Fila(0xFFF79009.toInt(), "Ámbar — Bajo", "El stock está en el límite o por debajo del mínimo."),
-            Fila(0xFFF04438.toInt(), "Rojo — Agotado", "Sin unidades disponibles.")
-        ).forEach { fila ->
-            val fila_layout = android.widget.LinearLayout(ctx).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                setPadding(0, 16, 0, 16)
-            }
-            val dot = View(ctx).apply {
-                val dp10 = (10 * resources.displayMetrics.density).toInt()
-                layoutParams = android.widget.LinearLayout.LayoutParams(dp10, dp10).apply {
-                    marginEnd = (12 * resources.displayMetrics.density).toInt()
-                }
-                background = androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.bg_status_dot)
-                backgroundTintList = ColorStateList.valueOf(fila.color)
-            }
-            val textos = android.widget.LinearLayout(ctx).apply {
-                orientation = android.widget.LinearLayout.VERTICAL
-                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            val tvTitulo = TextView(ctx).apply {
-                text = fila.titulo
-                setTextColor(0xFF111827.toInt())
-                textSize = 14f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-            }
-            val tvDesc = TextView(ctx).apply {
-                text = fila.desc
-                setTextColor(0xFF667085.toInt())
-                textSize = 13f
-            }
-            textos.addView(tvTitulo)
-            textos.addView(tvDesc)
-            fila_layout.addView(dot)
-            fila_layout.addView(textos)
-            contenido.addView(fila_layout)
-        }
-        AlertDialog.Builder(ctx)
-            .setTitle("Indicadores de stock")
-            .setView(contenido)
-            .setPositiveButton("Entendido", null)
-            .show()
-    }
-
-    private fun mostrarResumenInventario() {
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.bottom_sheet_resumen_inventario, null, false)
-
-        val totalProductos = listaProductos.size
-        val productosActivos = listaProductos.count { it.estadodelproducto }
-        val productosStockBajo = listaProductos.count { producto ->
-            val cantidad = producto.cantidadinicial.toIntOrNull() ?: 0
-            val minimo = producto.stockminimo.toIntOrNull() ?: 0
-            minimo > 0 && cantidad <= minimo
-        }
-        val productosPorVencer = listaProductos.count { producto ->
-            val estado = ProductUtils.obtenerEstadoVencimiento(producto).orEmpty()
-            estado == "POR_VENCER" || estado == "VENCIDO"
-        }
-        val inventarioValorizado = listaProductos.sumOf { producto ->
-            val cantidad = (producto.cantidadinicial.toIntOrNull() ?: 0).coerceAtLeast(0)
-            val costo = producto.preciodecompra.replace(",", ".").toDoubleOrNull() ?: 0.0
-            cantidad * costo
-        }
-
-        dialogView.findViewById<TextView>(R.id.tvMetricProductosRegistrados).text = totalProductos.toString()
-        dialogView.findViewById<TextView>(R.id.tvMetricProductosActivos).text = productosActivos.toString()
-        dialogView.findViewById<TextView>(R.id.tvMetricInventarioValorizado).text =
-            MonedaHelper.formatear(inventarioValorizado)
-        dialogView.findViewById<TextView>(R.id.tvMetricStockBajo).text = productosStockBajo.toString()
-        dialogView.findViewById<TextView>(R.id.tvMetricPorVencer).text = productosPorVencer.toString()
-
-        val dialog = BottomSheetDialog(requireContext())
-        dialog.setContentView(dialogView)
-        dialog.setOnShowListener {
-            dialog.behavior.skipCollapsed = true
-            dialog.behavior.isFitToContents = true
-            dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
-        }
-        dialogView.findViewById<MaterialButton>(R.id.btnCerrarResumenInventario)
-            .setOnClickListener { dialog.dismiss() }
-        dialog.show()
-    }
-
-    private fun estaVencido(vencimiento: String): Boolean {
-        return try {
-            val partes = vencimiento.replace("_", "/").split("/")
-            val mes = partes[0].toInt()
-            val anio = partes[1].toInt() + 2000
-            val cal = Calendar.getInstance()
-            (anio * 12 + mes) < (cal.get(Calendar.YEAR) * 12 + (cal.get(Calendar.MONTH) + 1))
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun estaProximoAVencer(vencimiento: String): Boolean {
-        return try {
-            val partes = vencimiento.replace("_", "/").split("/")
-            val mes = partes[0].toInt()
-            val anio = partes[1].toInt() + 2000
-            val cal = Calendar.getInstance()
-            val diff = (anio * 12 + mes) -
-                (cal.get(Calendar.YEAR) * 12 + (cal.get(Calendar.MONTH) + 1))
-            diff in 1..3
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun Context.isTablet(): Boolean = resources.configuration.smallestScreenWidthDp >= 600
-
-    private fun ocultarTeclado() {
-        val imm = requireContext()
-            .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(binding.editBuscarProducto.windowToken, 0)
-    }
-
-    private fun dpToPxFloat(dp: Int): Float {
-        return dp * resources.displayMetrics.density
-    }
-
-    override fun onDestroyView() {
-        dialogMovimientos?.dismiss()
-        dialogDetalleMovimiento?.dismiss()
-        handlerSeguridadInventario.removeCallbacksAndMessages(null)
-        runnableTimeoutLoadingInventario = null
-        loadingInicialInventarioActivo = false
-        tabletChipHoy = null
-        tabletChipFecha = null
-        tabletChipRango = null
-        tabletEditBuscarMovimientos = null
-        filtroProductoMovimientos = null
-        desactivarDatos()
-        super.onDestroyView()
-        _binding = null
-    }
-
-    data class MovimientoInventarioUi(
-        val indiceProducto: String,
-        val tipo: String,
-        val titulo: String,
-        val descripcion: String,
-        val hora: String,
-        val nombreUsuario: String,
-        val referenciaId: String,
-        val cantidad: Int?,
-        val stockAntes: Int?,
-        val stockDespues: Int?,
-        val timestamp: Long,
-        val nombreProducto: String,
-        val presentacion: String,
-        val cantidadMovimiento: Int? = null,
-        val unidadMovimiento: String = "",
-        val unidadesPorMovimiento: Int? = null,
-        val motivo: String,
-        val detalleLotes: String = "",
-        val fechaPath: String = ""   // clave del nodo en Firebase: "yyyy-MM-dd"
-    )
-
-    private class AdapterMovimientosInventario(
-        private val onItemClick: (MovimientoInventarioUi) -> Unit
-    ) : RecyclerView.Adapter<AdapterMovimientosInventario.MovimientoViewHolder>() {
-
-        private val items = mutableListOf<MovimientoInventarioUi>()
-
-        class MovimientoViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val cardIcono: MaterialCardView = view.findViewById(R.id.cardIconoMovimiento)
-            val tvIcono: TextView = view.findViewById(R.id.tvIconoMovimiento)
-            val tvTitulo: TextView = view.findViewById(R.id.tvTituloMovimiento)
-            val tvDetalle: TextView = view.findViewById(R.id.tvDetalleMovimiento)
-            val tvCantidad: TextView = view.findViewById(R.id.tvCantidadMovimiento)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovimientoViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_movimiento_inventario, parent, false)
-            return MovimientoViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: MovimientoViewHolder, position: Int) {
-            val item = items[position]
-            val estilo = resolverEstilo(item)
-
-            holder.cardIcono.setCardBackgroundColor(estilo.colorFondo)
-            holder.tvIcono.text = estilo.icono
-            holder.tvIcono.setTextColor(estilo.colorTexto)
-            holder.tvTitulo.text = construirTitulo(item, estilo)
-            holder.tvDetalle.text = buildString {
-                append(item.hora.ifBlank { "Sin hora" })
-                if (item.nombreUsuario.isNotBlank()) {
-                    append(" · ")
-                    append(item.nombreUsuario)
-                }
-                if (item.referenciaId.isNotBlank()) {
-                    append(" · ")
-                    append(formatearReferencia(item.referenciaId))
-                }
-                val detalleBase = item.descripcion.ifBlank { item.indiceProducto }
-                if (detalleBase.isNotBlank()) {
-                    append(" · ")
-                    append(detalleBase)
-                }
-            }
-            holder.tvDetalle.text = construirDetalle(item)
-            holder.tvCantidad.text = item.cantidad?.let { cantidad ->
-                when {
-                    cantidad < 0 -> cantidad.toString()
-                    cantidad > 0 -> "${if (estilo.esSalida) "-" else "+"}$cantidad"
-                    else -> "0"
-                }
-            } ?: item.indiceProducto.uppercase(Locale.getDefault())
-            holder.tvCantidad.setTextColor(estilo.colorTexto)
-            holder.itemView.setOnClickListener { onItemClick(item) }
-        }
-
-        override fun getItemCount(): Int = items.size
-
-        @SuppressLint("NotifyDataSetChanged")
-        fun updateList(nuevosItems: List<MovimientoInventarioUi>) {
-            items.clear()
-            items.addAll(nuevosItems)
-            notifyDataSetChanged()
-        }
-
-        private fun construirTitulo(item: MovimientoInventarioUi, estilo: EstiloMovimiento): String {
-            return when {
-                esSalidaPorVenta(item) -> "Salida por venta"
-                item.titulo.isNotBlank() -> item.titulo
-                else -> estilo.tituloFallback
-            }
-        }
-
-        private fun construirDetalle(item: MovimientoInventarioUi): String {
-            return if (esSalidaPorVenta(item)) {
-                construirDetalleSalidaVenta(item)
-            } else {
-                construirDetalleGeneral(item)
-            }
-        }
-
-        private fun construirDetalleSalidaVenta(item: MovimientoInventarioUi): String {
-            val lineaCabecera = buildString {
-                append(item.hora.ifBlank { "Sin hora" })
-                if (item.nombreUsuario.isNotBlank()) {
-                    append(" · Retirado por ")
-                    append(item.nombreUsuario)
-                }
-            }
-
-            val producto = resolverNombreProducto(item)
-            val presentacion = item.presentacion.trim()
-            val lineaProducto = buildString {
-                append("Producto: ")
-                append(producto.ifBlank { item.indiceProducto.ifBlank { "Sin detalle" } })
-                if (presentacion.isNotBlank()) {
-                    append(" · ")
-                    append(presentacion)
-                }
-            }
-
-            return buildList {
-                add(lineaCabecera)
-                add(lineaProducto)
-                item.detalleLotes.takeIf { it.isNotBlank() }?.let { add("Lotes: $it") }
-            }
-                .filter { it.isNotBlank() }
-                .joinToString("\n")
-        }
-
-        private fun construirDetalleGeneral(item: MovimientoInventarioUi): String {
-            val lineaCabecera = buildString {
-                append(item.hora.ifBlank { "Sin hora" })
-                if (item.nombreUsuario.isNotBlank()) {
-                    append(" · ")
-                    append(item.nombreUsuario)
-                }
-            }
-
-            val referencia = construirReferenciaHumana(item)
-            val detalleBase = construirDescripcionHumana(item)
-
-            val lineaDetalle = listOf(referencia, detalleBase)
-                .filter { it.isNotBlank() }
-                .distinct()
-                .joinToString(" · ")
-
-            return buildList {
-                add(lineaCabecera)
-                add(lineaDetalle)
-                construirTextoLotes(item)?.let { add(it) }
-            }
-                .filter { it.isNotBlank() }
-                .joinToString("\n")
-        }
-
-        private fun construirReferenciaHumana(item: MovimientoInventarioUi): String {
-            val referencia = item.referenciaId.trim()
-            if (referencia.isBlank()) return ""
-
-            return when {
-                esMovimientoBloqueoDevolucion(item) -> "Devolucion bloqueada de la venta"
-                esMovimientoEntradaDevolucion(item) -> "Devolucion de la venta"
-                esSalidaPorVenta(item) -> "Venta relacionada"
-                referencia.equals("ajuste_manual", ignoreCase = true) -> "Ajuste manual"
-                referencia.equals("ingreso_stock", ignoreCase = true) -> "Ingreso de stock"
-                referencia.equals(item.indiceProducto, ignoreCase = true) -> ""
-                else -> formatearReferencia(referencia)
-            }
-        }
-
-        private fun construirDescripcionHumana(item: MovimientoInventarioUi): String {
-            val producto = resolverNombreProducto(item)
-                .ifBlank { item.nombreProducto.ifBlank { item.indiceProducto } }
-            if (producto.isBlank()) return ""
-
-            return when {
-                esMovimientoDevolucion(item) -> "Producto: $producto"
-                else -> item.descripcion
-                    .trim()
-                    .sanitizarTextoVisible()
-                    .ifBlank { producto }
-            }
-        }
-
-        private fun construirTextoLotes(item: MovimientoInventarioUi): String? {
-            val detalleLotes = item.detalleLotes.trim()
-            if (detalleLotes.isBlank()) return null
-
-            return when {
-                esMovimientoBloqueoDevolucion(item) -> "Lotes bloqueados: $detalleLotes"
-                esMovimientoEntradaDevolucion(item) -> "Lotes restituidos: $detalleLotes"
-                else -> "Lotes: $detalleLotes"
-            }
-        }
-
-        private fun resolverEstilo(item: MovimientoInventarioUi): EstiloMovimiento {
-            val tipo = item.tipo.lowercase(Locale.getDefault())
-            return when {
-                tipo.contains("creado") -> EstiloMovimiento(
-                    icono = "+",
-                    colorFondo = "#E8F6EF".toColorInt(),
-                    colorTexto = "#0E8F63".toColorInt(),
-                    tituloFallback = "Producto creado",
-                    esSalida = false
-                )
-                tipo.contains("editado") -> EstiloMovimiento(
-                    icono = "•",
-                    colorFondo = "#EEF2FF".toColorInt(),
-                    colorTexto = "#4F46E5".toColorInt(),
-                    tituloFallback = "Producto editado",
-                    esSalida = false
-                )
-                tipo.contains("eliminado") -> EstiloMovimiento(
-                    icono = "×",
-                    colorFondo = "#FDECEC".toColorInt(),
-                    colorTexto = "#C62828".toColorInt(),
-                    tituloFallback = "Producto eliminado",
-                    esSalida = true
-                )
-                tipo.contains("salida_venta") || tipo.contains("salida") -> EstiloMovimiento(
-                    icono = "-",
-                    colorFondo = "#FFF1F0".toColorInt(),
-                    colorTexto = "#D93025".toColorInt(),
-                    tituloFallback = "Salida por venta",
-                    esSalida = true
-                )
-                else -> EstiloMovimiento(
-                    icono = "↺",
-                    colorFondo = "#FFF4E5".toColorInt(),
-                    colorTexto = "#B26A00".toColorInt(),
-                    tituloFallback = "Movimiento de inventario",
-                    esSalida = false
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() },
+        color = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = if (resaltado) 3.dp else 1.dp,
+            color = if (resaltado) Color(0xFF15A05C).copy(alpha = borderAlpha) else Color(0xFFE5EAF0)
+        ),
+        shadowElevation = if (resaltado) 4.dp else 0.dp
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // INDICADOR DE SEMÁFORO (BARRA VERTICAL IZQUIERDA)
+            if (colorSemaforo != Color.Transparent) {
+                Box(
+                    modifier = Modifier
+                        .width(6.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                        .background(colorSemaforo)
                 )
             }
-        }
 
-        private fun esSalidaPorVenta(item: MovimientoInventarioUi): Boolean {
-            return item.tipo.lowercase(Locale.getDefault()).contains("salida_venta")
-        }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // INFO IZQUIERDA: NOMBRE Y UBICACIÓN
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = producto.nombre,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111827),
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            
+                            if (estadoVencimiento == "VENCIDO") {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Badge(containerColor = Color(0xFFFEE2E2)) {
+                                    Text("VENCIDO", color = Color(0xFFD92D20), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                            } else if (esStockBajo) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Badge(containerColor = Color(0xFFFFF7ED)) {
+                                    Text("STOCK BAJO", color = Color(0xFFEA580C), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+                        
+                        if (producto.ubicacion.isNotBlank()) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6B7280),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = producto.ubicacion,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF6B7280),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
 
-        private fun esMovimientoDevolucion(item: MovimientoInventarioUi): Boolean {
-            return item.tipo.lowercase(Locale.getDefault()).contains("devolucion")
-        }
+                    // INFO DERECHA: STOCK Y STOCK MÍNIMO
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
+                        Text(
+                            text = "${if (currentStock % 1.0 == 0.0) currentStock.toInt() else currentStock} ${producto.unidadVisualInventario}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            color = if (esStockBajo) Color(0xFFEA580C) else Color(0xFF15A05C)
+                        )
+                        if (producto.stockminimo.isNotBlank()) {
+                            Text(
+                                text = "Mín: ${producto.stockminimo} ${producto.unidadVisualInventario}",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9CA3AF)
+                            )
+                        }
+                    }
 
-        private fun esMovimientoEntradaDevolucion(item: MovimientoInventarioUi): Boolean {
-            return item.tipo.lowercase(Locale.getDefault()).contains("entrada_devolucion")
-        }
+                    // DIVISOR E ICONO DE INFO
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Box(modifier = Modifier.width(1.dp).height(28.dp).background(Color(0xFFF3F4F6)))
+                    Spacer(modifier = Modifier.width(4.dp))
 
-        private fun esMovimientoBloqueoDevolucion(item: MovimientoInventarioUi): Boolean {
-            return item.tipo.lowercase(Locale.getDefault()).contains("bloqueado_devolucion")
-        }
-
-        private fun resolverNombreProducto(item: MovimientoInventarioUi): String {
-            if (item.nombreProducto.isNotBlank()) return item.nombreProducto
-
-            val descripcion = item.descripcion.trim()
-            if (descripcion.isBlank()) return ""
-
-            val patrones = listOf(
-                Regex("(?i)para\\s+(.+?)(?:\\.\\s+lotes|$)"),
-                Regex("(?i)de\\s+(.+)$")
-            )
-
-            return patrones.firstNotNullOfOrNull { patron ->
-                patron.find(descripcion)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
-            }.orEmpty()
-        }
-
-        private fun formatearReferencia(referenciaId: String): String {
-            val referencia = referenciaId.trim()
-            if (referencia.isBlank()) return ""
-
-            val referenciaLower = referencia.lowercase(Locale.getDefault())
-            if (referenciaLower.startsWith("fpventa_") || referenciaLower.startsWith("venta_")) {
-                return "Venta relacionada"
-            }
-            if (referenciaLower.startsWith("fpdevolucion_") || referenciaLower.startsWith("devolucion_")) {
-                return "Devolucion relacionada"
-            }
-
-            val normalizada = referencia.replace("_", " ").replace("-", " ").trim()
-            val matchVenta = Regex("(?i)venta\\s*(\\d+)").find(normalizada.replace("#", " "))
-            if (matchVenta != null) {
-                return "Venta #${matchVenta.groupValues[1]}"
-            }
-
-            return normalizada
-                .split(Regex("\\s+"))
-                .joinToString(" ") { palabra ->
-                    palabra.lowercase(Locale.getDefault())
-                        .replaceFirstChar { c -> c.titlecase(Locale.getDefault()) }
+                    IconButton(
+                        onClick = { showInfoSheet = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Detalles",
+                            tint = if (showInfoSheet) Color(0xFF15A05C) else Color(0xFF9CA3AF),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
-        }
 
-        private fun String.sanitizarTextoVisible(): String {
-            return this
-                .replace(Regex("(?i)venta\\s+#?[A-Za-z0-9_-]{8,}"), "venta relacionada")
-                .replace(Regex("(?i)fpventa_[A-Za-z0-9_-]+"), "venta relacionada")
-                .replace(Regex("(?i)fpdevolucion_[A-Za-z0-9_-]+"), "devolucion relacionada")
-                .replace(Regex("\\s{2,}"), " ")
-                .trim()
-        }
+                // MANTENEMOS LOS MATCHES DE SÍNTOMAS (SUB-TARJETAS) PARA EL BUSCADOR
+                if (terminosResaltados.isNotEmpty()) {
+                    val matches = (producto.referenceUseCases + producto.referenceKeywords + listOf(producto.referenceCommonUse))
+                        .filter { text -> terminosResaltados.any { it in text.lowercase() } }
+                        .distinct()
 
-        data class EstiloMovimiento(
-            val icono: String,
-            val colorFondo: Int,
-            val colorTexto: Int,
-            val tituloFallback: String,
-            val esSalida: Boolean
+                    if (matches.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            matches.take(3).forEach { match ->
+                                Surface(
+                                    color = Color(0xFFFFF7ED),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFFED7AA))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color(0xFFEA580C),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = match,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFEA580C)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showInfoSheet) {
+        ProductDetailsBottomSheet(
+            producto = producto,
+            lotes = lotesCargados,
+            isLoading = cargandoLotes,
+            onDismiss = { showInfoSheet = false }
         )
     }
 }
 
-private fun String.humanizarReferenciaInterna(): String {
-    val referencia = trim()
-    if (referencia.isBlank()) return referencia
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProductDetailsBottomSheet(
+    producto: MoldeProductos,
+    lotes: List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto>?,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
+    // V26.5: Elevación de estado del Kardex para evitar recargas al cambiar de pestaña
+    var movimientos by remember { mutableStateOf<List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario>?>(null) }
+    var isLoadingKardex by remember { mutableStateOf(false) }
 
-    val referenciaLower = referencia.lowercase(Locale.getDefault())
-    return when {
-        referenciaLower.startsWith("fpventa_") || referenciaLower.startsWith("venta_") -> "Venta relacionada"
-        referenciaLower.startsWith("fpdevolucion_") || referenciaLower.startsWith("devolucion_") -> "Devolucion relacionada"
-        else -> referencia
+    // Cargar Kardex solo una vez cuando se necesite
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 1 && movimientos == null) {
+            isLoadingKardex = true
+            val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+            db.getReference(com.app.administradorfarmadon.ClasesDatabase.DbPaths.INVENTARIO_MOVIMIENTOS)
+                .child(producto.indice)
+                .limitToLast(50)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val list = mutableListOf<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario>()
+                    snapshot.children.forEach { child ->
+                        child.getValue(com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario::class.java)?.let {
+                            list.add(it)
+                        }
+                    }
+                    movimientos = list.reversed()
+                    isLoadingKardex = false
+                }
+                .addOnFailureListener { isLoadingKardex = false }
+        }
+    }
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0xFFE5E7EB)) },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f) // V26.7: Altura fija al 85% para evitar que el panel "baile" al cambiar pestañas
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // CABECERA
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color(0xFFF3F4F6), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Inventory,
+                        contentDescription = null,
+                        tint = Color(0xFF15A05C),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = producto.nombre,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF111827)
+                    )
+                    Text(
+                        text = "${producto.categoria}${if (producto.proveedorNombre.isNotBlank()) " • Provedor: ${producto.proveedorNombre}" else ""}",
+                        fontSize = 13.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // SELECTOR DE PESTAÑAS (TABS) PREMIUM
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.Transparent,
+                contentColor = Color(0xFF15A05C),
+                indicator = { tabPositions ->
+                    if (selectedTab < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = Color(0xFF15A05C)
+                        )
+                    }
+                },
+                divider = {}
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("LOTES ACTUALES", fontSize = 11.sp, fontWeight = FontWeight.Black) }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("KARDEX (HISTORIAL)", fontSize = 11.sp, fontWeight = FontWeight.Black) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // V26.6: Uso de Crossfade para un cambio de pestañas sin "golpes" ni re-animaciones
+            Box(modifier = Modifier.weight(1f)) { // Contenedor que absorbe el scroll
+                Crossfade(targetState = selectedTab, label = "tab_fade") { tab ->
+                    when (tab) {
+                        0 -> LotesView(producto, lotes, isLoading)
+                        1 -> KardexView(movimientos, isLoadingKardex)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LotesView(
+    producto: MoldeProductos,
+    lotes: List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto>?,
+    isLoading: Boolean
+) {
+    if (isLoading) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            repeat(3) { LotCardSkeleton() }
+        }
+    } else if (lotes.isNullOrEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No se encontraron lotes registrados", color = Color(0xFF6B7280))
+        }
+    } else {
+        val lotesOrdenados = lotes.sortedBy { it.vencimiento }
+        val loteConsumo = lotesOrdenados.filter { it.cantidad > 0 }.minByOrNull { 
+            com.app.administradorfarmadon.ActivityInventario.ProductUtils.diasHastaVencerLote(it.vencimiento) ?: Int.MAX_VALUE 
+        }
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(lotesOrdenados) { lote ->
+                val esConsumoActual = lote == loteConsumo
+                val diasParaVencer = com.app.administradorfarmadon.ActivityInventario.ProductUtils.diasHastaVencerLote(lote.vencimiento)
+                
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (esConsumoActual) Color(0xFF15A05C).copy(alpha = 0.5f) else Color(0xFFE5E7EB)
+                    ),
+                    color = if (esConsumoActual) Color(0xFFF0FDF4) else Color.White
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Lote: ${lote.numero}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF111827)
+                                )
+                                if (esConsumoActual) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Badge(containerColor = Color(0xFF15A05C)) {
+                                        Text("EN CONSUMO", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+                            
+                            val colorVenc = when {
+                                diasParaVencer == null -> Color(0xFF6B7280)
+                                diasParaVencer < 0 -> Color(0xFFD32F2F)
+                                diasParaVencer <= 90 -> Color(0xFFEA580C)
+                                else -> Color(0xFF15A05C)
+                            }
+
+                            Surface(
+                                color = colorVenc.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Vence: ${lote.vencimiento}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorVenc,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            InfoBlock(label = "FECHA INGRESO", value = lote.fecha.ifBlank { "N/A" })
+                            InfoBlock(
+                                label = "COSTO COMPRA", 
+                                value = com.app.administradorfarmadon.ClasesDatabase.MonedaHelper.formatear(lote.costoUltimoIngreso),
+                                valueColor = Color(0xFF111827)
+                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("DISPONIBLE", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF9CA3AF))
+                                Text(
+                                    text = "${if (lote.cantidad % 1.0 == 0.0) lote.cantidad.toInt() else lote.cantidad} ${producto.unidadVisualInventario}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (lote.cantidad <= 0) Color(0xFFD32F2F) else Color(0xFF111827)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun KardexView(
+    movimientos: List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario>?,
+    isLoading: Boolean
+) {
+    var filtroLote by remember { mutableStateOf("Todos") }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // FILTRO POR LOTE DENTRO DEL KARDEX
+        val lotesDisponibles = remember(movimientos) {
+            listOf("Todos") + (movimientos?.map { it.numeroLote }?.filter { it.isNotBlank() }?.distinct()?.sorted() ?: emptyList())
+        }
+
+        if (lotesDisponibles.size > 1) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                items(lotesDisponibles) { lote ->
+                    FilterChip(
+                        selected = filtroLote == lote,
+                        onClick = { filtroLote = lote },
+                        label = { Text(lote, fontSize = 10.sp) },
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+        }
+
+        if (isLoading) {
+            repeat(3) { LotCardSkeleton() }
+        } else if (movimientos.isNullOrEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Text("No hay movimientos registrados", color = Color(0xFF6B7280))
+            }
+        } else {
+            val movimientosFiltrados = if (filtroLote == "Todos") movimientos!! else movimientos!!.filter { it.numeroLote == filtroLote }
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(movimientosFiltrados) { mov ->
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color(0xFFF3F4F6)),
+                        color = Color.White
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val colorIcon = when(mov.tipo) {
+                                "COMPRA" -> Color(0xFF15A05C)
+                                "VENTA" -> Color(0xFF2563EB)
+                                else -> Color(0xFFD32F2F)
+                            }
+
+                            Box(
+                                modifier = Modifier.size(40.dp).background(colorIcon.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (mov.cantidad > 0) Icons.Default.Add else Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = colorIcon,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${if (mov.cantidad > 0) "+" else ""}${if (mov.cantidad % 1.0 == 0.0) mov.cantidad.toInt() else mov.cantidad} ${mov.unidadVisual}",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = colorIcon
+                                )
+                                Text(
+                                    text = "${mov.tipo} - ${mov.referencia}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF374151)
+                                )
+                                if (mov.numeroLote.isNotBlank()) {
+                                    Text(text = "Lote: ${mov.numeroLote}", fontSize = 11.sp, color = Color(0xFF6B7280))
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(text = mov.fecha.take(10), fontSize = 11.sp, color = Color(0xFF9CA3AF))
+                                Text(
+                                    text = "Final: ${if (mov.stockResultante % 1.0 == 0.0) mov.stockResultante.toInt() else mov.stockResultante}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF111827)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LotCardSkeleton() {
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f, targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "alpha"
+    )
+    
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFF3F4F6).copy(alpha = alpha),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+    ) {}
+}
+
+@Composable
+fun InfoBlock(label: String, value: String, valueColor: Color = Color(0xFF6B7280)) {
+    Column {
+        Text(text = label, fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF9CA3AF))
+        Text(text = value, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }

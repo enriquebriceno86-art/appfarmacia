@@ -119,6 +119,27 @@ class FeedbackCajaController(private val appContext: Context) {
         }
     }
 
+    /**
+     * V21.5: Sonido de éxito largo (5s) generado sintéticamente para animaciones premium.
+     */
+    fun ventaExitosaLong(duracionMs: Long) {
+        val sp = obtenerSoundPool()
+        Thread {
+            runCatching {
+                val file = obtenerOCrearWav("venta_exitosa_long_$duracionMs") {
+                    generarPcmVentaExitosaLong(duracionMs)
+                }
+                val soundId = sp.load(file.absolutePath, 1)
+                // Esperar carga sutil
+                var loadedId = -1
+                sp.setOnLoadCompleteListener { _, sid, status -> if (status == 0) loadedId = sid }
+                val start = System.currentTimeMillis()
+                while (loadedId != soundId && System.currentTimeMillis() - start < 2000) { Thread.sleep(10) }
+                sp.play(soundId, 1f, 1f, 1, 0, 1f)
+            }
+        }.start()
+    }
+
     fun error(view: View?) {
         if (PreferenciasFeedbackCaja.estaSonidoActivo(appContext)) {
             reproducirSonidoError()
@@ -478,8 +499,8 @@ class FeedbackCajaController(private val appContext: Context) {
                 }
             }
         }
-        // v3: sonido de error mas contundente (disonancia digital seria).
-        val wavError = obtenerOCrearWav("feedback_error_v3.wav") { generarPcmError() }
+        // v4: sonido de error "Buzzer" industrial, mas fuerte y original.
+        val wavError = obtenerOCrearWav("feedback_error_v4.wav") { generarPcmError() }
         soundIdError = pool.load(wavError.absolutePath, 1)
 
         val wavErrorInternet = obtenerOCrearWav("feedback_error_internet_v1.wav") { generarPcmErrorInternet() }
@@ -537,21 +558,37 @@ class FeedbackCajaController(private val appContext: Context) {
         for ((freq, delay) in baseNotas) {
             // La última nota se queda flotando más tiempo (Sustain largo), las primeras decaen rápido
             val esNotaFinal = freq == 1760.00
-            val duracion = if (esNotaFinal) 450 else 220
-            val decay = if (esNotaFinal) 5.0 else 12.5
+            val duracion = if (esNotaFinal) 1200 else 220
+            val decay = if (esNotaFinal) 2.5 else 18.0
 
             // Layer 1: Frecuencia Fundamental (Cuerpo principal del sonido)
-            notasSinteticas.add(NotaSintetica(freq, duracion, 4, decay, 0.26, delay))
+            notasSinteticas.add(NotaSintetica(freq, duracion, if (esNotaFinal) 15 else 5, decay, 0.35, delay))
 
-            // Layer 2: Segundo Armónico (Aporta calidez y grosor al tono)
-            notasSinteticas.add(NotaSintetica(freq * 2, duracion - 20, 3, decay * 1.3, 0.08, delay))
-
-            // Layer 3: Tercer Armónico (Aporta el brillo metálico y destello de cristal)
-            notasSinteticas.add(NotaSintetica(freq * 3, duracion - 40, 2, decay * 1.7, 0.03, delay))
+            // Layer 2: Armónicos sutiles para textura
+            notasSinteticas.add(NotaSintetica(freq * 2, duracion - 20, 10, decay * 1.5, 0.10, delay))
         }
 
-        // Duración total extendida a 700ms para poder disfrutar la estela del acorde
-        return mezclarNotas(notasSinteticas, totalDuracionMs = 700)
+        return mezclarNotas(notasSinteticas, totalDuracionMs = 1500)
+    }
+
+    private fun generarPcmVentaExitosaLong(duracionMs: Long): ShortArray {
+        val notas = mutableListOf<NotaSintetica>()
+        val baseFreq = 440.0 // La (A4)
+        val escala = listOf(1.0, 1.125, 1.25, 1.333, 1.5, 1.666, 1.875, 2.0)
+        
+        for (i in 0 until 14) {
+            val freq = baseFreq * escala[i % escala.size] * (1 + (i / escala.size) * 0.5)
+            notas.add(NotaSintetica(
+                frecuenciaHz = freq,
+                duracionMs = 1500,
+                attackMs = 150,
+                decayCoef = 2.0,
+                amplitud = 0.12,
+                retrasoMs = i * 320
+            ))
+        }
+        
+        return mezclarNotas(notas, totalDuracionMs = duracionMs.toInt())
     }
     /**
      * Eliminacion: gesto corto en descenso, suave y limpio. Busca comunicar "se fue" sin
@@ -585,22 +622,22 @@ class FeedbackCajaController(private val appContext: Context) {
     }
 
     /**
-     * Tono de error FUERTE y notorio para entornos ruidosos (farmacia con clientes, musica).
-     * 3 pulsos en frecuencias medio-altas penetrantes (E5 = 659Hz, B4 = 493Hz) con amplitud
-     * casi al maximo (0.90) para usar todo el rango dinamico. El patron "TIN-TIN-TIN" en
-     * descenso se reconoce instantaneamente como error sin sonar agresivo.
-     * Total ~440ms. Cada pulso tiene attack rapido para sonar duro.
+     * Tono de error "Buzzer" industrial, FUERTE y con carácter.
+     * Utiliza dos frecuencias disonantes bajas para crear un efecto de interferencia
+     * que se siente "pesado" y claramente como un fallo.
+     * Dos pulsos de 180ms cada uno.
      */
     private fun generarPcmError(): ShortArray {
         val notas = listOf(
-            // Pulso 1: agudo penetrante para captar atencion.
-            NotaSintetica(frecuenciaHz = 659.25, duracionMs = 110, attackMs = 3, decayCoef = 16.0, amplitud = 0.90, retrasoMs = 0),
-            // Pulso 2: igual pero descendido un tono (refuerza el patron).
-            NotaSintetica(frecuenciaHz = 587.33, duracionMs = 110, attackMs = 3, decayCoef = 16.0, amplitud = 0.90, retrasoMs = 130),
-            // Pulso 3: desciende a B4 con sustain mas largo, cierra el "error".
-            NotaSintetica(frecuenciaHz = 493.88, duracionMs = 180, attackMs = 3, decayCoef = 11.0, amplitud = 0.95, retrasoMs = 260)
+            // Primer pulso (disonante): 220Hz + 225Hz (Efecto batido/rugoso)
+            NotaSintetica(frecuenciaHz = 220.0, duracionMs = 180, attackMs = 10, decayCoef = 4.0, amplitud = 0.98, retrasoMs = 0),
+            NotaSintetica(frecuenciaHz = 225.0, duracionMs = 180, attackMs = 10, decayCoef = 4.0, amplitud = 0.98, retrasoMs = 0),
+            
+            // Segundo pulso igual después de un silencio corto
+            NotaSintetica(frecuenciaHz = 220.0, duracionMs = 180, attackMs = 10, decayCoef = 4.0, amplitud = 0.98, retrasoMs = 280),
+            NotaSintetica(frecuenciaHz = 225.0, duracionMs = 180, attackMs = 10, decayCoef = 4.0, amplitud = 0.98, retrasoMs = 280)
         )
-        return mezclarNotas(notas, totalDuracionMs = 460)
+        return mezclarNotas(notas, totalDuracionMs = 500)
     }
 
     /**

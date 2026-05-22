@@ -251,7 +251,20 @@ data class CategorySuggestionUiState(
     
     // V18.8: Validación de Integridad
     val barcodeMismatchDetected: Boolean = false,
-    val barcodeMismatchOriginalName: String? = null
+    val barcodeMismatchOriginalName: String? = null,
+
+    // V20.0: Información útil del producto
+    val infoUsoProducto: UsageInfoAiResult? = null,
+    val estaCargandoInfoUso: Boolean = false
+)
+
+/**
+ * V20.0: Información de uso y seguridad del producto generada por IA.
+ */
+data class UsageInfoAiResult(
+    val usos: List<String> = emptyList(),
+    val instrucciones: String = "",
+    val contraindicaciones: String = ""
 )
 
 // ─── Modelos crudos de la API de Gemini (generateContent) ────────────────────
@@ -272,7 +285,7 @@ data class GeminiTool(
 
 data class GeminiContent(
     val role: String? = null,
-    val parts: List<GeminiPart>
+    val parts: List<GeminiPart>? = null
 )
 
 data class GeminiPart(

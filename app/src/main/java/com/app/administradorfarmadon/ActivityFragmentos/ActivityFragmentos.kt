@@ -135,6 +135,12 @@ class ActivityFragmentos : AppCompatActivity() {
             verificarConfiguracionTiendaYBloquearSiFalta()
         }
 
+    private val requestNotificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+            // El trabajador ya está programado en AppFarmadon, 
+            // solo necesitamos el permiso para mostrar las notificaciones.
+        }
+
     private fun resolverAccesoUiModel(): AppAccesoUiBuilder.AppAccesoUiModel {
         return AppAccesoUiBuilder.construirEstadoAcceso(
             sinConexion = sinConexion,
@@ -309,7 +315,7 @@ class ActivityFragmentos : AppCompatActivity() {
         iniciarMonitoreoConexion()
         iniciarMonitoreoConexionUltraRapido()
         configurarBackNavigation()
-
+        solicitarPermisoNotificacionesSiEsNecesario()
 
         if (!sinConexion) {
             verificarConfiguracionTiendaYBloquearSiFalta()
@@ -319,6 +325,16 @@ class ActivityFragmentos : AppCompatActivity() {
     }
 
 
+
+    private fun solicitarPermisoNotificacionesSiEsNecesario() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = android.Manifest.permission.POST_NOTIFICATIONS
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, permission) != 
+                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(permission)
+            }
+        }
+    }
 
     override fun onResume() {
         super.onResume()

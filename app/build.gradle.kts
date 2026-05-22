@@ -76,6 +76,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -102,6 +103,7 @@ dependencies {
     implementation("androidx.gridlayout:gridlayout:1.1.0")
     implementation("androidx.palette:palette:1.0.0")
     implementation("org.jsoup:jsoup:1.18.1")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     // Testing
     testImplementation(libs.junit)

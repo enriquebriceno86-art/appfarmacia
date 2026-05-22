@@ -19,8 +19,10 @@ object PresentacionRules {
 
     fun modoDesdeUnidadBase(unidadBase: String): ModoControlStock {
         return when {
-            unidadBase.equals("g", ignoreCase = true) -> ModoControlStock.PESO
-            unidadBase.equals("mL", ignoreCase = true) -> ModoControlStock.VOLUMEN
+            unidadBase.equals("g", ignoreCase = true) ||
+                unidadBase.equals("kg", ignoreCase = true) -> ModoControlStock.PESO
+            unidadBase.equals("mL", ignoreCase = true) ||
+                unidadBase.equals("L", ignoreCase = true) -> ModoControlStock.VOLUMEN
             else -> ModoControlStock.UNIDADES
         }
     }
@@ -55,7 +57,9 @@ object PresentacionRules {
 
     fun esUnidadPesoOVolumen(unidadBase: String): Boolean {
         return unidadBase.equals("g", ignoreCase = true) ||
-            unidadBase.equals("mL", ignoreCase = true)
+            unidadBase.equals("kg", ignoreCase = true) ||
+            unidadBase.equals("mL", ignoreCase = true) ||
+            unidadBase.equals("L", ignoreCase = true)
     }
 
     fun opcionesUnidadBaseSegunModo(

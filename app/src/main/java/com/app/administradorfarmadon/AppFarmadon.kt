@@ -16,5 +16,8 @@ class AppFarmadon : Application() {
         } catch (_: Exception) {
             // Firebase solo permite activar persistencia una vez por proceso.
         }
+
+        // V28.8: Programamos el recordatorio de pagos a proveedores
+        com.app.administradorfarmadon.services.PaymentReminderWorker.schedule(this)
     }
 }

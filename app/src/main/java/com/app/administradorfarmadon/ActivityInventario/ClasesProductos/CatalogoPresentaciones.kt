@@ -37,8 +37,8 @@ object CatalogoPresentaciones {
             "par" -> listOf("Par", "Paquete", "Caja")
 
             // Productos vendidos por medida
-            "g" -> listOf("g", "kg")
-            "ml" -> listOf("mL", "L")
+            "g", "kg" -> listOf("g", "kg")
+            "ml", "l" -> listOf("mL", "L")
 
             // Genérico
             else -> listOf("Unidad", "Caja", "Blister", "Paquete", "Pack")

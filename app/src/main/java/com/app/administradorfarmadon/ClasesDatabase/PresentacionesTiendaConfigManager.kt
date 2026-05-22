@@ -1,185 +1,88 @@
 package com.app.administradorfarmadon.ClasesDatabase
 
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.CatalogoPresentaciones
+import com.app.administradorfarmadon.ActivityInventario.ui.SavedPresentation
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Configuracion de presentaciones a nivel TIENDA:
- * - habilitar/deshabilitar tipos (Caja, Blister, etc.)
- * - alias (ej: "Blister" -> "Tira")
- *
- * Importante:
- * - El catalogo base (tipos y compatibilidades por unidad base) es FIJO en codigo.
- * - Aqui solo se personaliza visualmente y se filtra.
+ * Gestiona las presentaciones de venta personalizadas y recurrentes de la tienda.
+ * Permite guardar "Caja x 30", "Saco 5kg", etc., para que aparezcan como chips
+ * sugeridos en futuros productos del mismo tipo.
  */
 object PresentacionesTiendaConfigManager {
 
-    private const val PATH_CONFIG = "ConfiguracionTienda"
-    private const val PATH_CATALOGOS = "catalogos"
-    private const val PATH_PRESENTACIONES = "presentaciones"
+    private const val PATH_ROOT = "ConfiguracionTienda/PresentacionesRecientes"
+    
+    private val _presentaciones = MutableStateFlow<List<SavedPresentation>>(emptyList())
+    val presentaciones: StateFlow<List<SavedPresentation>> = _presentaciones
 
-    data class PresentacionConfig(
-        var habilitado: Boolean = true,
-        var alias: String = ""
-    )
+    private var initialized = false
 
-    data class OpcionPresentacionUi(
-        val nombreCanonical: String,
-        val nombreVisible: String
-    )
+    fun precargar() {
+        if (initialized) return
+        initialized = true
 
-    @Volatile
-    private var cache: Map<String, PresentacionConfig> = emptyMap()
-
-    @Volatile
-    private var cargando: Boolean = false
-
-    // Callbacks pendientes cuando alguien pide precargar y el cache aun no está listo.
-    // Se ejecutan en el hilo donde Firebase llama el listener (normalmente main).
-    private val callbacksPendientes = mutableListOf<() -> Unit>()
-
-    fun invalidarCache() {
-        cache = emptyMap()
-    }
-
-    private fun normalizar(input: String): String {
-        return PresentacionHelper.normalizarClave(input)
-    }
-
-    private fun keyCanonical(nombre: String): String {
-        // Las claves en cache se guardan normalizadas para tolerar espacios/capitalizacion
-        return normalizar(nombre)
-    }
-
-    fun precargar(onComplete: (() -> Unit)? = null) {
-        if (cache.isNotEmpty()) {
-            onComplete?.invoke()
-            return
-        }
-
-        if (onComplete != null) {
-            synchronized(callbacksPendientes) {
-                callbacksPendientes.add(onComplete)
-            }
-        }
-
-        if (cargando) return
-        cargando = true
-
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_CONFIG)
-            .child(PATH_CATALOGOS)
-            .child(PATH_PRESENTACIONES)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val mapa = linkedMapOf<String, PresentacionConfig>()
-                snapshot.children.forEach { child ->
-                    val nombre = child.key?.trim().orEmpty()
-                    if (nombre.isBlank()) return@forEach
-
-                    val habilitado = child.child("habilitado").getValue(Boolean::class.java) ?: true
-                    val alias = child.child("alias").getValue(String::class.java).orEmpty()
-                    mapa[keyCanonical(nombre)] = PresentacionConfig(
-                        habilitado = habilitado,
-                        alias = alias
-                    )
+        val ref = FirebaseDatabase.getInstance().getReference(PATH_ROOT)
+        ref.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val list = mutableListOf<SavedPresentation>()
+                snapshot.children.forEach { typeSnapshot ->
+                    typeSnapshot.children.forEach { item ->
+                        item.getValue(SavedPresentation::class.java)?.let {
+                            list.add(it)
+                        }
+                    }
                 }
-                cache = mapa
-                cargando = false
-
-                val callbacks = synchronized(callbacksPendientes) {
-                    val copia = callbacksPendientes.toList()
-                    callbacksPendientes.clear()
-                    copia
-                }
-                callbacks.forEach { it.invoke() }
+                _presentaciones.value = list.reversed() // Más recientes primero
             }
-            .addOnFailureListener {
-                // Si falla, seguimos con defaults (todo habilitado, sin alias).
-                cargando = false
 
-                val callbacks = synchronized(callbacksPendientes) {
-                    val copia = callbacksPendientes.toList()
-                    callbacksPendientes.clear()
-                    copia
-                }
-                callbacks.forEach { it.invoke() }
-            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
-    fun obtenerConfig(nombreCanonical: String): PresentacionConfig? {
-        return cache[keyCanonical(nombreCanonical)]
-    }
+    fun guardarPresentacion(presentation: SavedPresentation) {
+        val name = presentation.name.trim()
+        val equivalence = presentation.equivalenceBase.trim()
+        if (name.isBlank() || equivalence.isBlank()) return
+        
+        val type = presentation.controlType.ifBlank { "UNIDAD" }
+        
+        // V21.1: Generar una clave única determinística basada en nombre y equivalencia
+        // Esto evita duplicados a nivel de base de datos sin importar la caché local.
+        val sanitizedName = com.app.administradorfarmadon.ActivityInventario.ProductUtils.sanitizarTexto(name)
+        val sanitizedEquiv = equivalence.replace(".", "_")
+        val uniqueKey = "${sanitizedName}_$sanitizedEquiv"
 
-    fun estaHabilitado(nombreCanonical: String): Boolean {
-        return obtenerConfig(nombreCanonical)?.habilitado ?: true
-    }
-
-    fun nombreVisible(nombreCanonical: String): String {
-        val alias = obtenerConfig(nombreCanonical)?.alias?.trim().orEmpty()
-        return if (alias.isBlank()) nombreCanonical else alias
-    }
-
-    fun opcionesParaUnidadBase(unidadBase: String): List<OpcionPresentacionUi> {
-        val base = CatalogoPresentaciones.opcionesParaUnidadBase(unidadBase)
-        return base
-            .filter { estaHabilitado(it) }
-            .map { canonical ->
-                OpcionPresentacionUi(
-                    nombreCanonical = canonical,
-                    nombreVisible = nombreVisible(canonical)
-                )
-            }
-    }
-
-    fun canonicalDesdeVisible(
-        unidadBase: String,
-        visible: String
-    ): String? {
-        val clave = normalizar(visible)
-        return opcionesParaUnidadBase(unidadBase)
-            .firstOrNull { normalizar(it.nombreVisible) == clave }
-            ?.nombreCanonical
+        val db = FirebaseDatabase.getInstance().getReference(PATH_ROOT).child(type)
+        db.child(uniqueKey).setValue(presentation.copy(id = uniqueKey))
     }
 
     /**
-     * Guarda la configuracion completa de alias/habilitados.
-     * Se espera que las llaves sean los nombres CANONICOS (ej: "Caja", "Blister").
+     * Devuelve el nombre visible de una presentación dado su ID canónico.
      */
-    fun guardarConfiguracion(
-        configPorCanonical: Map<String, PresentacionConfig>,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val ref = FirebaseDatabase.getInstance()
-            .getReference(PATH_CONFIG)
-            .child(PATH_CATALOGOS)
-            .child(PATH_PRESENTACIONES)
+    fun nombreVisible(canonicalId: String): String {
+        if (canonicalId.isBlank()) return ""
+        return _presentaciones.value.find { it.id == canonicalId }?.name ?: ""
+    }
 
-        // Guardamos como { "Caja": {habilitado:true, alias:""}, ... }
-        val payload = linkedMapOf<String, Any?>()
-        configPorCanonical.forEach { (canonical, cfg) ->
-            val nombre = canonical.trim()
-            if (nombre.isBlank()) return@forEach
+    /**
+     * Resuelve el ID canónico de una presentación dado su nombre visible.
+     */
+    fun canonicalDesdeVisible(controlType: String, nombreVisible: String): String {
+        if (nombreVisible.isBlank()) return ""
+        return _presentaciones.value.find { 
+            it.controlType == controlType && it.name.equals(nombreVisible, true) 
+        }?.id ?: ""
+    }
 
-            payload[nombre] = mapOf(
-                "habilitado" to cfg.habilitado,
-                "alias" to cfg.alias.trim()
-            )
-        }
-
-        ref.setValue(payload)
-            .addOnSuccessListener {
-                // Actualizar cache local (normalizado)
-                val nuevo = linkedMapOf<String, PresentacionConfig>()
-                configPorCanonical.forEach { (canonical, cfg) ->
-                    nuevo[keyCanonical(canonical)] = cfg
-                }
-                cache = nuevo
-                onSuccess()
-            }
-            .addOnFailureListener { e ->
-                onError(e.message ?: "Error al guardar configuracion")
-            }
+    /**
+     * Devuelve las presentaciones guardadas filtradas por tipo de control.
+     */
+    fun opcionesParaUnidadBase(controlType: String): List<SavedPresentation> {
+        return _presentaciones.value.filter { it.controlType == controlType }
     }
 }

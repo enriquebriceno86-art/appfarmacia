@@ -22,10 +22,11 @@ object UnidadBaseHelper {
 
         return when {
             unidad.equals("g", ignoreCase = true) -> "g"
+            unidad.equals("kg", ignoreCase = true) -> "kg"
             unidad.equals("ml", ignoreCase = true) -> "mL"
+            unidad.equals("l", ignoreCase = true) -> "L"
             unidad.equals("unidad", ignoreCase = true) -> if (cantidad == 1) "unidad" else "unidades"
             else -> unidad.lowercase(Locale.getDefault())
         }
     }
 }
-

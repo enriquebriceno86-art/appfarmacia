@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".AppFarmadon"
@@ -99,6 +100,10 @@
             android:configChanges="orientation|screenSize|smallestScreenSize"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ActivitysPerfilItem.CuentasPorPagarActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
+            android:exported="false" />
         <activity
             android:name=".ActivitysUsuarios.UserActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize"

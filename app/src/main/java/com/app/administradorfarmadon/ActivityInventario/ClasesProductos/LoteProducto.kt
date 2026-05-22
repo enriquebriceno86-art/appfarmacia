@@ -11,5 +11,9 @@ data class LoteProducto(
     val costoUltimoIngresoUnitario: Double = 0.0,
     val observaciones: String = "",
     val motivoBloqueo: String = "",
-    val timestampUltimoBloqueo: Long = 0L
+    val timestampUltimoBloqueo: Long = 0L,
+    val nroFactura: String = "",
+    val condicionPago: String = "CONTADO", // CONTADO o CREDITO
+    val fechaVencimientoPago: String = "",
+    val estadoPago: String = "PAGADO"     // PAGADO o PENDIENTE
 )

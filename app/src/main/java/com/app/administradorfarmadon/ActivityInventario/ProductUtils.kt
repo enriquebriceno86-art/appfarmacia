@@ -1,10 +1,13 @@
 package com.app.administradorfarmadon.ActivityInventario
 
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.util.Base64
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.ClasesDatabase.MonedaHelper
 import com.app.administradorfarmadon.ClasesDatabase.PresentacionHelper
+import java.io.ByteArrayOutputStream
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.YearMonth
@@ -331,8 +334,9 @@ object ProductUtils {
         return try {
             val mes = partes[0].toInt()
             val anio = 2000 + partes[1].toInt()
-            val fechaVencimiento = YearMonth.of(anio, mes).atEndOfMonth()
-            fechaVencimiento.isBefore(LocalDate.now())
+            val expiryYearMonth = YearMonth.of(anio, mes)
+            val currentYearMonth = YearMonth.now()
+            expiryYearMonth.isBefore(currentYearMonth)
         } catch (e: Exception) {
             false
         }
@@ -771,5 +775,27 @@ object ProductUtils {
             limpio.endsWith("z", ignoreCase = true) -> limpio.dropLast(1) + "ces"
             else -> "${limpio}s"
         }
+    }
+
+    /**
+     * V29.0: Utilidades de conversión de imagen para auditoría visual.
+     */
+    fun rotateBitmap(source: Bitmap, angle: Float): Bitmap {
+        if (angle == 0f) return source
+        val matrix = Matrix()
+        matrix.postRotate(angle)
+        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+    }
+
+    fun bitmapToBase64(bitmap: Bitmap): String {
+        val outputStream = ByteArrayOutputStream()
+        // Redimensionar para ahorrar espacio en Realtime Database (Nivel Auditoría)
+        val scaled = if (bitmap.width > 800 || bitmap.height > 800) {
+            val scale = 800f / Math.max(bitmap.width, bitmap.height)
+            Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+        } else bitmap
+        
+        scaled.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
+        return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
 }

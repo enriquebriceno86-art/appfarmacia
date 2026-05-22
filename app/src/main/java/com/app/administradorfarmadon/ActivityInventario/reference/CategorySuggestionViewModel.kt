@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import java.text.Normalizer
 import java.util.Locale
 
@@ -43,6 +45,8 @@ class CategorySuggestionViewModel : ViewModel() {
     private var latestBarcodeRequestId = 0L
     private var latestBarcodeKey: String? = null
     private var jobBarcode: Job? = null
+    private var jobUsageInfo: Job? = null
+    private var latestUsageInfoKey: String? = null
 
     // V17.7: Caché de sesión para sugerencias silenciosas (Nombre -> Categoría)
     private val cacheSugerenciasSilenciosas = mutableMapOf<String, String>()
@@ -355,14 +359,6 @@ class CategorySuggestionViewModel : ViewModel() {
                 return@launch
             }
 
-            android.util.Log.d("CategoryAI", "Disparando petición de red para categoría silenciosa...")
-
-            // V17.5: Feedback de carga sutil (en el estado de asistencia manual)
-            _state.value = _state.value.copy(
-                estaCargandoAsistencia = true,
-                asistenciaManualCategorias = emptyList() // Limpiamos previos mientras busca
-            )
-            
             val category = CategorySuggestionRepository.sugerirCategoriaSilenciosa(
                 productName = nombre,
                 mercadoActivo = mercadoActivo
@@ -401,7 +397,7 @@ class CategorySuggestionViewModel : ViewModel() {
                 presentacionesSugeridas = emptyList(),
                 existeEnLista = categoriasExistentes.any { it.equals(category, ignoreCase = true) },
                 confianza = 100,
-                razon = "Sugerencia manual silenciosa"
+                razon = ""
             )
         )
     }
@@ -641,7 +637,7 @@ class CategorySuggestionViewModel : ViewModel() {
         )
 
         jobBarcode = viewModelScope.launch {
-            val result = withTimeoutOrNull(15_000) {
+            val result = withTimeoutOrNull(40_000) {
                 CategorySuggestionRepository.identificarProductoPorBarcode(normalizedBarcode, imageBase64, categoriasExistentes)
             } ?: BarcodeAiResult(
                 estado = "NO_IDENTIFICADO",
@@ -700,6 +696,32 @@ class CategorySuggestionViewModel : ViewModel() {
             barcodeMismatchDetected = false,
             barcodeMismatchOriginalName = null
         )
+    }
+
+    /**
+     * V20.0: Busca información de uso del producto.
+     */
+    fun buscarInfoUsoProducto(nombre: String) {
+        val key = nombre.trim().lowercase()
+        if (key == latestUsageInfoKey || nombre.isBlank()) return
+        
+        jobUsageInfo?.cancel()
+        latestUsageInfoKey = key
+        
+        jobUsageInfo = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _state.update { it.copy(estaCargandoInfoUso = true) }
+                val result = CategorySuggestionRepository.obtenerInformacionUsoProducto(nombre)
+                _state.update { 
+                    it.copy(
+                        estaCargandoInfoUso = false,
+                        infoUsoProducto = result
+                    ) 
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(estaCargandoInfoUso = false) }
+            }
+        }
     }
 
     private fun barcodeIdentityTokens(text: String): List<String> {

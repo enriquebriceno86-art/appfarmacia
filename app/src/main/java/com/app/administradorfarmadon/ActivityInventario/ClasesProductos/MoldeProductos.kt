@@ -46,6 +46,8 @@ fun DataSnapshot.toMoldeProductos(): MoldeProductos? {
             presentacionprincipal     = child("presentacionprincipal").value?.toString().orEmpty(),
             requierereceta            = child("requierereceta").getValue(Boolean::class.java) ?: false,
             estadodelproducto         = child("estadodelproducto").getValue(Boolean::class.java) ?: true,
+            tieneCodigoBarra          = child("tieneCodigoBarra").getValue(Boolean::class.java)
+                ?: child("codigo").value?.toString().orEmpty().trim().isNotBlank(),
             indice                    = child("indice").value?.toString().orEmpty().ifBlank { key.orEmpty() },
             tienePresentaciones       = child("tienePresentaciones").getValue(Boolean::class.java) ?: false,
             unidadesPorPresentacionCompra = child("unidadesPorPresentacionCompra").value?.toString()?.toIntOrNull() ?: 0,
@@ -66,6 +68,9 @@ fun DataSnapshot.toMoldeProductos(): MoldeProductos? {
             referenceMatchedName      = child("referenceMatchedName").value?.toString().orEmpty(),
             referenceConfidence       = child("referenceConfidence").value?.toString()?.toDoubleOrNull() ?: 0.0,
             referenceLanguage         = child("referenceLanguage").value?.toString().orEmpty().ifBlank { "es" },
+            ubicacion                 = child("ubicacion").value?.toString().orEmpty(),
+            proveedorId               = child("proveedorId").value?.toString().orEmpty(),
+            proveedorNombre           = child("proveedorNombre").value?.toString().orEmpty(),
             lotes                     = child("lotes").children.mapNotNull { loteSnapshot ->
                 val lote = loteSnapshot.getValue(LoteProducto::class.java)
                 val clave = loteSnapshot.key.orEmpty()
@@ -91,6 +96,8 @@ data class MoldeProductos(
     var presentacionprincipal: String = "",
     var requierereceta: Boolean = false,
     var estadodelproducto: Boolean = true,
+    /** false = producto registrado sin codigo de barras (no aparece en CodigosProductos). */
+    var tieneCodigoBarra: Boolean = false,
     var indice: String = "",
     var tienePresentaciones: Boolean = false,
     var presentaciones: MutableList<PresentacionProducto> = mutableListOf(),
@@ -119,8 +126,32 @@ data class MoldeProductos(
     var referenceMatchedName: String = "",
     var referenceConfidence: Double = 0.0,
     var referenceLanguage: String = "es",
+    var ubicacion: String = "",
+    var proveedorId: String = "",
+    var proveedorNombre: String = "",
     var lotes: Map<String, LoteProducto> = emptyMap()
 )
+
+fun MoldeProductos.stockFisicoBase(): Double {
+    if (lotes.isEmpty()) {
+        return cantidadinicial.toDoubleOrNull() ?: 0.0
+    }
+    return lotes.values.sumOf { it.cantidad + it.cantidadBloqueada }
+}
+
+fun MoldeProductos.stockMinimoBase(): Double {
+    // V22.0: Prioridad absoluta al valor en unidad mínima para evitar errores de escala
+    val visual = stockminimo.toDoubleOrNull() ?: 0.0
+    
+    // Si la unidad visual es kg/L, el valor base es x1000
+    val factor = if (unidadVisualInventario == "kg" || unidadVisualInventario == "L") 1000.0 else 1.0
+    return visual * factor
+}
+
+fun MoldeProductos.tieneCodigoBarraActivo(): Boolean =
+    tieneCodigoBarra || codigo.trim().isNotBlank()
+
+fun MoldeProductos.esProductoSinCodigoBarra(): Boolean = !tieneCodigoBarraActivo()
 
 /**
  * V17.46: Registro simplificado para el índice plano de lotes.

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.activity.compose.BackHandler
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -48,6 +49,11 @@ fun BarcodeScannerOverlay(
     onBarcodeDetected: (BarcodeScanResult) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Interceptar gesto atrás para cerrar solo el escáner
+    BackHandler {
+        onDismiss()
+    }
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -115,6 +121,7 @@ fun BarcodeScannerOverlay(
                                         if (!barcode.isInsideScanRect(scanRect)) continue
                                         barcode.rawValue?.let { value ->
                                             if (value.isNotBlank()) {
+                                                // V21.1: Filtro de estabilidad para evitar lecturas fugaces erróneas
                                                 isDetected = true
 
                                                 // V18.2: Capturar frame para Gemini Vision
@@ -124,8 +131,8 @@ fun BarcodeScannerOverlay(
 
                                                 // Pitido clásico de escáner
                                                 try {
-                                                    val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-                                                    toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                                                    val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+                                                    toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 260)
                                                 } catch (e: Exception) {
                                                     Log.e("Scanner", "Error playing beep", e)
                                                 }
@@ -170,9 +177,9 @@ fun BarcodeScannerOverlay(
             val canvasWidth = size.width
             val canvasHeight = size.height
             
-            // Cuadro (280dp x 180dp aprox)
+            // Cuadro (280dp x 120dp aprox)
             val boxWidth = 280.dp.toPx()
-            val boxHeight = 180.dp.toPx()
+            val boxHeight = 100.dp.toPx()
             val left = (canvasWidth - boxWidth) / 2
             val top = (canvasHeight - boxHeight) / 2
             
