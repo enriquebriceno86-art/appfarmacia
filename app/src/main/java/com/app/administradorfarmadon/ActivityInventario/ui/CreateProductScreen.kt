@@ -323,6 +323,24 @@ enum class StockControlMode {
     DIVISIBLE    // Control por unidad (tableta, cápsula, etc.)
 }
 
+private fun mapStockControlModeFromSuggestedUnit(unit: String?): StockControlMode? {
+    val clean = unit
+        ?.trim()
+        ?.lowercase(java.util.Locale.getDefault())
+        ?: return null
+
+    return when {
+        clean.contains("unid") || clean.contains("und") || clean.contains("uds") || 
+        clean.contains("pieza") || clean.contains("pz") || clean.contains("pza") -> StockControlMode.DIVISIBLE
+        
+        clean == "g" || clean == "gr" || clean == "grs" || clean == "kg" || 
+        clean == "ml" || clean == "ml." || clean == "l" || clean == "lt" ||
+        clean == "litro" || clean == "litros" -> StockControlMode.INDIVISIBLE
+        
+        else -> null
+    }
+}
+
 @Immutable
 data class CreateProductPresentation(
     val id: String,
@@ -840,6 +858,26 @@ fun CreateProductScreen(
             }
         }
 
+        // --- DIÁLOGO GLOBAL: NUEVO PROVEEDOR ---
+        if (state.showAddSupplierDialog) {
+            AddSupplierDialog(
+                isSaving = state.isSavingSupplier,
+                isSuccess = state.supplierSaveSuccess,
+                suppliers = state.suppliers,
+                onDismiss = {
+                    if (!state.isSavingSupplier) {
+                        onStateChange(
+                            state.copy(
+                                showAddSupplierDialog = false,
+                                supplierSaveSuccess = false
+                            )
+                        )
+                    }
+                },
+                onSave = onSaveSupplier
+            )
+        }
+
         // --- DIALOGO PERSISTENTE DE ALERTA DE INTEGRIDAD ---
         if (state.barcodeMismatchDetected) {
             Box(
@@ -1091,7 +1129,7 @@ fun CreateProductScreen(
                                 onClick = onDismissNoBarcodeConfirm,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(54.dp),
+                                    .heightIn(min = 54.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(1.dp, CreateBorder),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -1105,7 +1143,7 @@ fun CreateProductScreen(
                                 onClick = onConfirmNoBarcodeContinue,
                                 modifier = Modifier
                                     .weight(1.15f)
-                                    .height(54.dp),
+                                    .heightIn(min = 54.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = CreateOrange,
@@ -1120,7 +1158,7 @@ fun CreateProductScreen(
             }
         }
 
-        if (loading || isReturningToInitial || state.isSavingSupplier) {
+        if (loading || isReturningToInitial) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -1133,21 +1171,12 @@ fun CreateProductScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     CircularProgressIndicator(
-                        color = when {
-                            state.isSavingSupplier && state.supplierSaveSuccess -> androidx.compose.ui.graphics.Color(0xFF0E8F63)
-                            state.isSavingSupplier -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
-                            else -> Color.White
-                        },
+                        color = Color.White,
                         strokeWidth = 3.dp
                     )
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        text = when {
-                            state.isSavingSupplier && state.supplierSaveSuccess -> "¡Proveedor guardado!"
-                            state.isSavingSupplier -> "Guardando proveedor..."
-                            isReturningToInitial -> "Regresando al asistente IA..."
-                            else -> "Guardando producto..."
-                        },
+                        text = if (isReturningToInitial) "Regresando al asistente IA..." else "Guardando producto...",
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -1758,7 +1787,7 @@ fun ConflictManagementDialog(
                                 onClick = onAddStock,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(54.dp),
+                                    .heightIn(min = 54.dp),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = CreateOrange)
                             ) {
@@ -2341,7 +2370,7 @@ fun CreatePresentationDialog(
                                 onClick = onDismiss,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(54.dp),
+                                    .heightIn(min = 54.dp),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
                                 Text("Cancelar", fontWeight = FontWeight.Bold)
@@ -2418,7 +2447,7 @@ fun CreatePresentationDialog(
                                 enabled = canAdd,
                                 modifier = Modifier
                                     .weight(1.2f)
-                                    .height(54.dp),
+                                    .heightIn(min = 54.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
                             ) {
@@ -2479,17 +2508,27 @@ private fun CreateProductTabletSidebarLayout(
                         .padding(horizontal = 28.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = if (isFirst) onBack else onPrevious,
-                        modifier = Modifier.weight(1f),
-                        enabled = !loading
-                    ) {
-                        Text(if (isFirst) "Cancelar" else "Atras")
+                    if (!isFirst) {
+                        OutlinedButton(
+                            onClick = onPrevious,
+                            modifier = Modifier.weight(1f),
+                            enabled = !loading,
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Text(
+                                text = "Atras",
+                                color = CreateTextSecondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
                     }
                     Button(
                         onClick = if (isLast) onSave else onNext,
-                        modifier = Modifier.weight(2f),
+                        modifier = Modifier.weight(if (isFirst) 1f else 2f),
                         enabled = saveEnabled && !loading,
+                        shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CreateGreen,
                             contentColor = Color.White,
@@ -2506,7 +2545,11 @@ private fun CreateProductTabletSidebarLayout(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text("Procesando...", fontWeight = FontWeight.Bold)
                         } else {
-                            Text(if (isLast) "Guardar producto" else "Siguiente")
+                            Text(
+                                text = if (isLast) "Guardar producto" else "Siguiente",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp
+                            )
                         }
                     }
                 }
@@ -2535,20 +2578,6 @@ private fun CreateProductTabletSidebarLayout(
                         .padding(20.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(CreateBackground)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_arrow_back_24),
-                                contentDescription = "Atras",
-                                tint = CreateTextPrimary
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Crear producto",
                             color = CreateTextPrimary,
@@ -2762,25 +2791,7 @@ fun CreateProductStepHeader(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, CreateBorder, CircleShape)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.baseline_arrow_back_24),
-                    contentDescription = "Atras",
-                    tint = CreateTextPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Título animado al lado de la flecha
+            // Título animado
             AnimatedContent(
                 targetState = step.title,
                 modifier = Modifier.weight(1f),
@@ -2818,7 +2829,7 @@ fun CreateProductStepHeader(
         // Subtítulo compacto debajo para mantener contexto
         AnimatedContent(
             targetState = step.subtitle,
-            modifier = Modifier.padding(start = 52.dp, top = 2.dp),
+            modifier = Modifier.padding(start = 0.dp, top = 2.dp),
             transitionSpec = { fadeIn().togetherWith(fadeOut()) },
             label = "header_subtitle_anim"
         ) { subtitle ->
@@ -3024,6 +3035,10 @@ private fun AiBarcodeProductStep(
                                     if (mappedType != null) {
                                         delay(650)
 
+                                        val suggestedValue = result.sugerenciaContenidoValor?.takeIf { it.isNotBlank() }
+                                        val suggestedUnit = result.sugerenciaContenidoUnidad?.takeIf { it.isNotBlank() }
+                                        val hasSuggestedContent = suggestedValue != null && suggestedUnit != null
+
                                         pendingBarcodeApplyState = state.copy(
                                             name = result.nombre.orEmpty(),
                                             category = result.categoria.orEmpty(),
@@ -3040,6 +3055,14 @@ private fun AiBarcodeProductStep(
                                             defaultSalePresentationConfidence = result.confianzaPresentacion,
                                             defaultSalePresentationReason = result.razonPresentacion.orEmpty(),
 
+                                            // V31.0: Pre-llenado refinado del Paso 2
+                                            unitsPerItemText = suggestedValue.orEmpty(),
+                                            stockEntryUnit = suggestedUnit.orEmpty(),
+                                            stockEntryMode = if (hasSuggestedContent) CreateProductStockEntryMode.UNIDAD else null,
+                                            stockControlMode = mapStockControlModeFromSuggestedUnit(suggestedUnit),
+                                            stockEntryConfigured = false, 
+                                          // Obliga al usuario a poner la cantidad recibida
+
                                             currentStep = CreateProductStep.PRODUCTO,
                                             errors = state.errors - setOf(
                                                 "name",
@@ -3054,6 +3077,10 @@ private fun AiBarcodeProductStep(
                                         showBarcodeLocationDialog = true
                                     } else {
                                         delay(650)
+                                        
+                                        val suggestedValue = result.sugerenciaContenidoValor?.takeIf { it.isNotBlank() }
+                                        val suggestedUnit = result.sugerenciaContenidoUnidad?.takeIf { it.isNotBlank() }
+                                        val hasSuggestedContent = suggestedValue != null && suggestedUnit != null
 
                                         onStateChange(
                                             state.copy(
@@ -3067,6 +3094,13 @@ private fun AiBarcodeProductStep(
                                                 saleByFractionSuggested = null,
                                                 defaultSalePresentationConfidence = 0,
                                                 defaultSalePresentationReason = "",
+                                                
+                                                // Pre-llenado incluso en modo manual/incompleto
+                                                unitsPerItemText = suggestedValue.orEmpty(),
+                                                stockEntryUnit = suggestedUnit.orEmpty(),
+                                                stockEntryMode = if (hasSuggestedContent) CreateProductStockEntryMode.UNIDAD else null,
+                                                stockControlMode = mapStockControlModeFromSuggestedUnit(suggestedUnit),
+
                                                 errors = state.errors + (
                                                         "controlType" to "La IA detectó el producto. Solo confirma cómo se controla."
                                                         )
@@ -3099,6 +3133,13 @@ private fun AiBarcodeProductStep(
                                         saleByFractionSuggested = null,
                                         defaultSalePresentationConfidence = 0,
                                         defaultSalePresentationReason = "",
+
+                                        // V31.0: Pre-llenado del Paso 2 también en modo manual
+                                        unitsPerItemText = result.sugerenciaContenidoValor ?: "",
+                                        stockEntryUnit = result.sugerenciaContenidoUnidad ?: "",
+                                        stockEntryMode = if (result.sugerenciaContenidoValor != null) CreateProductStockEntryMode.UNIDAD else null,
+                                        stockControlMode = mapStockControlModeFromSuggestedUnit(result.sugerenciaContenidoUnidad),
+
                                         errors = state.errors - setOf(
                                             "name",
                                             "category",
@@ -4612,17 +4653,6 @@ fun ProductBasicStep(
         )
     }
 
-    if (state.showAddSupplierDialog) {
-        // Cambia la llamada en ambos lugares a:
-        AddSupplierDialog(
-            isSaving = state.isSavingSupplier,
-            isSuccess = state.supplierSaveSuccess,
-            suppliers = state.suppliers, // <-- Pasar la lista aquí
-            onDismiss = { onStateChange(state.copy(showAddSupplierDialog = false)) },
-            onSave = onSaveSupplier
-        )
-    }
-
     if (isMagicScrolling) {
         val infiniteTransition = rememberInfiniteTransition(label = "magic_scroll_loading")
 
@@ -5789,7 +5819,7 @@ fun InitialLotStep(
                         onClick = onRequestLabelScan,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
+                            .heightIn(min = 48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CreateGreen
                         ),
@@ -5813,7 +5843,7 @@ fun InitialLotStep(
                         onClick = { showManualLotEntry = true },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
+                            .heightIn(min = 48.dp),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, CreateBorder)
                     ) {
@@ -9173,7 +9203,7 @@ fun ProductCreatedSuccessScreen(
                 onClick = onCreateAnother,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .heightIn(min = 52.dp)
             ) {
                 Text("Crear otro")
             }
@@ -9181,7 +9211,7 @@ fun ProductCreatedSuccessScreen(
                 onClick = onViewProduct,
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .heightIn(min = 52.dp)
             ) {
                 Text("Ver producto")
             }
@@ -10007,10 +10037,9 @@ fun PresentationPriceCard(
                     AppTextField(
                         label = "PRECIO VENTA",
                         value = presentation.salePriceText,
-                        placeholder = "Ej. 50.00",
+                        placeholder = "Ej.50.00",
                         keyboardType = KeyboardType.Decimal,
                         leadingIcon = Icons.Outlined.AttachMoney,
-                        trailingLabel = "Bs",
                         onValueChange = onPriceChange
                     )
                 }
@@ -10096,25 +10125,38 @@ fun BottomStepActions(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.Center,
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val isLast = step == CreateProductStep.RESUMEN
+            val isFirst = step == CreateProductStep.PRODUCTO
+
+            if (!isFirst) {
+                OutlinedButton(
+                    onClick = onPrevious,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 54.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CreateBorder),
+                    enabled = !loading
+                ) {
+                    Text(
+                        text = "Atras",
+                        color = CreateTextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+            }
 
             Button(
                 onClick = onNext,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (isLast) 62.dp else 54.dp)
-                    .then(
-                        if (isLast) {
-                            Modifier.graphicsLayer {
-                                translationY = if (loading) 0f else -2f
-                                shadowElevation = 12f
-                            }
-                        } else Modifier
-                    ),
+                    .weight(if (isFirst) 1f else 2f)
+                    .heightIn(min = if (isLast) 62.dp else 54.dp),
                 enabled = nextEnabled && !loading,
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -10122,11 +10164,6 @@ fun BottomStepActions(
                     contentColor = Color.White,
                     disabledContainerColor = CreateBorder.copy(alpha = 0.9f),
                     disabledContentColor = CreateTextSecondary.copy(alpha = 0.55f)
-                ),
-                border = if (isLast) BorderStroke(1.dp, CreateGreen.copy(alpha = 0.5f)) else null,
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = if (isLast) 8.dp else 2.dp,
-                    pressedElevation = if (isLast) 2.dp else 4.dp
                 )
             ) {
                 Row(
@@ -10144,19 +10181,10 @@ fun BottomStepActions(
                         Text("Procesando...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     } else {
                         Text(
-                            text = if (isLast) "GUARDAR PRODUCTO" else nextLabel, 
+                            text = if (isLast) "Guardar producto" else nextLabel, 
                             fontWeight = FontWeight.Black, 
-                            fontSize = if (isLast) 17.sp else 16.sp,
-                            letterSpacing = if (isLast) 0.5.sp else 0.sp
+                            fontSize = 16.sp
                         )
-                        if (!isLast) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Filled.ChevronRight,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -13242,7 +13270,7 @@ private fun BarcodeSection(
                             onClick = onStartScan,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp),
+                                .heightIn(min = 48.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.35f))
                         ) {
@@ -13260,7 +13288,7 @@ private fun BarcodeSection(
                             onClick = onManualMode,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                         ) {
                             Text(
                                 text = "Escribir código",

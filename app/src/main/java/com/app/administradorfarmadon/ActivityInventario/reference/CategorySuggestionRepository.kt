@@ -75,6 +75,12 @@ object CategorySuggestionRepository {
             .create(DeepSeekApi::class.java)
     }
 
+    private val duckBarcodeSearch by lazy {
+        DuckDuckGoBarcodeSearch()
+    }
+
+    private val barcodeResultMemoryCache = mutableMapOf<String, BarcodeAiResult>()
+
     fun warmup(apiKey: String, dsApiKey: String) {
         if (!isGeminiWarmed && apiKey.isNotBlank()) {
             @Suppress("OPT_IN_USAGE")
@@ -161,7 +167,7 @@ object CategorySuggestionRepository {
         }
     }
 
-    suspend fun identificarProductoPorBarcode(
+    suspend fun identificarProductoPorImagenConCodigoExperimental(
         barcode: String,
         imageBase64: String?,
         categoriasExistentes: List<String>
@@ -507,6 +513,197 @@ IMPORTANTE:
         val start = trimmed.indexOf('{')
         val end = trimmed.lastIndexOf('}')
         return if (start in 0..end) trimmed.substring(start, end + 1) else trimmed
+    }
+
+    suspend fun buscarProductoPorBarcodeDuckDuckGo(
+        barcode: String,
+        categoriasExistentes: List<String>
+    ): BarcodeAiResult? {
+        val cleanBarcode = barcode.trim()
+        if (cleanBarcode.isBlank()) return null
+
+        barcodeResultMemoryCache[cleanBarcode]?.let {
+            Log.d("BarcodeDuckSearch", "Caché final hit: $cleanBarcode")
+            return it
+        }
+
+        val resultados = duckBarcodeSearch.searchBarcode(cleanBarcode)
+
+        Log.d(
+            "BarcodeDuckSearch",
+            """
+            ===== WEB SEARCH DUCK FINAL =====
+            Código: $cleanBarcode
+            Resultados encontrados: ${resultados.size}
+            ${resultados.joinToString("\n") { "- ${it.title} | ${it.link}" }}
+            ================================
+            """.trimIndent()
+        )
+
+        if (resultados.isEmpty()) return null
+
+        val result = interpretarResultadosDuckConGemini(
+            barcode = cleanBarcode,
+            resultados = resultados,
+            categoriasExistentes = categoriasExistentes
+        )
+
+        if (result != null) {
+            barcodeResultMemoryCache[cleanBarcode] = result
+        }
+
+        return result
+    }
+
+    private data class BarcodeWebCompactResult(
+        val estado: String = "NO_IDENTIFICADO",
+        val nombre: String = "",
+        val categoria: String = "",
+        val tipoControl: String = "DESCONOCIDO",
+        val empaque: String = "",
+        val contenidoNeto: String = "",
+        val presentacionVenta: String = ""
+    )
+
+    private suspend fun interpretarResultadosDuckConGemini(
+        barcode: String,
+        resultados: List<DuckBarcodeSearchItem>,
+        categoriasExistentes: List<String>
+    ): BarcodeAiResult? {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank()) return null
+
+        val resultadosTexto = resultados
+            .take(4)
+            .mapIndexed { index, item ->
+                "${index + 1}. ${item.title}"
+            }
+            .joinToString("\n")
+
+        val categoriasTexto = if (categoriasExistentes.isEmpty()) {
+            "[]"
+        } else {
+            categoriasExistentes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+        }
+
+        val prompt = """
+            Ordena estos resultados web en un producto de inventario.
+
+            Código: "$barcode"
+
+            Resultados:
+            $resultadosTexto
+
+            Reglas:
+            - No inventes datos.
+            - Usa el nombre con mayor consenso.
+            - Corrige errores ortográficos evidentes usando los otros resultados.
+            - No agregues palabras que solo aparezcan en una fuente.
+            - Si no hay producto claro, estado = "NO_IDENTIFICADO".
+            - contenidoNeto es peso/volumen si aparece: ejemplo "380 g", "500 mL".
+            - empaque es solo tipo de envase. Si no está claro, usa "Envase".
+            - presentacionVenta debe ser: empaque=contenidoNeto. Ejemplo: "Envase=380 g".
+            - Si no hay contenido neto, usa: "Envase=1 unidades".
+
+            Categorías sugeridas:
+            $categoriasTexto
+
+            Devuelve SOLO JSON:
+            {
+              "estado": "IDENTIFICADO" | "NO_IDENTIFICADO",
+              "nombre": "",
+              "categoria": "",
+              "tipoControl": "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO",
+              "empaque": "",
+              "contenidoNeto": "",
+              "presentacionVenta": ""
+            }
+        """.trimIndent()
+
+        val request = GeminiRequest(
+            contents = listOf(
+                GeminiContent(
+                    parts = listOf(
+                        GeminiPart(text = prompt)
+                    )
+                )
+            ),
+            generationConfig = GeminiGenerationConfig(
+                temperature = 0.0,
+                responseMimeType = "application/json"
+            )
+        )
+
+        return runCatching {
+            val response = api.generateContent(
+                model = MODEL,
+                apiKey = apiKey,
+                request = request
+            )
+
+            val content = response.candidates
+                ?.firstOrNull()
+                ?.content
+                ?.parts
+                ?.firstOrNull()
+                ?.text
+                ?.extractJsonObject()
+                ?: return null
+
+            Log.d("BarcodeDuckSearch", "Gemini interpreted Duck results: $content")
+
+            val compact = moshi.adapter(BarcodeWebCompactResult::class.java)
+                .lenient()
+                .fromJson(content)
+                ?: return null
+
+            if (compact.estado != "IDENTIFICADO" || compact.nombre.isBlank()) {
+                return null
+            }
+
+            // V31.0: Extracción de valor y unidad para el Paso 2
+            // Buscamos un patrón de número seguido de unidad (g, kg, mL, L, unidades)
+            val regex = Regex("""(\d+[.,]?\d*)\s*([a-zA-ZáéíóúÁÉÍÓÚ]+)""")
+            val match = regex.find(compact.contenidoNeto)
+            val suggestedValue = match?.groupValues?.get(1)?.replace(",", ".")
+            val rawUnit = match?.groupValues?.get(2)?.lowercase()
+            val suggestedUnit = when {
+                rawUnit == null -> null
+                rawUnit.contains("unid") -> "unidades"
+                rawUnit == "gr" || rawUnit == "grs" || rawUnit == "g" -> "g"
+                rawUnit == "kg" || rawUnit == "kilos" -> "kg"
+                rawUnit == "ml" || rawUnit == "mililitros" -> "mL"
+                rawUnit == "l" || rawUnit == "litros" -> "L"
+                else -> rawUnit
+            }
+
+            BarcodeAiResult(
+                estado = "IDENTIFICADO",
+                codigo = barcode,
+                nombre = compact.nombre,
+                categoria = compact.categoria,
+                tipoControl = compact.tipoControl.ifBlank { "DESCONOCIDO" },
+                requiereReceta = false,
+                razon = "Consenso web a partir de resultados de búsqueda.",
+                presentacionVentaDefault = compact.empaque.ifBlank { "Envase" },
+                ventaFraccionadaPermitida = false,
+                confianzaPresentacion = 100,
+                razonPresentacion = "",
+                presentacionesVentaSugeridasTexto = compact.presentacionVenta.ifBlank {
+                    val emp = compact.empaque.ifBlank { "Envase" }
+                    val cont = compact.contenidoNeto.ifBlank { "1 unidades" }
+                    "$emp=$cont(100)"
+                }.let { value ->
+                    if (value.contains("(")) value else "$value(100)"
+                },
+                confianzaPresentacionesVenta = 100,
+                razonPresentacionesVenta = "",
+                sugerenciaContenidoValor = suggestedValue,
+                sugerenciaContenidoUnidad = suggestedUnit
+            )
+        }.onFailure {
+            Log.e("BarcodeDuckSearch", "Error interpretando resultados DuckDuckGo con Gemini", it)
+        }.getOrNull()
     }
 
     private fun normalizar(name: String): String {

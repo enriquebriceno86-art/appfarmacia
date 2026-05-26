@@ -377,12 +377,16 @@ class CrearProducto : AppCompatActivity() {
                     if (supplierSaveSuccess && !createProductUiState.isSupplierHighlighting) {
                         val listaActual = crearProductoViewModel.suppliers.value
                         listaActual.lastOrNull()?.let { ultimo ->
-                            createProductUiState = createProductUiState.copy(
-                                supplierId = ultimo.id,
-                                supplierName = ultimo.nombre,
-                                showAddSupplierDialog = false,
-                                isSupplierHighlighting = true // Dispara el flash verde
-                            )
+                            // V3.2: Solo auto-seleccionamos si el proveedor actual es distinto o está vacío
+                            // Esto evita bucles si el ViewModel tarda en resetear supplierSaveSuccess
+                            if (createProductUiState.supplierId != ultimo.id) {
+                                createProductUiState = createProductUiState.copy(
+                                    supplierId = ultimo.id,
+                                    supplierName = ultimo.nombre,
+                                    showAddSupplierDialog = false,
+                                    isSupplierHighlighting = true // Dispara el flash verde
+                                )
+                            }
                         }
                     }
 

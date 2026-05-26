@@ -21,7 +21,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:menu="@menu/menu_editar_producto"
-        app:navigationIcon="@drawable/baseline_arrow_back_24"
         app:title=""
         app:titleCentered="true"
         app:titleTextColor="@color/black" />

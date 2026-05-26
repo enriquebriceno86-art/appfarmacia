@@ -671,11 +671,10 @@ class CategorySuggestionViewModel : ViewModel() {
                 .filter { it.isNotBlank() }
                 .distinctBy { it.lowercase(Locale.getDefault()) }
 
-            val result = withTimeoutOrNull(40_000) {
-                CategorySuggestionRepository.identificarProductoPorBarcode(
-                    normalizedBarcode,
-                    imageBase64,
-                    categoriasParaIa
+            val result = withTimeoutOrNull(18_000) {
+                CategorySuggestionRepository.buscarProductoPorBarcodeDuckDuckGo(
+                    barcode = normalizedBarcode,
+                    categoriasExistentes = categoriasParaIa
                 )
             } ?: BarcodeAiResult(
                 estado = "NO_IDENTIFICADO",
@@ -684,7 +683,14 @@ class CategorySuggestionViewModel : ViewModel() {
                 categoria = "",
                 tipoControl = "DESCONOCIDO",
                 requiereReceta = false,
-                razon = "Tiempo de espera agotado o error de conexión."
+                razon = "No se encontró este código en búsqueda web. Ingresa los datos manualmente para guardarlo.",
+                presentacionVentaDefault = "",
+                ventaFraccionadaPermitida = null,
+                confianzaPresentacion = 0,
+                razonPresentacion = "",
+                presentacionesVentaSugeridasTexto = "",
+                confianzaPresentacionesVenta = 0,
+                razonPresentacionesVenta = ""
             )
 
             if (requestId == latestBarcodeRequestId) {

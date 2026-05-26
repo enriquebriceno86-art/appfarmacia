@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -449,7 +450,7 @@ private fun PresentacionesFooterButtons(
             onClick = onClose,
             modifier = Modifier
                 .weight(1f)
-                .height(54.dp),
+                .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = Color(0xFF16A34A)
@@ -463,7 +464,7 @@ private fun PresentacionesFooterButtons(
             enabled = saveEnabled,
             modifier = Modifier
                 .weight(1f)
-                .height(54.dp),
+                .heightIn(min = 54.dp),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF16A34A),

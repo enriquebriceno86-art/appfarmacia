@@ -331,8 +331,8 @@ fun BarcodeScannerOverlay(
             val canvasWidth = size.width
             val canvasHeight = size.height
 
-            val boxWidth = 280.dp.toPx()
-            val boxHeight = 100.dp.toPx()
+            val boxWidth = 330.dp.toPx()
+            val boxHeight = 160.dp.toPx()
 
             val left = (canvasWidth - boxWidth) / 2
             val top = (canvasHeight - boxHeight) / 2
@@ -730,8 +730,9 @@ private fun Bitmap.toBase64(): String {
 }
 
 private fun buildBarcodeScanRect(width: Int, height: Int): Rect {
-    val boxWidth = (width * 0.74f).toInt()
-    val boxHeight = (height * 0.34f).toInt()
+    // Ampliamos el área lógica de escaneo para que coincida con el nuevo cuadro visual
+    val boxWidth = (width * 0.88f).toInt()
+    val boxHeight = (height * 0.45f).toInt()
     val left = (width - boxWidth) / 2
     val top = (height - boxHeight) / 2
     return Rect(left, top, left + boxWidth, top + boxHeight)

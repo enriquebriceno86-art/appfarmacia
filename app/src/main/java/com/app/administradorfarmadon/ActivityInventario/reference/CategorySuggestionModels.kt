@@ -21,7 +21,11 @@ data class BarcodeAiResult(
 // Luego, si funciona bien, esto se convierte en una lista real.
     val presentacionesVentaSugeridasTexto: String? = "",
     val confianzaPresentacionesVenta: Int = 0,
-    val razonPresentacionesVenta: String? = ""
+    val razonPresentacionesVenta: String? = "",
+
+    // V31.0: Mapeo de contenido para el Paso 2
+    val sugerenciaContenidoValor: String? = null,
+    val sugerenciaContenidoUnidad: String? = null
 )
 
 /**

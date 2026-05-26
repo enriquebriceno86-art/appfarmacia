@@ -136,7 +136,7 @@ fun MobileEditProductScreen(
                     onClose = closeAndGoHome,
                     onSave = onSaveGeneral,
                     modifier = Modifier.fillMaxSize(),
-                    showBackButton = true,
+                    showBackButton = false,
                     stateKey = refreshKey
                 )
 
@@ -148,7 +148,7 @@ fun MobileEditProductScreen(
                     onClose = closeAndGoHome,
                     onSave = onSaveInventory,
                     modifier = Modifier.fillMaxSize(),
-                    showBackButton = true,
+                    showBackButton = false,
                     stateKey = refreshKey
                 )
 
@@ -162,7 +162,7 @@ fun MobileEditProductScreen(
                     onClose = closeAndGoHome,
                     onSave = onSavePresentations,
                     modifier = Modifier.fillMaxSize(),
-                    showBackButton = true,
+                    showBackButton = false,
                     stateKey = refreshKey
                 )
 
@@ -175,7 +175,7 @@ fun MobileEditProductScreen(
                         onClose = closeAndGoHome,
                         onSave = onSaveOtherDetails,
                         modifier = Modifier.fillMaxSize(),
-                        showBackButton = true,
+                        showBackButton = false,
                         stateKey = refreshKey
                     )
 

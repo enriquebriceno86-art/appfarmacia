@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -397,7 +398,7 @@ private fun GeneralFooterButtons(
             onClick = onSecondary,
             modifier = Modifier
                 .weight(1f)
-                .height(56.dp),
+                .heightIn(min = 56.dp),
             shape = RoundedCornerShape(20.dp),
             colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
                 contentColor = Color(0xFF14935C)
@@ -411,7 +412,7 @@ private fun GeneralFooterButtons(
             enabled = primaryEnabled,
             modifier = Modifier
                 .weight(1f)
-                .height(56.dp),
+                .heightIn(min = 56.dp),
             shape = RoundedCornerShape(20.dp),
             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF14935C),

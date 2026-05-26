@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -373,7 +374,7 @@ fun LoteDetailSheet(
             onClick = onManualConsume,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = 52.dp),
             shape = RoundedCornerShape(16.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB7DFC7)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A))
@@ -595,7 +596,7 @@ fun ConsumeLotSheet(
             enabled = hasChanges && !isSaving,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = 52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF16A34A),
@@ -909,7 +910,7 @@ private fun FooterButtons(
             onClick = onSecondary,
             modifier = Modifier
                 .weight(1f)
-                .height(52.dp),
+                .heightIn(min = 52.dp),
             shape = RoundedCornerShape(16.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCAE8D8)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A))
@@ -922,7 +923,7 @@ private fun FooterButtons(
             enabled = primaryEnabled,
             modifier = Modifier
                 .weight(1f)
-                .height(52.dp),
+                .heightIn(min = 52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF16A34A),
