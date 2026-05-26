@@ -1,7 +1,6 @@
 package com.app.administradorfarmadon.ActivityInventario.reference
 
 import android.util.Log
-import com.app.administradorfarmadon.ActivityInventario.ProductUtils
 import com.app.administradorfarmadon.BuildConfig
 import com.google.firebase.database.FirebaseDatabase
 import com.squareup.moshi.Json
@@ -20,15 +19,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Resuelve la categoría sugerida usando Gemini como fuente única.
- *
- * Decisión de diseño: **Gemini se consulta SIEMPRE** (no hay caché compartida
- * de respuestas). La única caché es la de proceso, para evitar reconsultas
- * mientras el usuario sigue tipeando el mismo nombre dentro de la sesión.
- *
- * Cuando el usuario acepta una sugerencia, se invoca `registrarDecisionAceptada`
- * que escribe la decisión en `Inventario/DecisionesCategoria/{key}` — eso sí
- * queda en Firebase, pero es un registro auditable, no una caché que afecte
- * las futuras sugerencias de otros usuarios.
+ * Decisión de diseño: Gemini se consulta SIEMPRE para categorías.
+ * La extracción de Lote/Vencimiento fue migrada a ML Kit local (V30.0).
  */
 object CategorySuggestionRepository {
 
@@ -39,11 +31,8 @@ object CategorySuggestionRepository {
     private const val DEEPSEEK_MODEL = "deepseek-chat"
     private const val DEEPSEEK_BASE_URL = "https://api.deepseek.com/"
 
-    // V13.7: Estado de conexión "caliente"
     private var isGeminiWarmed = false
     private var isDeepSeekWarmed = false
-
-    // Niveles de confianza (V3.23)
 
     private val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -86,17 +75,11 @@ object CategorySuggestionRepository {
             .create(DeepSeekApi::class.java)
     }
 
-    /**
-     * V13.7: Pre-calentamiento de conexión (Connection Warm-up).
-     * Lanza peticiones HEAD o vacías para establecer el túnel SSL/TLS.
-     * V13.8: Inicializa la caché persistente.
-     */
     fun warmup(apiKey: String, dsApiKey: String) {
         if (!isGeminiWarmed && apiKey.isNotBlank()) {
             @Suppress("OPT_IN_USAGE")
             GlobalScope.launch(Dispatchers.IO) {
                 runCatching {
-                    // Petición mínima para abrir el socket
                     api.getModel(MODEL, apiKey)
                     isGeminiWarmed = true
                     Log.d("Warmup", "Gemini connection established.")
@@ -108,7 +91,6 @@ object CategorySuggestionRepository {
             @Suppress("OPT_IN_USAGE")
             GlobalScope.launch(Dispatchers.IO) {
                 runCatching {
-                    // DeepSeek no tiene getModel simple, usamos una petición de modelos
                     deepSeekApi.getModels("Bearer $dsApiKey")
                     isDeepSeekWarmed = true
                     Log.d("Warmup", "DeepSeek connection established.")
@@ -117,10 +99,6 @@ object CategorySuggestionRepository {
         }
     }
 
-    /**
-     * V17.0: IA Ultra-Ligera para Modo Manual Silencioso.
-     * Solo devuelve la mejor categoría terapéutica o funcional.
-     */
     suspend fun sugerirCategoriaSilenciosa(
         productName: String,
         mercadoActivo: String = "Perú"
@@ -148,8 +126,6 @@ object CategorySuggestionRepository {
         return runCatching {
             val response = deepSeekApi.createChatCompletion("Bearer $apiKey", request)
             val rawJson = response.choices?.firstOrNull()?.message?.content ?: return null
-            
-            // V17.0: Logcat para inspecci\u00f3n de categor\u00eda silenciosa
             Log.d("SilentAI", "Category JSON: $rawJson")
             
             val adapter = moshi.adapter(CategoryOnlyAnswer::class.java).lenient()
@@ -157,151 +133,8 @@ object CategorySuggestionRepository {
         }.getOrNull()
     }
 
-    /**
-     * Escanea la imagen de la etiqueta de un producto (caja, frasco, blister)
-     * y devuelve el número de lote y/o el vencimiento detectados.
-     *
-     * Devuelve `null` si no hay API key, si Gemini falla, o si la imagen no
-     * permite extraer ninguno de los dos campos. Si uno se detectó y el otro
-     * no, los campos correspondientes vienen null individualmente.
-     *
-     * No lanza excepciones: el caller decide qué hacer con un resultado vacío.
-     */
-    suspend fun escanearEtiquetaConIA(imagenJpegBase64: String): EtiquetaDetectada? {
-        val apiKey = BuildConfig.GEMINI_API_KEY
-        if (apiKey.isBlank() || imagenJpegBase64.isBlank()) return null
+    private data class CategoryOnlyAnswer(@Json(name = "c") val c: String = "")
 
-        val prompt = """
-            Eres un OCR especializado en etiquetas farmacéuticas de alta precisión.
-            Te paso la fotografía de una caja o frasco de un producto.
-            Extrae ÚNICAMENTE estos dos datos si los ves impresos:
-
-            1) "loteNumero": el código alfanumérico del lote.
-               - Suele aparecer junto a "LOTE", "LOT", "L.", "BATCH", "B/", "LOT:", "L:" o similar.
-               - El código puede estar a la derecha de la etiqueta o en la LÍNEA SIGUIENTE.
-               - Es típicamente una mezcla de letras y números (ej. "L240815B7", "23121", "BATCH 23A45", "2923-1").
-               - Devuelve solo el código limpio. Si no es legible, devuelve "".
-
-            2) "vencimientoMmAa": la fecha de caducidad en formato MM/AA.
-               - Aparece como "EXP", "VENC", "VTO", "CAD", "USE BY", "VAL:", "EXP:".
-               - Acepta y normaliza formatos de 2 o 3 segmentos a MM/AA:
-                 - "27/08/2027" (Día/Mes/Año) -> "08/27"
-                 - "12/01/25" (Día/Mes/Año) -> "01/25"
-                 - "08/2027"  → "08/27"
-                 - "2027 / 09" → "09/27"
-                 - "AGO 2027" → "08/27"
-               - Si ves 3 números (ej. 12/01/25), asume el formato regional Día/Mes/Año a menos que el primer número sea > 31.
-               - Si no se ve o es ilegible, devuelve "".
-
-            REGLA CRÍTICA: Prioriza la asociación visual. Si ves "Lot:" y debajo un número, ese es el lote. 
-            Si ves "Exp:" y debajo una fecha, esa es la caducidad. Responde SOLO el JSON.
-        """.trimIndent()
-
-        val schema = GeminiSchema(
-            type = "OBJECT",
-            properties = mapOf(
-                "loteNumero" to GeminiSchemaProperty("STRING"),
-                "vencimientoMmAa" to GeminiSchemaProperty("STRING")
-            ),
-            required = listOf("loteNumero", "vencimientoMmAa")
-        )
-
-        val request = GeminiRequest(
-            contents = listOf(
-                GeminiContent(
-                    role = "user",
-                    parts = listOf(
-                        GeminiPart(text = prompt),
-                        GeminiPart(
-                            inlineData = GeminiInlineData(
-                                mimeType = "image/jpeg",
-                                data = imagenJpegBase64
-                            )
-                        )
-                    )
-                )
-            ),
-            generationConfig = GeminiGenerationConfig(
-                temperature = 0.0,
-                responseSchema = schema
-            )
-        )
-
-        val response = runCatching {
-            api.generateContent(MODEL, apiKey, request)
-        }.getOrNull() ?: return null
-
-        val rawJson = response.candidates
-            ?.firstOrNull()
-            ?.content
-            ?.parts
-            ?.firstOrNull()
-            ?.text
-            ?.trim()
-            ?: return null
-
-        val parsed = moshi.adapter(EtiquetaAnswer::class.java)
-            .lenient()
-            .fromJson(rawJson) ?: return null
-
-        val lote = parsed.loteNumero.trim()
-            .replace(Regex("\\s+"), "")
-            .uppercase(Locale.ROOT)
-            .ifBlank { null }
-        val venc = parsed.vencimientoMmAa.trim()
-            .let { normalizarVencimientoOcr(it) }
-
-        if (lote == null && venc == null) return null
-        return EtiquetaDetectada(loteNumero = lote, vencimientoMmAa = venc)
-    }
-
-    /**
-     * Defensa adicional contra formatos que pueda devolver el LLM.
-     * Si el texto no calza con MM/AA tras una normalización agresiva, 
-     * devolvemos null para que la UI no lo inyecte como inválido.
-     */
-    private fun normalizarVencimientoOcr(raw: String): String? {
-        val clean = raw.replace(Regex("[^0-9/]"), "").trim()
-        if (clean.isBlank()) return null
-        
-        val parts = clean.split("/").filter { it.isNotBlank() }
-        
-        // Caso: DD/MM/YYYY o DD/MM/YY (ej: 12/01/2025 -> 01/25)
-        if (parts.size >= 3) {
-            val m = parts[1].padStart(2, '0')
-            val y = parts.last().takeLast(2)
-            return "$m/$y"
-        }
-
-        // Caso ideal: 09/27
-        if (clean.matches(Regex("\\d{2}/\\d{2}"))) return clean
-        
-        // Caso: 09/2027 -> 09/27
-        if (clean.matches(Regex("\\d{2}/\\d{4}"))) {
-            return clean.substring(0, 3) + clean.substring(5, 7)
-        }
-        
-        // Caso: 2027/09 -> 09/27
-        if (clean.matches(Regex("\\d{4}/\\d{2}"))) {
-            return clean.substring(5, 7) + "/" + clean.substring(2, 4)
-        }
-
-        return null
-    }
-
-    private data class EtiquetaAnswer(
-        val loteNumero: String = "",
-        val vencimientoMmAa: String = ""
-    )
-
-    /**
-     * Guarda la decisión del usuario como evento auditable.
-     *
-     * No bloquea ni notifica al caller: si falla, el flujo del usuario
-     * continúa intacto. La estructura permite que más adelante un dashboard
-     * agregue estos eventos para medir precisión del LLM o detectar
-     * categorías mal sugeridas con frecuencia.
-     */
     fun registrarDecisionAceptada(suggestion: CategorySuggestion) {
         runCatching {
             val key = normalizar(suggestion.productName).ifBlank { return@runCatching }
@@ -336,38 +169,72 @@ object CategorySuggestionRepository {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank()) return null
 
-        val categoriasTexto = if (categoriasExistentes.isEmpty()) "[]"
-        else categoriasExistentes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+        val categoriasTexto = if (categoriasExistentes.isEmpty()) {
+            "[]"
+        } else {
+            categoriasExistentes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+        }
 
         val systemInstruction = """
-           Eres un identificador experto de productos por código de barras para una farmacia y abarrotes.
-    
-    INSTRUCCIONES:
-    - Utiliza tu amplio conocimiento interno y la imagen de la etiqueta adjunta (si la hay) para identificar el producto al que pertenece el código de barras.
-    - REGLA DE DOMINIO: Solo acepta productos que correspondan a farmacia, botica, suplementos, abarrotes, higiene, cuidado personal, bebés o limpieza.
+Eres un identificador experto de productos para inventario retail general.
 
-    REGLAS DE SALIDA:
-    - Responde estrictamente con la estructura solicitada.
-    - estado: "IDENTIFICADO" si reconoces el producto. "NO_IDENTIFICADO" si pertenece a otro rubro o no existe.
-    - nombre: Nombre comercial completo + marca + dosis/presentación (ej: Glicinato de Magnesio Member's Mark 180 Tabletas).
-    - categoria: Una categoría lógica que describa el producto. Prioriza usar una de la lista si se te provee.
-    - tipoControl: "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO".
-    - requiereReceta: true | false.
-    - razon: Explicación muy corta de qué identificaste.
+IMPORTANTE: 
+- Si la búsqueda web previa no confirmó el producto, no afirmes que el código corresponde a un producto específico. 
+- Usa lenguaje cauteloso: "Visualmente parece...".
+- NO inventes contenido neto si no se lee CLARAMENTE en la imagen. 
+- Si no se ve el peso/volumen, usa "1 unidades" (Ej: Lata=1 unidades).
+
+CATEGORÍAS:
+- Para comida de perro usa "Comida para perros" o "Alimentos para mascotas".
+- Para comida de gato usa "Comida para gatos" o "Alimentos para mascotas".
+- Para alimento humano usa "Alimentos", "Bebidas", "Snacks", "Galletas", "Cereales", "Conservas" o "Lácteos".
+- Para farmacia usa categorías farmacéuticas específicas.
+
+REGLAS DE SALIDA:
+Responde solo JSON válido.
+
+Formato:
+{
+  "estado": "IDENTIFICADO" | "NO_IDENTIFICADO" | "CONFLICTO_VISUAL",
+  "codigo": "$barcode",
+  "nombre": "nombre del producto si es seguro",
+  "categoria": "categoria",
+  "tipoControl": "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO",
+  "requiereReceta": true | false,
+  "razon": "explicación breve",
+  "presentacionVentaDefault": "Lata|Botella|Caja...",
+  "ventaFraccionadaPermitida": true,
+  "confianzaPresentacion": 90,
+  "razonPresentacion": "razón de la presentación",
+  "presentacionesVentaSugeridasTexto": "Lata=1 unidades(95)",
+  "confianzaPresentacionesVenta": 90,
+  "razonPresentacionesVenta": "Se detecta producto en unidades; el peso no es visible."
+}
 """.trimIndent()
 
         val userPrompt = """
-            Código detectado: "$barcode"
-            Categorías existentes: $categoriasTexto
-            Identifica el producto. Se adjunta imagen de la etiqueta si está disponible.
-        """.trimIndent()
+Código detectado: "$barcode"
 
-        val parts = mutableListOf<GeminiPart>()
-        parts.add(GeminiPart(text = userPrompt))
-        if (!imageBase64.isNullOrBlank()) {
-            parts.add(GeminiPart(inlineData = GeminiInlineData(mimeType = "image/jpeg", data = imageBase64)))
+Categorías disponibles:
+$categoriasTexto
+
+Identifica el producto usando el código y la imagen si está disponible.
+
+IMPORTANTE:
+- La imagen tiene prioridad para validar que el código pertenece al producto visible.
+- Si la imagen muestra comida de gato, comida de perro o producto para mascotas, clasifícalo como mascotas.
+- Si el código parece apuntar a otro producto distinto al que se ve, responde CONFLICTO_VISUAL.
+- No confirmes Pringles, snacks u otro producto si la etiqueta visible no coincide.
+- Si puedes detectar formas de venta, devuelve presentacionesVentaSugeridasTexto con el formato exacto pedido.
+""".trimIndent()
+
+        val parts = mutableListOf<GeminiPart>().apply {
+            add(GeminiPart(text = userPrompt))
+            if (!imageBase64.isNullOrBlank()) {
+                add(GeminiPart(inlineData = GeminiInlineData(mimeType = "image/jpeg", data = imageBase64)))
+            }
         }
-        
+
         val barcodeSchema = GeminiSchema(
             type = "OBJECT",
             properties = mapOf(
@@ -377,9 +244,20 @@ object CategorySuggestionRepository {
                 "categoria" to GeminiSchemaProperty("STRING"),
                 "tipoControl" to GeminiSchemaProperty("STRING"),
                 "requiereReceta" to GeminiSchemaProperty("BOOLEAN"),
-                "razon" to GeminiSchemaProperty("STRING")
+                "razon" to GeminiSchemaProperty("STRING"),
+                "presentacionVentaDefault" to GeminiSchemaProperty("STRING"),
+                "ventaFraccionadaPermitida" to GeminiSchemaProperty("BOOLEAN"),
+                "confianzaPresentacion" to GeminiSchemaProperty("INTEGER"),
+                "razonPresentacion" to GeminiSchemaProperty("STRING"),
+                "presentacionesVentaSugeridasTexto" to GeminiSchemaProperty("STRING"),
+                "confianzaPresentacionesVenta" to GeminiSchemaProperty("INTEGER"),
+                "razonPresentacionesVenta" to GeminiSchemaProperty("STRING")
             ),
-            required = listOf("estado", "codigo", "nombre", "categoria", "tipoControl", "requiereReceta", "razon")
+            required = listOf(
+                "estado", "codigo", "nombre", "categoria", "tipoControl", "requiereReceta", "razon",
+                "presentacionVentaDefault", "ventaFraccionadaPermitida", "confianzaPresentacion", "razonPresentacion",
+                "presentacionesVentaSugeridasTexto", "confianzaPresentacionesVenta", "razonPresentacionesVenta"
+            )
         )
 
         val request = GeminiRequest(
@@ -389,19 +267,15 @@ object CategorySuggestionRepository {
                 responseMimeType = "application/json",
                 responseSchema = barcodeSchema
             ),
-            systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstruction))),
-            tools = null // V18.4: Google Search desactivado para que la respuesta sea instantánea (< 1 seg)
+            systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstruction)))
         )
 
         return runCatching {
             val response = api.generateContent(model = MODEL, apiKey = apiKey, request = request)
-            val content = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                ?.extractJsonObject()
-                ?: return null
-            
-            // V18.2: Logcat del resultado IA por barcode (Gemini 2.5 Flash Vision)
+            val content = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.extractJsonObject() ?: return null
+
             Log.d("BarcodeAI", "Gemini Response JSON: $content")
-            
+
             val parsed: BarcodeAiResult? = moshi.adapter(BarcodeAiResult::class.java)
                 .lenient()
                 .fromJson(content)
@@ -411,14 +285,216 @@ object CategorySuggestionRepository {
                         nombre = result.nombre.orEmpty(),
                         categoria = result.categoria.orEmpty(),
                         tipoControl = result.tipoControl.orEmpty().ifBlank { "DESCONOCIDO" },
-                        razon = result.razon.orEmpty()
+                        requiereReceta = result.requiereReceta,
+                        razon = result.razon.orEmpty(),
+                        presentacionVentaDefault = result.presentacionVentaDefault.orEmpty(),
+                        ventaFraccionadaPermitida = result.ventaFraccionadaPermitida,
+                        confianzaPresentacion = result.confianzaPresentacion.coerceIn(0, 100),
+                        razonPresentacion = result.razonPresentacion.orEmpty(),
+                        presentacionesVentaSugeridasTexto = result.presentacionesVentaSugeridasTexto.orEmpty(),
+                        confianzaPresentacionesVenta = result.confianzaPresentacionesVenta.coerceIn(0, 100),
+                        razonPresentacionesVenta = result.razonPresentacionesVenta.orEmpty()
                     )
                 }
+
             Log.d("BarcodeAI", "Parsed Result: $parsed")
-            
+
+            parsed?.let { ai ->
+                Log.d(
+                    "AI_PRESENTACIONES",
+                    """
+                ===== IA PRESENTACIONES BARCODE =====
+                Estado: ${ai.estado}
+                Código: ${ai.codigo}
+                Producto: ${ai.nombre}
+                Categoría: ${ai.categoria}
+                TipoControl: ${ai.tipoControl}
+                Presentación default: ${ai.presentacionVentaDefault}
+                Confianza default: ${ai.confianzaPresentacion}
+                Fraccionada permitida: ${ai.ventaFraccionadaPermitida}
+                Razón default: ${ai.razonPresentacion}
+                Sugerencias venta: ${ai.presentacionesVentaSugeridasTexto}
+                Confianza sugerencias: ${ai.confianzaPresentacionesVenta}
+                Razón sugerencias: ${ai.razonPresentacionesVenta}
+                ====================================
+                """.trimIndent()
+                )
+            }
             parsed
         }.onFailure {
             Log.e("BarcodeAI", "Error identificando barcode con Gemini Vision", it)
+        }.getOrNull()
+    }
+
+    suspend fun identificarProductoPorImagen(
+        imageBase64: String,
+        categoriasExistentes: List<String>
+    ): BarcodeAiResult? {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank()) return null
+
+        if (imageBase64.isBlank()) {
+            return BarcodeAiResult(
+                estado = "NO_IDENTIFICADO",
+                codigo = "",
+                nombre = "",
+                categoria = "",
+                tipoControl = "DESCONOCIDO",
+                requiereReceta = false,
+                razon = "No se recibió imagen para analizar."
+            )
+        }
+
+        val categoriasTexto = if (categoriasExistentes.isEmpty()) {
+            "[]"
+        } else {
+            categoriasExistentes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+        }
+
+        val systemInstruction = """
+Eres un identificador experto de productos por imagen para inventario retail general.
+
+IMPORTANTE: 
+- Usa lenguaje cauteloso: "Visualmente parece...".
+- NO inventes contenido neto si no se lee CLARAMENTE en la imagen. 
+- Si no se ve el peso/volumen, usa "1 unidades" (Ej: Frasco=1 unidades).
+
+REGLAS CRÍTICAS:
+- Identifica SOLO usando lo visible en la imagen.
+- No inventes marca, nombre ni presentación si no se ven claramente.
+- Si ves perro, gato, mascota, alimento para mascotas o lata/bolsa/sobre de comida para mascota, clasifícalo como mascotas.
+
+REGLAS DE SALIDA:
+Responde solo JSON válido.
+
+Formato:
+{
+  "estado": "IDENTIFICADO" | "NO_IDENTIFICADO",
+  "codigo": "",
+  "nombre": "nombre del producto si es seguro",
+  "categoria": "categoria",
+  "tipoControl": "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO",
+  "requiereReceta": true | false,
+  "razon": "explicación breve",
+  "presentacionVentaDefault": "Frasco",
+  "ventaFraccionadaPermitida": true,
+  "confianzaPresentacion": 85,
+  "razonPresentacion": "razón de la presentación",
+  "presentacionesVentaSugeridasTexto": "Frasco=1 unidades(85)",
+  "confianzaPresentacionesVenta": 85,
+  "razonPresentacionesVenta": "Se detecta producto en frasco; el contenido no es legible."
+}
+""".trimIndent()
+
+        val userPrompt = """
+Analiza la imagen del producto.
+
+Categorías disponibles:
+$categoriasTexto
+
+Identifica el producto solo por lo visible en la imagen.
+
+IMPORTANTE:
+- No uses ni inventes código de barras.
+- Si la imagen no muestra claramente el producto, responde NO_IDENTIFICADO.
+- Si se ve un producto para perros, gatos o mascotas, clasifícalo en mascotas.
+- Si puedes detectar formas de venta, devuelve presentacionesVentaSugeridasTexto con el formato exacto pedido.
+- Devuelve solo JSON válido con el esquema solicitado.
+""".trimIndent()
+
+        val parts = listOf(
+            GeminiPart(text = userPrompt),
+            GeminiPart(inlineData = GeminiInlineData(mimeType = "image/jpeg", data = imageBase64))
+        )
+
+        val imageSchema = GeminiSchema(
+            type = "OBJECT",
+            properties = mapOf(
+                "estado" to GeminiSchemaProperty("STRING"),
+                "codigo" to GeminiSchemaProperty("STRING"),
+                "nombre" to GeminiSchemaProperty("STRING"),
+                "categoria" to GeminiSchemaProperty("STRING"),
+                "tipoControl" to GeminiSchemaProperty("STRING"),
+                "requiereReceta" to GeminiSchemaProperty("BOOLEAN"),
+                "razon" to GeminiSchemaProperty("STRING"),
+                "presentacionVentaDefault" to GeminiSchemaProperty("STRING"),
+                "ventaFraccionadaPermitida" to GeminiSchemaProperty("BOOLEAN"),
+                "confianzaPresentacion" to GeminiSchemaProperty("INTEGER"),
+                "razonPresentacion" to GeminiSchemaProperty("STRING"),
+                "presentacionesVentaSugeridasTexto" to GeminiSchemaProperty("STRING"),
+                "confianzaPresentacionesVenta" to GeminiSchemaProperty("INTEGER"),
+                "razonPresentacionesVenta" to GeminiSchemaProperty("STRING")
+            ),
+            required = listOf(
+                "estado", "codigo", "nombre", "categoria", "tipoControl", "requiereReceta", "razon",
+                "presentacionVentaDefault", "ventaFraccionadaPermitida", "confianzaPresentacion", "razonPresentacion",
+                "presentacionesVentaSugeridasTexto", "confianzaPresentacionesVenta", "razonPresentacionesVenta"
+            )
+        )
+
+        val request = GeminiRequest(
+            contents = listOf(GeminiContent(parts = parts)),
+            generationConfig = GeminiGenerationConfig(
+                temperature = 0.0,
+                responseMimeType = "application/json",
+                responseSchema = imageSchema
+            ),
+            systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstruction)))
+        )
+
+        return runCatching {
+            val response = api.generateContent(model = MODEL, apiKey = apiKey, request = request)
+            val content = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.extractJsonObject() ?: return null
+
+            Log.d("ImageAI", "Gemini Image Response JSON: $content")
+
+            val parsed: BarcodeAiResult? = moshi.adapter(BarcodeAiResult::class.java)
+                .lenient()
+                .fromJson(content)
+                ?.let { result ->
+                    result.copy(
+                        codigo = "",
+                        nombre = result.nombre.orEmpty(),
+                        categoria = result.categoria.orEmpty(),
+                        tipoControl = result.tipoControl.orEmpty().ifBlank { "DESCONOCIDO" },
+                        requiereReceta = result.requiereReceta,
+                        razon = result.razon.orEmpty(),
+                        presentacionVentaDefault = result.presentacionVentaDefault.orEmpty(),
+                        ventaFraccionadaPermitida = result.ventaFraccionadaPermitida,
+                        confianzaPresentacion = result.confianzaPresentacion.coerceIn(0, 100),
+                        razonPresentacion = result.razonPresentacion.orEmpty(),
+                        presentacionesVentaSugeridasTexto = result.presentacionesVentaSugeridasTexto.orEmpty(),
+                        confianzaPresentacionesVenta = result.confianzaPresentacionesVenta.coerceIn(0, 100),
+                        razonPresentacionesVenta = result.razonPresentacionesVenta.orEmpty()
+                    )
+                }
+
+            Log.d("ImageAI", "Parsed Image Result: $parsed")
+
+            parsed?.let { ai ->
+                Log.d(
+                    "AI_PRESENTACIONES",
+                    """
+                ===== IA PRESENTACIONES IMAGEN =====
+                Estado: ${ai.estado}
+                Código: ${ai.codigo}
+                Producto: ${ai.nombre}
+                Categoría: ${ai.categoria}
+                TipoControl: ${ai.tipoControl}
+                Presentación default: ${ai.presentacionVentaDefault}
+                Confianza default: ${ai.confianzaPresentacion}
+                Fraccionada permitida: ${ai.ventaFraccionadaPermitida}
+                Razón default: ${ai.razonPresentacion}
+                Sugerencias venta: ${ai.presentacionesVentaSugeridasTexto}
+                Confianza sugerencias: ${ai.confianzaPresentacionesVenta}
+                Razón sugerencias: ${ai.razonPresentacionesVenta}
+                ====================================
+                """.trimIndent()
+                )
+            }
+            parsed
+        }.onFailure {
+            Log.e("ImageAI", "Error identificando producto por imagen con Gemini Vision", it)
         }.getOrNull()
     }
 
@@ -439,24 +515,17 @@ object CategorySuggestionRepository {
             .replace(Regex("\\p{M}+"), "")
             .lowercase(Locale.ROOT)
             .trim()
-        return ProductUtils.sanitizarTexto(sinAcentos)
+        
+        // V30.0: Usamos una sanitización simplificada para evitar dependencias circulares
+        return sinAcentos.replace(Regex("[^a-z0-9_-]"), "_").replace(Regex("_+"), "_").trim('_')
     }
 
-    private data class CategoryOnlyAnswer(
-        @Json(name = "c") val c: String = ""
-    )
-
-    /**
-     * V16.0: Consulta ligera para asistencia en modo manual.
-     * Solo devuelve categorías lógicas basadas en el nombre del producto o fragmento de categoría.
-     */
-    // V16.4: Cach\u00e9 de sesi\u00f3n para respuesta instant\u00e1nea (0ms)
     private val cacheAsistencia = mutableMapOf<String, List<String>>()
 
     suspend fun asistenteManualLigero(
         productName: String? = null,
         partialCategory: String? = null,
-        mercadoActivo: String = "Per\u00fa"
+        mercadoActivo: String = "Perú"
     ): List<String> {
         val pName = productName?.trim()?.lowercase() ?: ""
         val pCat = partialCategory?.trim()?.lowercase() ?: ""
@@ -467,9 +536,9 @@ object CategorySuggestionRepository {
         if (apiKey.isBlank()) return emptyList()
 
         val prompt = if (!productName.isNullOrBlank() && partialCategory.isNullOrBlank()) {
-            "Devuelve ÚNICAMENTE la MEJOR categoría profesional (ej: Analgésicos, Antibióticos) para: $productName. Mercado: $mercadoActivo. PROHIBIDO: términos vagos como 'jarabes', 'pastillas', 'venta libre', 'productos médicos'. Solo taxonomía terapéutica o funcional. JSON: {\"c\":[\"Categoría\"]}"
+            "Devuelve ÚNICAMENTE la MEJOR categoría profesional (ej: Analgésicos, Antibióticos) for: $productName. Mercado: $mercadoActivo. JSON: {\"c\":[\"Categoría\"]}"
         } else {
-            "Para el producto '$productName', completa la mejor categoría profesional que empiece con '$partialCategory'. PROHIBIDO: presentaciones o términos vagos. JSON: {\"c\":[\"Categoría\"]}"
+            "Para el producto '$productName', completa la mejor categoría profesional que empiece con '$partialCategory'. JSON: {\"c\":[\"Categoría\"]}"
         }
 
         val request = DeepSeekChatRequest(
@@ -483,7 +552,6 @@ object CategorySuggestionRepository {
         )
 
         return runCatching {
-            // Usamos DeepSeek (deepseek-chat) con cach\u00e9 de sesi\u00f3n para mitigar latencia regional
             val response = deepSeekApi.createChatCompletion("Bearer $apiKey", request)
             val rawJson = response.choices?.firstOrNull()?.message?.content ?: "{\"c\":[]}"
             val adapter = moshi.adapter(CategoryListAnswer::class.java).lenient()
@@ -496,10 +564,6 @@ object CategorySuggestionRepository {
 
     private data class CategoryListAnswer(@Json(name = "c") val c: List<String> = emptyList())
 
-    /**
-     * V16.10: Sugiere el tipo de control (UNIDAD, PESO, LIQUIDO) basado en nombre y categoría.
-     * Diseñado para latencia mínima usando DeepSeek-chat.
-     */
     suspend fun sugerirTipoControlManual(
         productName: String,
         category: String
@@ -510,23 +574,8 @@ object CategorySuggestionRepository {
         val prompt = """
             Producto: "$productName"
             Categoría: "$category"
-
-            Determina el tipo de control de inventario:
-            - UNIDAD: se cuenta por piezas (pastillas, cajas, sobres, tubos).
-            - PESO: se mide por gramos/kilos (polvos a granel).
-            - LIQUIDO: se mide por ml/litros (frascos de jarabe, gotas).
-            
-            Determina también si normalmente requiere receta médica:
-            - r=true si es medicamento de venta bajo receta.
-            - r=false si es suplemento, alimento, bebida, cosmético o venta libre.
-            - Si dudas, usa r=false y explica brevemente.
-
-            Confianza:
-            - ALTA: 100% seguro del tipo por el nombre o categoría específica.
-            - MEDIA: Probable, pero podría ser otro (ej: polvos que se venden por sobre o por peso).
-            - BAJA: Ambiguo.
-
-            Responde ÚNICAMENTE JSON: {"t":"UNIDAD|PESO|LIQUIDO", "c":"ALTA|MEDIA|BAJA", "m":"motivo breve", "r":true|false, "rr":"motivo receta breve"}
+            Determina el tipo de control (UNIDAD, PESO, LIQUIDO), si requiere receta (r: true|false) y motivo.
+            Responde ÚNICAMENTE JSON: {"t":"UNIDAD|PESO|LIQUIDO", "c":"ALTA|MEDIA|BAJA", "m":"motivo", "r":true|false, "rr":"motivo receta"}
         """.trimIndent()
 
         val request = DeepSeekChatRequest(
@@ -542,8 +591,6 @@ object CategorySuggestionRepository {
         return runCatching {
             val response = deepSeekApi.createChatCompletion("Bearer $apiKey", request)
             val rawJson = response.choices?.firstOrNull()?.message?.content ?: return null
-            
-            // V17.0: Logcat para inspecci\u00f3n de tipo silencioso
             Log.d("SilentAI", "Type JSON: $rawJson")
 
             val parsed = moshi.adapter(ManualTypeAnswer::class.java).lenient().fromJson(rawJson) ?: return null
@@ -570,46 +617,16 @@ object CategorySuggestionRepository {
         }.getOrNull()
     }
 
-    /**
-     * V20.0: Obtiene información útil (usos, instrucciones, contraindicaciones)
-     * del producto usando Gemini.
-     */
     suspend fun obtenerInformacionUsoProducto(productName: String): UsageInfoAiResult? {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank()) return null
 
-        val systemInstruction = """
-            Eres un asistente farmacéutico experto. Proporciona información útil y segura sobre productos.
-            
-            REGLAS:
-            - Devuelve 4 usos comunes cortos (ej: "Dolor de cabeza", "Fiebre").
-            - Proporciona instrucciones de uso típicas (ej: "Tomar 1 tableta cada 8 horas").
-            - Proporciona contraindicaciones críticas (ej: "No usar en embarazo", "No mezclar con alcohol").
-            - Sé profesional y conciso.
-        """.trimIndent()
-
-        val prompt = "Producto: $productName. Devuelve la información de uso."
-
-        val usageSchema = GeminiSchema(
-            type = "OBJECT",
-            properties = mapOf(
-                "usos" to GeminiSchemaProperty(
-                    type = "ARRAY",
-                    items = GeminiSchemaProperty(type = "STRING")
-                ),
-                "instrucciones" to GeminiSchemaProperty("STRING"),
-                "contraindicaciones" to GeminiSchemaProperty("STRING")
-            ),
-            required = listOf("usos", "instrucciones", "contraindicaciones")
-        )
+        val systemInstruction = "Eres un asistente farmacéutico experto. Proporciona información de uso."
+        val prompt = "Producto: $productName. Devuelve usos, instrucciones y contraindicaciones."
 
         val request = GeminiRequest(
             contents = listOf(GeminiContent(parts = listOf(GeminiPart(text = prompt)))),
-            generationConfig = GeminiGenerationConfig(
-                temperature = 0.2,
-                responseMimeType = "application/json",
-                responseSchema = usageSchema
-            ),
+            generationConfig = GeminiGenerationConfig(temperature = 0.2, responseMimeType = "application/json"),
             systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstruction)))
         )
 
@@ -618,14 +635,7 @@ object CategorySuggestionRepository {
             val content = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 ?.extractJsonObject()
                 ?: return null
-            
-            Log.d("UsageAI", "Gemini Usage Response: $content")
-            
-            moshi.adapter(UsageInfoAiResult::class.java)
-                .lenient()
-                .fromJson(content)
-        }.onFailure {
-            Log.e("UsageAI", "Error obteniendo información de uso con Gemini", it)
+            moshi.adapter(UsageInfoAiResult::class.java).lenient().fromJson(content)
         }.getOrNull()
     }
 

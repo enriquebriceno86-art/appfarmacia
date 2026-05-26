@@ -3,13 +3,25 @@ package com.app.administradorfarmadon.ActivityInventario.reference
 import com.squareup.moshi.Json
 
 data class BarcodeAiResult(
-    val estado: String, // IDENTIFICADO | NO_IDENTIFICADO
+    val estado: String,
     val codigo: String = "",
     val nombre: String? = "",
     val categoria: String? = "",
-    val tipoControl: String? = "DESCONOCIDO", // UNIDAD | PESO | LIQUIDO | DESCONOCIDO
+    val tipoControl: String? = "DESCONOCIDO",
     val requiereReceta: Boolean = false,
-    val razon: String? = ""
+    val razon: String? = "",
+
+    // Presentación comercial sugerida por IA.
+    val presentacionVentaDefault: String? = "",
+    val ventaFraccionadaPermitida: Boolean? = null,
+    val confianzaPresentacion: Int = 0,
+    val razonPresentacion: String? = "",
+
+    // Prueba temporal: sugerencias de presentaciones detectadas por IA.
+// Luego, si funciona bien, esto se convierte en una lista real.
+    val presentacionesVentaSugeridasTexto: String? = "",
+    val confianzaPresentacionesVenta: Int = 0,
+    val razonPresentacionesVenta: String? = ""
 )
 
 /**
@@ -272,15 +284,7 @@ data class UsageInfoAiResult(
 data class GeminiRequest(
     val contents: List<GeminiContent>,
     val generationConfig: GeminiGenerationConfig,
-    @param:Json(name = "system_instruction") val systemInstruction: GeminiContent? = null,
-    val tools: List<GeminiTool>? = null
-)
-
-data class GeminiTool(
-    @param:Json(name = "google_search")
-    val googleSearch: Map<String, Any>? = null,
-    @param:Json(name = "google_search_retrieval")
-    val googleSearchRetrieval: Map<String, Any>? = null
+    @param:Json(name = "system_instruction") val systemInstruction: GeminiContent? = null
 )
 
 data class GeminiContent(

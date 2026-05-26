@@ -13,6 +13,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +43,9 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.app.administradorfarmadon.ActivityInventario.ProductUtils
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 @ExperimentalGetImage
@@ -67,16 +71,32 @@ fun LiveOcrScannerOverlay(
     var detectedVenc by remember { mutableStateOf<String?>(null) }
     var isConfirmed by remember { mutableStateOf(false) }
 
+    var scannerMessage by remember {
+        mutableStateOf("Alinea lote y vencimiento dentro del marco")
+    }
+
+    var scannerSuccess by remember {
+        mutableStateOf(false)
+    }
+
+    val mainHandler = remember {
+        android.os.Handler(android.os.Looper.getMainLooper())
+    }
+
     val lotStabilityMap = remember { mutableStateMapOf<String, Int>() }
     val vencStabilityMap = remember { mutableStateMapOf<String, Int>() }
     val stabilityThreshold = 2
+
+    var lastAnalysisTime by remember {
+        mutableLongStateOf(0L)
+    }
 
     val recognizer = remember {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     }
 
     val boxWidthPercent = 0.84f
-    val boxHeightPercent = 0.16f
+    val boxHeightPercent = 0.16f // Reducido para mayor precisión
 
     // Guardamos la PreviewView en un remember para evitar recreaciones en recomposiciones
     val previewView = remember { PreviewView(context) }
@@ -112,6 +132,16 @@ fun LiveOcrScannerOverlay(
                         imageProxy.close()
                         return@setAnalyzer
                     }
+
+                    val now = System.currentTimeMillis()
+
+                    if (now - lastAnalysisTime < 250L) {
+                        imageProxy.close()
+                        return@setAnalyzer
+                    }
+
+                    lastAnalysisTime = now
+
 
                     val mediaImage = imageProxy.image
                     if (mediaImage != null) {
@@ -161,36 +191,82 @@ fun LiveOcrScannerOverlay(
                             .addOnSuccessListener { visionText ->
                                 if (isConfirmed) return@addOnSuccessListener
 
-                                val (lote, venc) = extractLoteAndVenc(visionText.text)
-                                val normalizedVenc = normalizeDetectedDate(venc)
+                                // V30.0: Usamos la lógica compartida de extracción
+                                val smartResult = ProductUtils.extractLoteAndVencSmart(visionText.text)
+
+                                val lote = smartResult.lote
+                                val normalizedVenc = smartResult.vencimiento
+
+                                if (lote == null && normalizedVenc != null) {
+                                    Log.d("LiveOcrScanner", "Vencimiento detectado sin lote. OCR=${visionText.text}")
+                                }
+
+                                if (lote == null && normalizedVenc == null) {
+                                    Log.d("LiveOcrScanner", "OCR sin datos útiles=${visionText.text}")
+                                }
 
                                 if (lote != null && lote.length >= 4) {
+                                    if (lotStabilityMap.size > 20) {
+                                        lotStabilityMap.clear()
+                                    }
+
                                     val count = (lotStabilityMap[lote] ?: 0) + 1
                                     lotStabilityMap[lote] = count
+
                                     if (count >= stabilityThreshold) {
                                         detectedLote = lote
                                     }
                                 }
 
                                 if (normalizedVenc != null) {
+                                    if (vencStabilityMap.size > 20) {
+                                        vencStabilityMap.clear()
+                                    }
+
                                     val count = (vencStabilityMap[normalizedVenc] ?: 0) + 1
                                     vencStabilityMap[normalizedVenc] = count
+
                                     if (count >= stabilityThreshold) {
                                         detectedVenc = normalizedVenc
                                     }
                                 }
 
-                                if (detectedLote != null && detectedVenc != null) {
+                                mainHandler.post {
+                                    scannerMessage = when {
+                                        detectedLote != null && detectedVenc != null -> "Lote leído correctamente"
+                                        detectedLote != null -> "Lote encontrado, buscando vencimiento..."
+                                        detectedVenc != null -> "Vencimiento encontrado, buscando lote..."
+                                        else -> "Alinea lote y vencimiento dentro del marco"
+                                    }
+                                }
+
+                                val confianzaAlta =
+                                    smartResult.confianzaLote >= 70 &&
+                                            smartResult.confianzaVencimiento >= 65
+
+                                if (detectedLote != null && detectedVenc != null && confianzaAlta) {
                                     if (detectedLote!!.length < 3) return@addOnSuccessListener
 
                                     isConfirmed = true
+
                                     try {
                                         val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
                                         toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
                                     } catch (e: Exception) {
                                         Log.e("Scanner", "Error playing beep", e)
                                     }
-                                    onResultDetected(detectedLote, detectedVenc)
+
+                                    mainHandler.post {
+                                        scannerSuccess = true
+                                        scannerMessage = "Lote leído correctamente"
+                                    }
+
+                                    mainHandler.postDelayed(
+                                        {
+                                            onResultDetected(detectedLote, detectedVenc)
+                                        },
+                                        350L
+                                    )
                                 }
                             }
                             .addOnCompleteListener {
@@ -211,6 +287,15 @@ fun LiveOcrScannerOverlay(
                 )
                 cameraControl = camera.cameraControl
                 hasFlash = camera.cameraInfo.hasFlashUnit()
+
+                // ENFOQUE INICIAL AUTOMÁTICO AL CENTRO
+                val factory = previewView.meteringPointFactory
+                val centerPoint = factory.createPoint(0.5f, 0.5f)
+                val action = FocusMeteringAction.Builder(centerPoint, FocusMeteringAction.FLAG_AF)
+                    .setAutoCancelDuration(3, TimeUnit.SECONDS)
+                    .build()
+                cameraControl?.startFocusAndMetering(action)
+
             } catch (exc: Exception) {
                 Log.e("LiveOcrScanner", "Use case binding failed", exc)
             }
@@ -229,7 +314,18 @@ fun LiveOcrScannerOverlay(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
             factory = { previewView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        // TAP TO FOCUS: Enfocar donde el usuario toque
+                        val factory = previewView.meteringPointFactory
+                        val point = factory.createPoint(offset.x, offset.y)
+                        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+                            .build()
+                        cameraControl?.startFocusAndMetering(action)
+                    }
+                }
         )
 
         // Dibujo del área de escaneo (ROI Overlay)
@@ -305,234 +401,212 @@ fun LiveOcrScannerOverlay(
                 }
             }
 
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(96.dp))
 
-            Text(
-                text = "Alinea lote y vencimiento aquí",
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 4.dp)
-            )
+            Surface(
+                color = Color.Black.copy(alpha = 0.48f),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(
+                    1.dp,
+                    Color.White.copy(alpha = 0.18f)
+                )
+            ) {
+                Text(
+                    text = "Enfoca lote y vencimiento",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(
+                        horizontal = 16.dp,
+                        vertical = 7.dp
+                    )
+                )
+            }
 
             Spacer(modifier = Modifier.weight(1f))
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(bottom = 60.dp)
+                modifier = Modifier.padding(bottom = 54.dp)
             ) {
                 if (detectedLote != null || detectedVenc != null) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.8f),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(0.8f)
+                        modifier = Modifier.fillMaxWidth(0.90f),
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(22.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.22f)
+                        )
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            DetectionRow("LOTE:", detectedLote)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            DetectionRow("VENCE:", detectedVenc)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            PremiumOcrDetectionRow(
+                                label = "LOTE",
+                                value = detectedLote
+                            )
+
+                            PremiumOcrDetectionRow(
+                                label = "VENCE",
+                                value = detectedVenc
+                            )
                         }
                     }
                 }
 
                 Surface(
-                    color = if (detectedLote != null && detectedVenc != null) Color(0xFF0E8F63) else Color.White.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = if (detectedLote != null && detectedVenc != null) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                    color = if (scannerSuccess) {
+                        CreateGreen.copy(alpha = 0.94f)
+                    } else {
+                        Color.Black.copy(alpha = 0.72f)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    border = if (scannerSuccess) {
+                        null
+                    } else {
+                        BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.18f)
+                        )
+                    }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(
+                            horizontal = 16.dp,
+                            vertical = 10.dp
+                        ),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        if (detectedLote == null || detectedVenc == null) {
+                        if (!scannerSuccess) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(15.dp),
                                 color = Color.White,
                                 strokeWidth = 2.dp
                             )
+
                             Spacer(modifier = Modifier.width(8.dp))
                         }
+
                         Text(
-                            text = if (detectedLote != null && detectedVenc != null)
-                                "¡Detectado!" else "Escaneando con IA...",
+                            text = scannerMessage,
                             color = Color.White,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold
                         )
+
+
+
                     }
                 }
 
-                if (detectedLote != null || detectedVenc != null) {
-                    Button(
+                if (detectedLote != null && detectedVenc != null) {
+                    OutlinedButton(
                         onClick = {
                             isConfirmed = true
                             onResultDetected(detectedLote, detectedVenc)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.38f)
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White,
+                            containerColor = Color.Black.copy(alpha = 0.22f)
+                        )
                     ) {
-                        Text("Confirmar ahora")
+
+                        Text(
+                            text = "Confirmar lote y vencimiento",
+                            fontWeight = FontWeight.Black
+                        )
                     }
                 }
             }
+
         }
+
+
+
+
     }
 }
 
 @Composable
-private fun DetectionRow(label: String, value: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text = label, color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = value ?: "Buscando...",
-            color = if (value != null) Color.White else Color.Gray.copy(alpha = 0.5f),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.ExtraBold
+private fun PremiumOcrDetectionRow(
+    label: String,
+    value: String?
+) {
+    val hasValue = !value.isNullOrBlank()
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (hasValue) {
+            CreateGreen.copy(alpha = 0.18f)
+        } else {
+            Color.White.copy(alpha = 0.08f)
+        },
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            1.dp,
+            if (hasValue) {
+                CreateGreen.copy(alpha = 0.35f)
+            } else {
+                Color.White.copy(alpha = 0.14f)
+            }
         )
-    }
-}
-
-private fun extractLoteAndVenc(text: String): Pair<String?, String?> {
-    val rawLines = text.lines().map { it.uppercase().trim() }.filter { it.isNotBlank() }
-
-    var lote: String? = null
-    var venc: String? = null
-
-    val lotPrefixes = listOf("LOTE", "LOT", "BATCH", "B/", "L.", "L:", "FAB", "PROD", "SERIE", "SER", "CHGE", "BN")
-    val expPrefixes = listOf("EXP", "VENC", "VTO", "CAD", "VAL", "V:", "USE BY", "BB", "BBD", "MAV", "F.V.", "FV", "F.C.", "FC", "BEST BY", "CONSUMIR ANTES DE", "EE")
-
-    val lotRegexString = lotPrefixes.joinToString("|") { Pattern.quote(it) }
-    val expRegexString = expPrefixes.joinToString("|") { Pattern.quote(it) }
-
-    val combinedLotPattern = Pattern.compile("(?:$lotRegexString)\\s*[:.-]?\\s*([A-Z0-9-]{4,})")
-    val combinedExpPattern = Pattern.compile("(?:$expRegexString)\\s*[:.-]?\\s*(\\d{2}[/\\-\\s]\\d{2}[/\\-\\s]\\d{2,4}|\\d{2}[/\\-\\s]\\d{2,4}|\\d{4}[/\\-\\s]\\d{2})")
-
-    for (line in rawLines) {
-        if (lote == null) {
-            val m = combinedLotPattern.matcher(line)
-            if (m.find()) lote = m.group(1)
-        }
-        if (venc == null) {
-            val m = combinedExpPattern.matcher(line)
-            if (m.find()) {
-                val d = m.group(1)
-                if (isValidMonthDate(d)) venc = d
-            }
-        }
-    }
-
-    if (lote == null || venc == null) {
-        rawLines.forEachIndexed { index, line ->
-            val matchingLotPrefix = lotPrefixes.firstOrNull { line.contains(it) }
-            if (lote == null && matchingLotPrefix != null) {
-                val startIndex = line.indexOf(matchingLotPrefix) + matchingLotPrefix.length
-                val lineAfterLabel = line.substring(startIndex).trim()
-
-                val cleanTokens = lineAfterLabel
-                    .replace(Regex("[:.-]"), " ")
-                    .split(" ")
-                    .filter { it.matches(Regex("[A-Z0-9-]{2,15}")) }
-
-                if (cleanTokens.isNotEmpty()) {
-                    lote = cleanTokens.joinToString("-")
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 13.dp,
+                vertical = 11.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(30.dp),
+                color = if (hasValue) {
+                    CreateGreen.copy(alpha = 0.95f)
                 } else {
-                    val nextLine = rawLines.getOrNull(index + 1)
-                    if (nextLine != null && nextLine.matches(Regex("[A-Z0-9-]{4,20}"))) {
-                        lote = nextLine
-                    }
+                    Color.White.copy(alpha = 0.14f)
+                },
+                shape = CircleShape
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (hasValue) "✓" else "•",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp
+                    )
                 }
             }
-            if (venc == null && expPrefixes.any { line.contains(it) }) {
-                val lineAfterLabel = line.replace(Regex("(?:$expRegexString)[:.-]?"), "").trim()
-                if (isValidMonthDate(lineAfterLabel)) {
-                    venc = lineAfterLabel
-                } else {
-                    val nextLine = rawLines.getOrNull(index + 1)
-                    if (nextLine != null) {
-                        val potentialDate = nextLine.replace(" ", "")
-                        if (isValidMonthDate(potentialDate)) {
-                            venc = potentialDate
-                        }
-                    }
-                }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = label,
+                    color = Color.White.copy(alpha = 0.68f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp
+                )
+
+                Text(
+                    text = value ?: "Buscando...",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
+                )
             }
         }
-    }
-
-    if (venc == null) {
-        val strictDatePattern = Pattern.compile("(\\d{2}[/-]\\d{2,4}|\\d{4}[/-]\\d{2})")
-        val matcher = strictDatePattern.matcher(text.replace(" ", ""))
-        while (matcher.find()) {
-            val d = matcher.group(1)
-            if (isValidMonthDate(d)) {
-                venc = d
-                break
-            }
-        }
-    }
-
-    return Pair(lote, venc)
-}
-
-private fun isValidMonthDate(date: String?): Boolean {
-    if (date == null) return false
-    val digits = date.filter { it.isDigit() }
-    if (digits.length < 4) return false
-
-    val parts = date.split(Regex("[/\\-\\s]+")).filter { it.isNotBlank() }
-
-    return when {
-        parts.size >= 3 -> {
-            val d0 = parts[0].toIntOrNull() ?: 0
-            val d1 = parts[1].toIntOrNull() ?: 0
-            (d0 in 1..12) || (d1 in 1..12)
-        }
-        parts.size == 2 -> {
-            val monthPart = if (parts[0].length == 4) parts[1] else parts[0]
-            val month = monthPart.toIntOrNull() ?: 0
-            month in 1..12
-        }
-        else -> {
-            val month = digits.take(2).toIntOrNull() ?: 0
-            month in 1..12
-        }
-    }
-}
-
-private fun normalizeDetectedDate(raw: String?): String? {
-    if (raw == null) return null
-
-    val clean = raw.uppercase()
-        .replace(Regex("[/\\-\\s]+"), "/")
-        .trim('/')
-
-    val parts = clean.split("/").filter { it.isNotBlank() }
-
-    if (parts.size >= 3) {
-        val d0 = parts[0].toIntOrNull() ?: 0
-        val d1 = parts[1].toIntOrNull() ?: 0
-        val year = parts.last().takeLast(2)
-
-        return when {
-            d1 in 1..12 -> parts[1].padStart(2, '0') + "/" + year
-            d0 in 1..12 -> parts[0].padStart(2, '0') + "/" + year
-            else -> null
-        }
-    }
-
-    if (!isValidMonthDate(clean)) return null
-    val digits = clean.filter { it.isDigit() }
-    return when {
-        clean.matches(Regex("\\d{4}/\\d{2}")) -> clean.takeLast(2) + "/" + clean.substring(2, 4)
-        clean.matches(Regex("\\d{2}/\\d{4}")) -> clean.take(2) + "/" + clean.takeLast(2)
-        clean.matches(Regex("\\d{2}/\\d{2}")) -> clean
-        digits.length == 4 -> {
-            val m = digits.take(2).toIntOrNull() ?: 0
-            if (m in 1..12) digits.take(2) + "/" + digits.takeLast(2) else null
-        }
-        else -> null
     }
 }

@@ -38,8 +38,13 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import android.graphics.*
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.PhotoCamera
 import com.app.administradorfarmadon.ActivityInventario.reference.BarcodeScanResult
+import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
@@ -47,9 +52,9 @@ import java.util.concurrent.Executors
 @Composable
 fun BarcodeScannerOverlay(
     onBarcodeDetected: (BarcodeScanResult) -> Unit,
+    onImageFallbackDetected: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    // Interceptar gesto atrás para cerrar solo el escáner
     BackHandler {
         onDismiss()
     }
@@ -57,12 +62,50 @@ fun BarcodeScannerOverlay(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    
+
     var hasFlash by remember { mutableStateOf(false) }
     var isFlashOn by remember { mutableStateOf(false) }
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
     var cameraProviderRef by remember { mutableStateOf<ProcessCameraProvider?>(null) }
-    var isDetected by remember { mutableStateOf(false) }
+
+    val detected = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val lastCandidate = remember { java.util.concurrent.atomic.AtomicReference<String?>(null) }
+    val stableCount = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+
+    val candidateStartedAt = remember {
+        java.util.concurrent.atomic.AtomicLong(0L)
+    }
+
+    val minStableReads = 6
+    val minStableMillis = 900L
+
+    var scannerMessage by remember {
+        mutableStateOf("Enfoca el código y mantén visible la etiqueta")
+    }
+
+    var scannerSuccess by remember {
+        mutableStateOf(false)
+    }
+
+    var showImageFallback by remember {
+        mutableStateOf(false)
+    }
+
+    var lastFrameBase64 by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var isSendingImageFallback by remember {
+        mutableStateOf(false)
+    }
+
+    val lastFrameCaptureTime = remember {
+        java.util.concurrent.atomic.AtomicLong(0L)
+    }
+
+    val mainHandler = remember {
+        Handler(Looper.getMainLooper())
+    }
 
     val scanner = remember {
         val options = BarcodeScannerOptions.Builder()
@@ -74,7 +117,17 @@ fun BarcodeScannerOverlay(
                 Barcode.FORMAT_CODE_128
             )
             .build()
+
         BarcodeScanning.getClient(options)
+    }
+
+    LaunchedEffect(Unit) {
+        delay(2600)
+
+        if (!detected.get()) {
+            showImageFallback = true
+            scannerMessage = "No logro leer el código. Puedes identificar por imagen."
+        }
     }
 
     DisposableEffect(Unit) {
@@ -86,7 +139,11 @@ fun BarcodeScannerOverlay(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx)
@@ -95,6 +152,7 @@ fun BarcodeScannerOverlay(
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
                     cameraProviderRef = cameraProvider
+
                     val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
@@ -104,42 +162,137 @@ fun BarcodeScannerOverlay(
                         .build()
 
                     imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                        if (isDetected) {
+                        if (detected.get()) {
                             imageProxy.close()
                             return@setAnalyzer
                         }
 
                         val mediaImage = imageProxy.image
+
                         if (mediaImage != null) {
-                            val scanRect = buildBarcodeScanRect(imageProxy.width, imageProxy.height)
+                            val now = System.currentTimeMillis()
+
+                            if (now - lastFrameCaptureTime.get() > 850L) {
+                                lastFrameCaptureTime.set(now)
+
+                                try {
+                                    val fullBitmap = imageProxy.toBitmap()
+                                    val rotatedFull = rotateBitmap(
+                                        fullBitmap,
+                                        imageProxy.imageInfo.rotationDegrees.toFloat()
+                                    )
+
+                                    val fullBase64 = rotatedFull.toOptimizedBase64()
+
+                                    mainHandler.post {
+                                        lastFrameBase64 = fullBase64
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(
+                                        "BarcodeScanner",
+                                        "Error capturando imagen fallback",
+                                        e
+                                    )
+                                }
+                            }
+
+                            val scanRect = buildBarcodeScanRect(
+                                imageProxy.width,
+                                imageProxy.height
+                            )
+
                             imageProxy.setCropRect(scanRect)
-                            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+
+                            val image = InputImage.fromMediaImage(
+                                mediaImage,
+                                imageProxy.imageInfo.rotationDegrees
+                            )
+
                             scanner.process(image)
                                 .addOnSuccessListener { barcodes ->
-                                    if (isDetected) return@addOnSuccessListener
+                                    if (detected.get()) return@addOnSuccessListener
+
                                     for (barcode in barcodes) {
                                         if (!barcode.isInsideScanRect(scanRect)) continue
-                                        barcode.rawValue?.let { value ->
-                                            if (value.isNotBlank()) {
-                                                // V21.1: Filtro de estabilidad para evitar lecturas fugaces erróneas
-                                                isDetected = true
 
-                                                // V18.2: Capturar frame para Gemini Vision
-                                                val bitmap = imageProxy.toBitmap()
-                                                val rotated = rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees.toFloat())
-                                                val base64 = rotated.toBase64()
+                                        val value = barcode.rawValue?.trim().orEmpty()
+                                        if (value.isBlank()) continue
 
-                                                // Pitido clásico de escáner
-                                                try {
-                                                    val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-                                                    toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 260)
-                                                } catch (e: Exception) {
-                                                    Log.e("Scanner", "Error playing beep", e)
-                                                }
-                                                onBarcodeDetected(BarcodeScanResult(value, base64))
-                                                return@addOnSuccessListener
-                                            }
+                                        if (!isValidBarcodeForInventory(value, barcode.format)) {
+                                            continue
                                         }
+
+                                        val nowRead = System.currentTimeMillis()
+                                        val previous = lastCandidate.get()
+
+                                        if (previous == value) {
+                                            stableCount.incrementAndGet()
+                                        } else {
+                                            lastCandidate.set(value)
+                                            stableCount.set(1)
+                                            candidateStartedAt.set(nowRead)
+                                        }
+
+                                        val stableReads = stableCount.get()
+                                        val stableTime = nowRead - candidateStartedAt.get()
+
+                                        if (stableReads < minStableReads || stableTime < minStableMillis) {
+                                            mainHandler.post {
+                                                scannerMessage = when {
+                                                    stableReads < 2 -> "Enfoca el código y mantén visible la etiqueta"
+                                                    stableReads < minStableReads -> "Confirmando lectura..."
+                                                    else -> "Mantén el producto quieto un momento..."
+                                                }
+                                            }
+
+                                            continue
+                                        }
+
+                                        if (!detected.compareAndSet(false, true)) {
+                                            return@addOnSuccessListener
+                                        }
+
+                                        val base64 = lastFrameBase64 ?: run {
+                                            val bitmap = imageProxy.toBitmap()
+                                            val rotated = rotateBitmap(
+                                                bitmap,
+                                                imageProxy.imageInfo.rotationDegrees.toFloat()
+                                            )
+                                            rotated.toOptimizedBase64()
+                                        }
+
+                                        try {
+                                            val toneGen = ToneGenerator(
+                                                AudioManager.STREAM_ALARM,
+                                                100
+                                            )
+
+                                            toneGen.startTone(
+                                                ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD,
+                                                180
+                                            )
+                                        } catch (e: Exception) {
+                                            Log.e("Scanner", "Error playing beep", e)
+                                        }
+
+                                        mainHandler.post {
+                                            scannerSuccess = true
+                                            scannerMessage = "Código leído correctamente"
+                                        }
+
+                                        mainHandler.postDelayed(
+                                            {
+                                                onBarcodeDetected(
+                                                    BarcodeScanResult(
+                                                        code = value,
+                                                        imageBase64 = base64
+                                                    )
+                                                )
+                                            },
+                                            280L
+                                        )
+
+                                        return@addOnSuccessListener
                                     }
                                 }
                                 .addOnCompleteListener {
@@ -154,80 +307,155 @@ fun BarcodeScannerOverlay(
 
                     try {
                         cameraProvider.unbindAll()
+
                         val camera = cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             cameraSelector,
                             preview,
                             imageAnalysis
                         )
+
                         cameraControl = camera.cameraControl
                         hasFlash = camera.cameraInfo.hasFlashUnit()
                     } catch (exc: Exception) {
                         Log.e("BarcodeScanner", "Use case binding failed", exc)
                     }
-
                 }, ContextCompat.getMainExecutor(ctx))
+
                 previewView
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Cuadro de escaneo profesional
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
-            
-            // Cuadro (280dp x 120dp aprox)
+
             val boxWidth = 280.dp.toPx()
             val boxHeight = 100.dp.toPx()
+
             val left = (canvasWidth - boxWidth) / 2
             val top = (canvasHeight - boxHeight) / 2
-            
-            // 1. Fondo oscurecido con hueco
-            val checkPoint = drawContext.canvas.nativeCanvas.saveLayer(null, null)
-            drawRect(Color.Black.copy(alpha = 0.6f))
+
+            val checkpoint = drawContext.canvas.nativeCanvas.saveLayer(null, null)
+
+            drawRect(
+                Color.Black.copy(alpha = 0.62f)
+            )
+
             drawRoundRect(
                 color = Color.Transparent,
                 topLeft = Offset(left, top),
-                size = androidx.compose.ui.geometry.Size(boxWidth, boxHeight),
-                cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size(
+                    boxWidth,
+                    boxHeight
+                ),
+                cornerRadius = CornerRadius(
+                    18.dp.toPx(),
+                    18.dp.toPx()
+                ),
                 blendMode = BlendMode.Clear
             )
-            drawContext.canvas.nativeCanvas.restoreToCount(checkPoint)
-            
-            // 2. Esquineras
-            val lineLen = 30.dp.toPx()
-            val strokeWidth = 4.dp.toPx()
-            val color = Color.White
-            
-            // Top Left
-            drawLine(color, Offset(left, top + lineLen), Offset(left, top), strokeWidth)
-            drawLine(color, Offset(left, top), Offset(left + lineLen, top), strokeWidth)
-            
-            // Top Right
-            drawLine(color, Offset(left + boxWidth - lineLen, top), Offset(left + boxWidth, top), strokeWidth)
-            drawLine(color, Offset(left + boxWidth, top), Offset(left + boxWidth, top + lineLen), strokeWidth)
-            
-            // Bottom Left
-            drawLine(color, Offset(left, top + boxHeight - lineLen), Offset(left, top + boxHeight), strokeWidth)
-            drawLine(color, Offset(left, top + boxHeight), Offset(left + lineLen, top + boxHeight), strokeWidth)
-            
-            // Bottom Right
-            drawLine(color, Offset(left + boxWidth - lineLen, top + boxHeight), Offset(left + boxWidth, top + boxHeight), strokeWidth)
-            drawLine(color, Offset(left + boxWidth, top + boxHeight), Offset(left + boxWidth, top + boxHeight - lineLen), strokeWidth)
 
-            // 3. Línea láser roja
+            drawContext.canvas.nativeCanvas.restoreToCount(checkpoint)
+
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.92f),
+                topLeft = Offset(left, top),
+                size = androidx.compose.ui.geometry.Size(
+                    boxWidth,
+                    boxHeight
+                ),
+                cornerRadius = CornerRadius(
+                    18.dp.toPx(),
+                    18.dp.toPx()
+                ),
+                style = Stroke(
+                    width = 2.8.dp.toPx()
+                )
+            )
+
+            val lineLength = 32.dp.toPx()
+            val strokeWidth = 5.dp.toPx()
+
             drawLine(
-                color = Color.Red.copy(alpha = 0.6f),
-                start = Offset(left + 12.dp.toPx(), top + boxHeight / 2),
-                end = Offset(left + boxWidth - 12.dp.toPx(), top + boxHeight / 2),
-                strokeWidth = 2.dp.toPx()
+                Color.White,
+                Offset(left, top + lineLength),
+                Offset(left, top),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left, top),
+                Offset(left + lineLength, top),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left + boxWidth - lineLength, top),
+                Offset(left + boxWidth, top),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left + boxWidth, top),
+                Offset(left + boxWidth, top + lineLength),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left, top + boxHeight - lineLength),
+                Offset(left, top + boxHeight),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left, top + boxHeight),
+                Offset(left + lineLength, top + boxHeight),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left + boxWidth - lineLength, top + boxHeight),
+                Offset(left + boxWidth, top + boxHeight),
+                strokeWidth
+            )
+
+            drawLine(
+                Color.White,
+                Offset(left + boxWidth, top + boxHeight),
+                Offset(left + boxWidth, top + boxHeight - lineLength),
+                strokeWidth
+            )
+
+            drawLine(
+                color = if (scannerSuccess) {
+                    CreateGreen.copy(alpha = 0.95f)
+                } else {
+                    Color.Red.copy(alpha = 0.72f)
+                },
+                start = Offset(
+                    left + 14.dp.toPx(),
+                    top + boxHeight / 2
+                ),
+                end = Offset(
+                    left + boxWidth - 14.dp.toPx(),
+                    top + boxHeight / 2
+                ),
+                strokeWidth = 2.4.dp.toPx()
             )
         }
 
-        // UI Overlay
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -237,9 +465,16 @@ fun BarcodeScannerOverlay(
             ) {
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.52f),
+                        CircleShape
+                    )
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cerrar",
+                        tint = Color.White
+                    )
                 }
 
                 if (hasFlash) {
@@ -248,34 +483,228 @@ fun BarcodeScannerOverlay(
                             isFlashOn = !isFlashOn
                             cameraControl?.enableTorch(isFlashOn)
                         },
-                        modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        modifier = Modifier.background(
+                            Color.Black.copy(alpha = 0.52f),
+                            CircleShape
+                        )
                     ) {
                         Icon(
-                            imageVector = if (isFlashOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                            imageVector = if (isFlashOn) {
+                                Icons.Default.FlashOn
+                            } else {
+                                Icons.Default.FlashOff
+                            },
                             contentDescription = "Flash",
-                            tint = if (isFlashOn) Color.Yellow else Color.White
+                            tint = if (isFlashOn) {
+                                Color.Yellow
+                            } else {
+                                Color.White
+                            }
                         )
                     }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
+            if (showImageFallback && !scannerSuccess) {
+                Button(
+                    onClick = {
+                        val image = lastFrameBase64 ?: return@Button
+
+                        if (detected.compareAndSet(false, true)) {
+                            isSendingImageFallback = true
+                            scannerMessage = "Analizando imagen del producto..."
+
+                            onImageFallbackDetected(image)
+                        }
+                    },
+                    enabled = !isSendingImageFallback && lastFrameBase64 != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                        .heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CreateGreenDark,
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.White.copy(alpha = 0.22f),
+                        disabledContentColor = Color.White.copy(alpha = 0.55f)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 8.dp,
+                        pressedElevation = 2.dp
+                    )
+                ) {
+                    if (isSendingImageFallback) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "Analizando...",
+                            fontWeight = FontWeight.Black
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "Identificar por imagen",
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             Surface(
-                color = Color.Black.copy(alpha = 0.7f),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.padding(bottom = 40.dp)
+                color = if (scannerSuccess) {
+                    CreateGreen.copy(alpha = 0.92f)
+                } else {
+                    Color.Black.copy(alpha = 0.72f)
+                },
+                shape = RoundedCornerShape(16.dp),
+                border = if (scannerSuccess) {
+                    null
+                } else {
+                    BorderStroke(
+                        1.dp,
+                        Color.White.copy(alpha = 0.16f)
+                    )
+                },
+                shadowElevation = 8.dp,
+                modifier = Modifier.padding(bottom = 42.dp)
             ) {
-                Text(
-                    text = "Apunta al código de barras",
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = 18.dp,
+                        vertical = 11.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (!scannerSuccess) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(15.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+
+                        Spacer(modifier = Modifier.width(9.dp))
+                    }
+
+                    Text(
+                        text = scannerMessage,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
+}
+
+
+private fun isValidBarcodeForInventory(
+    value: String,
+    format: Int
+): Boolean {
+    val clean = value.trim()
+
+    return when (format) {
+        Barcode.FORMAT_EAN_13 -> {
+            clean.length == 13 &&
+                    clean.all { it.isDigit() } &&
+                    isGs1ChecksumValid(clean)
+        }
+
+        Barcode.FORMAT_EAN_8 -> {
+            clean.length == 8 &&
+                    clean.all { it.isDigit() } &&
+                    isGs1ChecksumValid(clean)
+        }
+
+        Barcode.FORMAT_UPC_A -> {
+            clean.length == 12 &&
+                    clean.all { it.isDigit() } &&
+                    isGs1ChecksumValid(clean)
+        }
+
+        Barcode.FORMAT_UPC_E -> {
+            clean.length in 6..8 &&
+                    clean.all { it.isDigit() }
+        }
+
+        Barcode.FORMAT_CODE_128 -> {
+            clean.length in 4..40
+        }
+
+        else -> false
+    }
+}
+
+private fun Bitmap.toOptimizedBase64(
+    maxSide: Int = 900,
+    quality: Int = 72
+): String {
+    val biggestSide = maxOf(width, height)
+
+    val bitmapToEncode = if (biggestSide > maxSide) {
+        val scale = maxSide.toFloat() / biggestSide.toFloat()
+        Bitmap.createScaledBitmap(
+            this,
+            (width * scale).toInt().coerceAtLeast(1),
+            (height * scale).toInt().coerceAtLeast(1),
+            true
+        )
+    } else {
+        this
+    }
+
+    val output = ByteArrayOutputStream()
+    bitmapToEncode.compress(
+        Bitmap.CompressFormat.JPEG,
+        quality,
+        output
+    )
+
+    return Base64.encodeToString(
+        output.toByteArray(),
+        Base64.NO_WRAP
+    )
+}
+
+private fun isGs1ChecksumValid(code: String): Boolean {
+    if (code.length < 2 || !code.all { it.isDigit() }) return false
+
+    val digits = code.map { it.digitToInt() }
+    val checkDigit = digits.last()
+    val body = digits.dropLast(1)
+
+    val sum = body
+        .asReversed()
+        .mapIndexed { index, digit ->
+            digit * if (index % 2 == 0) 3 else 1
+        }
+        .sum()
+
+    val calculated = (10 - (sum % 10)) % 10
+
+    return calculated == checkDigit
 }
 
 /**

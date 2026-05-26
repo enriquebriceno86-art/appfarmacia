@@ -600,10 +600,16 @@ class CategorySuggestionViewModel : ViewModel() {
         return normalizeProductName(name)
     }
 
-    fun identificarBarcode(barcode: String, imageBase64: String?, categoriasExistentes: List<String>) {
+    fun identificarBarcode(
+        barcode: String,
+        imageBase64: String?,
+        categoriasExistentes: List<String>
+    ) {
         val normalizedBarcode = barcode.trim()
+
         if (normalizedBarcode.isBlank()) {
             latestBarcodeKey = null
+
             _state.value = _state.value.copy(
                 barcodeAiResult = null,
                 estaIdentificandoBarcode = false,
@@ -611,22 +617,36 @@ class CategorySuggestionViewModel : ViewModel() {
                 barcodeMismatchDetected = false,
                 barcodeMismatchOriginalName = null
             )
+
             return
         }
 
         val current = _state.value
-        // V18.2: Si es el mismo código, pero ahora traemos imagen y antes no, permitimos re-identificar
-        val yaIdentificadoSinImagen = latestBarcodeKey == normalizedBarcode && current.barcodeAiResult?.codigo == normalizedBarcode
-        val forzarReidentificarConImagen = imageBase64 != null && yaIdentificadoSinImagen && current.barcodeAiResult.estado == "NO_IDENTIFICADO"
 
-        if (!forzarReidentificarConImagen && 
+        // V18.2: Si es el mismo código, pero ahora traemos imagen y antes no,
+        // permitimos re-identificar solo si antes NO se identificó.
+        val yaIdentificadoSinImagen =
             latestBarcodeKey == normalizedBarcode &&
-            (current.estaIdentificandoBarcode || current.barcodeAiResult?.codigo == normalizedBarcode)
+                    current.barcodeAiResult?.codigo == normalizedBarcode
+
+        val forzarReidentificarConImagen =
+            imageBase64 != null &&
+                    yaIdentificadoSinImagen &&
+                    current.barcodeAiResult.estado == "NO_IDENTIFICADO"
+
+        if (
+            !forzarReidentificarConImagen &&
+            latestBarcodeKey == normalizedBarcode &&
+            (
+                    current.estaIdentificandoBarcode ||
+                            current.barcodeAiResult?.codigo == normalizedBarcode
+                    )
         ) {
             return
         }
 
         jobBarcode?.cancel()
+
         val requestId = ++latestBarcodeRequestId
         latestBarcodeKey = normalizedBarcode
 
@@ -637,8 +657,26 @@ class CategorySuggestionViewModel : ViewModel() {
         )
 
         jobBarcode = viewModelScope.launch {
+            val categoriasBaseRetail = listOf(
+                "Farmacia", "Medicamentos", "Analgésicos", "Antibióticos", "Antiinflamatorios",
+                "Vitaminas", "Suplementos", "Cuidado de la salud", "Abarrotes", "Alimentos",
+                "Bebidas", "Snacks", "Galletas", "Cereales", "Conservas", "Lácteos", "Dulces",
+                "Panadería", "Limpieza", "Cuidado personal", "Higiene personal", "Cosméticos",
+                "Mascotas", "Alimentos para mascotas", "Comida para perros", "Comida para gatos",
+                "Snacks para mascotas", "Accesorios para mascotas"
+            )
+
+            val categoriasParaIa = (categoriasExistentes + categoriasBaseRetail)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase(Locale.getDefault()) }
+
             val result = withTimeoutOrNull(40_000) {
-                CategorySuggestionRepository.identificarProductoPorBarcode(normalizedBarcode, imageBase64, categoriasExistentes)
+                CategorySuggestionRepository.identificarProductoPorBarcode(
+                    normalizedBarcode,
+                    imageBase64,
+                    categoriasParaIa
+                )
             } ?: BarcodeAiResult(
                 estado = "NO_IDENTIFICADO",
                 codigo = normalizedBarcode,
@@ -648,6 +686,100 @@ class CategorySuggestionViewModel : ViewModel() {
                 requiereReceta = false,
                 razon = "Tiempo de espera agotado o error de conexión."
             )
+
+            if (requestId == latestBarcodeRequestId) {
+                _state.value = _state.value.copy(
+                    barcodeAiResult = result,
+                    estaIdentificandoBarcode = false
+                )
+            }
+        }
+    }
+
+
+    fun identificarProductoPorImagen(
+        imageBase64: String,
+        categoriasExistentes: List<String>
+    ) {
+        if (imageBase64.isBlank()) {
+            _state.value = _state.value.copy(
+                barcodeAiResult = BarcodeAiResult(
+                    estado = "NO_IDENTIFICADO",
+                    codigo = "",
+                    nombre = "",
+                    categoria = "",
+                    tipoControl = "DESCONOCIDO",
+                    requiereReceta = false,
+                    razon = "No se recibió imagen para analizar."
+                ),
+                estaIdentificandoBarcode = false,
+                barcodeAiRequestId = ++latestBarcodeRequestId,
+                barcodeMismatchDetected = false,
+                barcodeMismatchOriginalName = null
+            )
+            return
+        }
+
+        jobBarcode?.cancel()
+
+        val requestId = ++latestBarcodeRequestId
+        latestBarcodeKey = null
+
+        _state.value = _state.value.copy(
+            estaIdentificandoBarcode = true,
+            barcodeAiResult = null,
+            barcodeAiRequestId = requestId,
+            barcodeMismatchDetected = false,
+            barcodeMismatchOriginalName = null
+        )
+
+        jobBarcode = viewModelScope.launch {
+            val categoriasBaseRetail = listOf(
+                "Farmacia",
+                "Medicamentos",
+                "Analgésicos",
+                "Antibióticos",
+                "Vitaminas",
+                "Suplementos",
+                "Abarrotes",
+                "Alimentos",
+                "Bebidas",
+                "Snacks",
+                "Galletas",
+                "Cereales",
+                "Conservas",
+                "Lácteos",
+                "Limpieza",
+                "Cuidado personal",
+                "Higiene personal",
+                "Mascotas",
+                "Alimentos para mascotas",
+                "Comida para perros",
+                "Comida para gatos",
+                "Snacks para mascotas",
+                "Accesorios para mascotas"
+            )
+
+            val categoriasParaIa = (categoriasExistentes + categoriasBaseRetail)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase(Locale.getDefault()) }
+
+            val result = withTimeoutOrNull(40_000) {
+                CategorySuggestionRepository.identificarProductoPorImagen(
+                    imageBase64 = imageBase64,
+                    categoriasExistentes = categoriasParaIa
+                )
+            } ?: BarcodeAiResult(
+                estado = "NO_IDENTIFICADO",
+                codigo = "",
+                nombre = "",
+                categoria = "",
+                tipoControl = "DESCONOCIDO",
+                requiereReceta = false,
+                razon = "Tiempo de espera agotado al analizar la imagen."
+            )
+
             if (requestId == latestBarcodeRequestId) {
                 _state.value = _state.value.copy(
                     barcodeAiResult = result,

@@ -2,13 +2,21 @@ package com.app.administradorfarmadon.ActivityInventario.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandVertically
@@ -118,69 +126,119 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.CatchingPokemon
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.relocation.bringIntoView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import com.app.administradorfarmadon.ActivityInventario.ProductUtils
+import com.app.administradorfarmadon.ClasesDatabase.MonedaHelper
 import com.app.administradorfarmadon.R
+import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.math.abs
 
-val CreateBackground = Color(0xFFF7F9FC)
+
+private const val INITIAL_INVENTORY_SOURCE_NAME = "Inventario inicial / Sin proveedor"
+
+private fun CreateProductState.isInitialInventorySource(): Boolean {
+    return supplierId.isBlank() && supplierName == INITIAL_INVENTORY_SOURCE_NAME
+}
+
+private fun CreateProductState.hasRealSupplier(): Boolean {
+    return supplierId.isNotBlank()
+}
+
+private fun CreateProductState.hasStockOriginSelected(): Boolean {
+    return hasRealSupplier() || isInitialInventorySource()
+}
+
+val CreateBackground = Color(0xFFF6F8FB)
+
+// Superficies
+val CreateSurface = Color(0xFFFFFFFF)
+val CreateSurfaceSoft = Color(0xFFF8FAFC)
+val CreateInfoGraySoft = Color(0xFFF8FAFC)
+
+// Bordes
 val CreateBorder = Color(0xFFE5EAF0)
-val CreateGreen = Color(0xFF15A05C)
-val CreateGreenSoft = Color(0xFFF1FBF5)
-val CreateOrangeSoft = Color(0xFFFFF5EB)
-val CreateTextPrimary = Color(0xFF111827)
+val CreateBorderStrong = Color(0xFFD0D5DD)
+
+// Verde principal
+val CreateGreen = Color(0xFF16A163)
+val CreateGreenDark = Color(0xFF067647)
+val CreateGreenSoft = Color(0xFFEAF8F0)
+val CreateGreenUltraSoft = Color(0xFFF4FBF7)
+
+// Texto
+val CreateTextPrimary = Color(0xFF101828)
 val CreateTextSecondary = Color(0xFF667085)
-val CreateRed = Color(0xFFD92D20)
-val CreateOrange = Color(0xFFE17B00)
-val CreateBlue = Color(0xFF15A05C)
-val CreateBlueSoft = Color(0xFFF1FBF5)
+val CreateTextMuted = Color(0xFF98A2B3)
+
+// Azul / IA / información
+val CreateBlue = Color(0xFF2563EB)
+val CreateBlueSoft = Color(0xFFEFF6FF)
+
 val CreateAiFocus = Color(0xFFF6C343)
 val CreateAiFocusSoft = Color(0xFFFFF7D6)
-val CreateInfoGraySoft = Color(0xFFF8FAFC)
-val CreateSurfaceSoft = Color(0xFFF8FAFC)
+
+// Advertencia
+val CreateOrange = Color(0xFFF79009)
+val CreateOrangeSoft = Color(0xFFFFF4E5)
+
+// Error
+val CreateRed = Color(0xFFD92D20)
+val CreateRedSoft = Color(0xFFFFEAEA)
+
+// Amarillo
 val CreateYellow = Color(0xFFF5B820)
 val CreateYellowSoft = Color(0xFFFFF4CC)
 
 // Gradiente Premium para Diálogos (Verde suave a Azul brillante)
 val PremiumGradient = Brush.linearGradient(
     colors = listOf(
-        Color(0xFFE8F5E9), // Verde muy claro
-        Color(0xFFE0F7FA), // Azul muy claro
-        Color(0xFFB2EBF2), // Azul brillante
+        Color(0xFFFFFFFF),
+        Color(0xFFF4FBF7),
+        Color(0xFFEAF8F0)
     )
 )
 
-// Gradiente Vivo Tipo Agua (Verde suave a Morado suave)
 val WaterGradient = Brush.linearGradient(
     colors = listOf(
-        Color(0xFFE8F5E9), // Verde muy claro
-        Color(0xFFF3E5F5), // Morado muy claro
-        Color(0xFFE0F2F1), // Cian agua claro
+        Color(0xFFFFFFFF),
+        Color(0xFFF8FAFC),
+        Color(0xFFEFF6FF)
     )
 )
 
-// Gradiente de Advertencia (Rojo a Naranja)
 val WarningGradient = Brush.linearGradient(
     colors = listOf(
-        Color(0xFFD92D20), // Rojo Farmadon
-        Color(0xFFE17B00), // Naranja
+        Color(0xFFD92D20),
+        Color(0xFFF79009)
     )
 )
 
-// Gradiente Azul Eléctrico Premium (Moderno)
-val ElectricBlueGradient = Brush.linearGradient(
+val TealGradient = Brush.linearGradient(
     colors = listOf(
-        Color(0xFF1E3A8A), // Azul muy oscuro (Slate)
-        Color(0xFF2563EB), // Azul Eléctrico (Blue 600)
-        Color(0xFF60A5FA), // Azul Claro brillante
+        Color(0xFF067647),
+        Color(0xFF16A163)
     )
 )
+
 
 private enum class ExpirationStatusKind {
     VIGENTE,
@@ -246,15 +304,17 @@ enum class CreateProductStockEntryMode(
 ) {
     UNIDAD(
         label = "Unidades sueltas",
-        helper = "Recibiste tabletas, cápsulas, frascos individuales (sin caja)"
+        helper = "Recibiste unidades, frascos o envases individuales."
     ),
+
     CAJA(
-        label = "Caja con unidades directas",
-        helper = "Cada caja contiene una cantidad en unidades base (ej. caja de 60 tabletas)"
+        label = "Caja con unidades",
+        helper = "Cada caja contiene unidades directas, frascos o envases."
     ),
+
     CAJA_CON_PAQUETES(
-        label = "Caja con frascos / blísteres",
-        helper = "Cada caja contiene varios frascos o blísteres, y cada uno tiene su cantidad (ej. 10 cajas x 5 frascos x 120 mL)"
+        label = "Caja con paquetes internos",
+        helper = "Cada caja contiene subempaques internos, como sobres, tiras o paquetes."
     )
 }
 
@@ -361,6 +421,14 @@ data class CreateProductState(
     val barcodeAiApplied: Boolean = false,
     val scannedImageBase64: String? = null,
 
+    // Presentación comercial detectada por IA.
+// Solo se usa si IA está encendida y el usuario aplicó una sugerencia IA.
+    val defaultSalePresentationName: String = "",
+    val defaultSalePresentationFromAi: Boolean = false,
+    val saleByFractionSuggested: Boolean? = null,
+    val defaultSalePresentationConfidence: Int = 0,
+    val defaultSalePresentationReason: String = "",
+
     // Campos viejos: los dejamos para no romper otras funciones existentes.
     val receivedPresentation: String = "",
     val receivedQuantity: String = "",
@@ -422,6 +490,9 @@ data class CreateProductState(
     val pendingStockEntryMode: CreateProductStockEntryMode? = null,
     /** Almacena el tipo de control pendiente para aplicar tras confirmación */
     val pendingControlType: CreateProductControlType? = null,
+
+    val showLossConfirmDialog: Boolean = false,
+    val showLowMarginConfirmDialog: Boolean = false,
     
     // V20.0: Información útil del producto
     val aiUsageInfo: com.app.administradorfarmadon.ActivityInventario.reference.UsageInfoAiResult? = null,
@@ -430,8 +501,15 @@ data class CreateProductState(
 
     // V22.0: Estados para guardado de proveedor
     val isSavingSupplier: Boolean = false,
-    val supplierSaveSuccess: Boolean = false
+    val supplierSaveSuccess: Boolean = false,
+    val isSupplierHighlighting: Boolean = false,
+
+    // V22.1: Estado para el destello de la factura
+    val isInvoiceHighlighting: Boolean = false
+
 )
+
+// V22.0: Estado para el efecto visual de selección de proveedor
 
 
 @Composable
@@ -494,33 +572,11 @@ fun CreateProductScreen(
     val keyboardVisible = imeBottom > navigationBottom
     val scope = rememberCoroutineScope()
 
-    // "Todo listo" usa la misma regla que el botón Siguiente (nextEnabled)
-    val canShowReadyMessageForStep = state.currentStep == CreateProductStep.PRODUCTO ||
-        state.currentStep == CreateProductStep.LOTE_INICIAL
-    val isCurrentStepReady = canShowReadyMessageForStep && nextEnabled && !loading
-    var showReadyMessage by remember { mutableStateOf(false) }
-    var hasShownReadyForCurrentValid by remember { mutableStateOf(false) }
+
 
     // V18.9: Estado temporal para el efecto de "regresar atrÃ¡s" al limpiar cÃ³digo
     var isReturningToInitial by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isCurrentStepReady, state.currentStep) {
-        if (!canShowReadyMessageForStep) {
-            showReadyMessage = false
-            hasShownReadyForCurrentValid = false
-            return@LaunchedEffect
-        }
-
-        if (isCurrentStepReady) {
-            if (!hasShownReadyForCurrentValid) {
-                showReadyMessage = true
-                hasShownReadyForCurrentValid = true
-            }
-        } else {
-            showReadyMessage = false
-            hasShownReadyForCurrentValid = false
-        }
-    }
 
     // V18.9: El diálogo de conflicto ahora es persistente y obliga a una acción correctiva.
     // Se elimina el auto-cierre para garantizar la integridad de los datos.
@@ -557,6 +613,32 @@ fun CreateProductScreen(
                     CreateProductStep.RESUMEN -> "Guardar producto"
                 }
 
+                val guardedOnNext: () -> Unit = {
+                    when {
+                        state.currentStep == CreateProductStep.RESUMEN -> {
+                            onSave()
+                        }
+
+                        state.currentStep == CreateProductStep.PRESENTACIONES &&
+                                hasAnyPresentationLoss(state) -> {
+                            onStateChange(
+                                state.copy(showLossConfirmDialog = true)
+                            )
+                        }
+
+                        state.currentStep == CreateProductStep.PRESENTACIONES &&
+                                hasAnyPresentationLowMargin(state) -> {
+                            onStateChange(
+                                state.copy(showLowMarginConfirmDialog = true)
+                            )
+                        }
+
+                        else -> {
+                            onNext()
+                        }
+                    }
+                }
+
                 if (isTablet) {
                     CreateProductTabletSidebarLayout(
                         state = state,
@@ -565,7 +647,7 @@ fun CreateProductScreen(
                         saveEnabled = nextEnabled,
                         onBack = onBack,
                         onStateChange = onStateChange,
-                        onNext = onNext,
+                        onNext = guardedOnNext,
                         onPrevious = onPrevious,
                         onSave = onSave,
                         loading = loading,
@@ -587,7 +669,9 @@ fun CreateProductScreen(
                         lotConflictSeverity = lotConflictSeverity,
                         onSaveSupplier = onSaveSupplier
                     )
-                } else {
+                }
+
+                else {
                     // V18.5: Determinamos si estamos en el flujo de IA por cÃ³digo de barras.
                     // En este modo, la card central tiene el control y ocultamos el botÃ³n "Siguiente" inferior.
                     val isAiBarcodeFlow = aiInventoryEnabled &&
@@ -604,49 +688,17 @@ fun CreateProductScreen(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     // V18.7: NotificaciÃ³n de "Todo listo" sobre el botÃ³n Siguiente
-                                    AnimatedVisibility(
-                                        visible = showReadyMessage && canShowReadyMessageForStep,
-                                        enter = fadeIn() + expandVertically(),
-                                        exit = fadeOut() + shrinkVertically()
-                                    ) {
-                                        Surface(
-                                            color = Color.White,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 20.dp, vertical = 8.dp),
-                                            shape = RoundedCornerShape(18.dp),
-                                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.18f)),
-                                            shadowElevation = 2.dp
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                                horizontalArrangement = Arrangement.Center,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.CheckCircle,
-                                                    contentDescription = null,
-                                                    tint = CreateGreen,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Todo listo para continuar",
-                                                    color = CreateGreen,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    textAlign = TextAlign.Center
-                                                )
-                                            }
-                                        }
-                                    }
+
 
                                     // V19.5: Banner fijo para agregar presentaciones (Paso 3)
                                     // Solo visible en el paso 3 y si no estÃ¡ ya expandido el formulario.
                                     val totalStock = calculateTotalBaseStock(state)
-                                    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+                                    val assignedStock = state.presentations.sumOf {
+                                        it.equivalenceText
+                                            .trim()
+                                            .replace(",", ".")
+                                            .toDoubleOrNull() ?: 0.0
+                                    }
                                     val hasStockAvailable = (totalStock - assignedStock) > 0.0
 
                                     AnimatedVisibility(
@@ -662,7 +714,13 @@ fun CreateProductScreen(
                                                     enabled = hasStockAvailable,
                                                     interactionSource = remember { MutableInteractionSource() },
                                                     indication = null,
-                                                    onClick = { onStateChange(state.copy(addPresentationExpanded = true)) }
+                                                    onClick = {
+                                                        onStateChange(
+                                                            state.copy(
+                                                                addPresentationExpanded = true
+                                                            )
+                                                        )
+                                                    }
                                                 ),
                                             color = if (hasStockAvailable) CreateGreenSoft else CreateInfoGraySoft,
                                             shape = RoundedCornerShape(18.dp),
@@ -695,7 +753,7 @@ fun CreateProductScreen(
                                         step = state.currentStep,
                                         nextLabel = nextLabel,
                                         nextEnabled = nextEnabled,
-                                        onNext = if (state.currentStep == CreateProductStep.RESUMEN) onSave else onNext,
+                                        onNext = guardedOnNext,
                                         onPrevious = onPrevious,
                                         loading = loading
                                     )
@@ -794,7 +852,9 @@ fun CreateProductScreen(
                     color = CreateRed,
                     shape = RoundedCornerShape(24.dp),
                     shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -877,6 +937,11 @@ fun CreateProductScreen(
                                                 barcodeAiResult = null,
                                                 barcodeAiError = null,
                                                 barcodeAiApplied = false,
+                                                defaultSalePresentationName = "",
+                                                defaultSalePresentationFromAi = false,
+                                                saleByFractionSuggested = null,
+                                                defaultSalePresentationConfidence = 0,
+                                                defaultSalePresentationReason = "",
                                                 duplicateProductFound = null,
                                                 forceManualProductEntry = false,
                                                 errors = state.errors - setOf("barcode", "name", "category", "controlType")
@@ -911,6 +976,11 @@ fun CreateProductScreen(
                                                 barcodeAiResult = null,
                                                 barcodeAiError = null,
                                                 barcodeAiApplied = false,
+                                                defaultSalePresentationName = "",
+                                                defaultSalePresentationFromAi = false,
+                                                saleByFractionSuggested = null,
+                                                defaultSalePresentationConfidence = 0,
+                                                defaultSalePresentationReason = "",
                                                 duplicateProductFound = null,
                                                 forceManualProductEntry = false,
                                                 errors = state.errors - setOf("barcode", "name", "category", "controlType")
@@ -1051,10 +1121,12 @@ fun CreateProductScreen(
         }
 
         if (loading || isReturningToInitial || state.isSavingSupplier) {
-            Surface(
+            Box(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.White.copy(alpha = 0.96f)
+                contentAlignment = Alignment.Center
             ) {
+                FluidBackground()
+
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1064,7 +1136,7 @@ fun CreateProductScreen(
                         color = when {
                             state.isSavingSupplier && state.supplierSaveSuccess -> androidx.compose.ui.graphics.Color(0xFF0E8F63)
                             state.isSavingSupplier -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
-                            else -> CreateGreen
+                            else -> Color.White
                         },
                         strokeWidth = 3.dp
                     )
@@ -1076,9 +1148,10 @@ fun CreateProductScreen(
                             isReturningToInitial -> "Regresando al asistente IA..."
                             else -> "Guardando producto..."
                         },
-                        color = CreateTextPrimary,
+                        color = Color.White,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1095,6 +1168,21 @@ fun CreateProductScreen(
             StockLimitErrorDialog(
                 state = state,
                 onDismiss = { onStateChange(state.copy(showStockErrorDialog = false)) }
+            )
+        }
+
+        // V30.12: Diálogo de Desglose de Inventario
+        if (state.showStockEntryDialog) {
+            StockEntryDialog(
+                state = state,
+                onStateChange = onStateChange,
+                onApply = { 
+                    onStateChange(state.copy(
+                        showStockEntryDialog = false,
+                        stockEntryConfigured = true
+                    )) 
+                },
+                onDismiss = { onStateChange(state.copy(showStockEntryDialog = false)) }
             )
         }
 
@@ -1188,6 +1276,368 @@ fun CreateProductScreen(
                 onAddStock = { onAddStockToExistingProduct(state.lotConflictProduct!!) }
             )
         }
+
+        if (state.showLossConfirmDialog) {
+            LossMarginConfirmDialog(
+                onDismiss = {
+                    onStateChange(
+                        state.copy(showLossConfirmDialog = false)
+                    )
+                },
+                onConfirm = {
+                    onStateChange(
+                        state.copy(showLossConfirmDialog = false)
+                    )
+                    onNext()
+                }
+            )
+        }
+
+        if (state.showLowMarginConfirmDialog) {
+            LowMarginConfirmDialog(
+                onDismiss = {
+                    onStateChange(
+                        state.copy(showLowMarginConfirmDialog = false)
+                    )
+                },
+                onConfirm = {
+                    onStateChange(
+                        state.copy(showLowMarginConfirmDialog = false)
+                    )
+                    onNext()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LowMarginConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.42f))
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 430.dp),
+                color = Color.White,
+                shape = RoundedCornerShape(30.dp),
+                shadowElevation = 18.dp,
+                border = BorderStroke(
+                    1.dp,
+                    CreateOrange.copy(alpha = 0.22f)
+                )
+            ) {
+                Box(
+                    modifier = Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White,
+                                CreateOrangeSoft.copy(alpha = 0.72f),
+                                CreateYellowSoft.copy(alpha = 0.36f)
+                            )
+                        )
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(64.dp),
+                            color = CreateOrangeSoft,
+                            shape = CircleShape,
+                            border = BorderStroke(
+                                1.dp,
+                                CreateOrange.copy(alpha = 0.24f)
+                            )
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = CreateOrange,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Margen muy bajo",
+                            color = CreateTextPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "Una o más presentaciones tienen poca ganancia. No estás perdiendo dinero, pero el margen está por debajo del 10%.",
+                            color = CreateTextSecondary,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White.copy(alpha = 0.78f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                CreateOrange.copy(alpha = 0.16f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 14.dp,
+                                    vertical = 12.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachMoney,
+                                    contentDescription = null,
+                                    tint = CreateOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+
+                                Text(
+                                    text = "Recomendado: sube un poco el precio si quieres una ganancia más saludable.",
+                                    color = CreateTextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, CreateBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.70f),
+                                    contentColor = CreateTextSecondary
+                                )
+                            ) {
+                                Text(
+                                    text = "Revisar precio",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = onConfirm,
+                                modifier = Modifier
+                                    .weight(1.15f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CreateOrange,
+                                    contentColor = Color.White
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 7.dp,
+                                    pressedElevation = 2.dp
+                                )
+                            ) {
+                                Text(
+                                    text = "Continuar igual",
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LossMarginConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.48f))
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 430.dp),
+                color = Color.White,
+                shape = RoundedCornerShape(30.dp),
+                shadowElevation = 18.dp,
+                border = BorderStroke(
+                    1.dp,
+                    CreateRed.copy(alpha = 0.18f)
+                )
+            ) {
+                Box(
+                    modifier = Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White,
+                                CreateRedSoft.copy(alpha = 0.72f),
+                                CreateOrangeSoft.copy(alpha = 0.42f)
+                            )
+                        )
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(64.dp),
+                            color = CreateRedSoft,
+                            shape = CircleShape,
+                            border = BorderStroke(
+                                1.dp,
+                                CreateRed.copy(alpha = 0.20f)
+                            )
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = CreateRed,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Precio con pérdida",
+                            color = CreateTextPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "Una o más presentaciones tienen un precio menor al costo. Puedes corregir el precio o continuar si es una decisión intencional.",
+                            color = CreateTextSecondary,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White.copy(alpha = 0.78f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                CreateRed.copy(alpha = 0.14f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 14.dp,
+                                    vertical = 12.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachMoney,
+                                    contentDescription = null,
+                                    tint = CreateRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+
+                                Text(
+                                    text = "Recomendado: revisa el precio antes de guardar.",
+                                    color = CreateTextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, CreateBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.70f),
+                                    contentColor = CreateTextSecondary
+                                )
+                            ) {
+                                Text(
+                                    text = "Corregir",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = onConfirm,
+                                modifier = Modifier
+                                    .weight(1.15f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CreateRed,
+                                    contentColor = Color.White
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 7.dp,
+                                    pressedElevation = 2.dp
+                                )
+                            ) {
+                                Text(
+                                    text = "Continuar igual",
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1215,7 +1665,9 @@ fun ConflictManagementDialog(
                 shape = RoundedCornerShape(32.dp),
                 color = Color.White,
                 shadowElevation = 24.dp,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     // ENCABEZADO DE ADVERTENCIA PREMIUM
@@ -1267,7 +1719,9 @@ fun ConflictManagementDialog(
                             border = BorderStroke(1.dp, CreateBorder)
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
@@ -1302,7 +1756,9 @@ fun ConflictManagementDialog(
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Button(
                                 onClick = onAddStock,
-                                modifier = Modifier.fillMaxWidth().height(54.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = CreateOrange)
                             ) {
@@ -1350,7 +1806,9 @@ fun Step3ResetWarningDialog(
                 color = Color.White,
                 shadowElevation = 12.dp,
                 border = BorderStroke(2.dp, CreateRed.copy(alpha = 0.3f)),
-                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
             ) {
                 Box(modifier = Modifier.background(WarningGradient)) {
                     Column(
@@ -1411,7 +1869,9 @@ fun Step3ResetWarningDialog(
                         ) {
                             OutlinedButton(
                                 onClick = onDismiss,
-                                modifier = Modifier.weight(1f).height(56.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 56.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -1420,7 +1880,9 @@ fun Step3ResetWarningDialog(
                             }
                             Button(
                                 onClick = onConfirm,
-                                modifier = Modifier.weight(1f).height(56.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 56.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed)
                             ) {
@@ -1440,7 +1902,12 @@ fun StockLimitErrorDialog(
     onDismiss: () -> Unit
 ) {
     val total = calculateTotalBaseStock(state)
-    val assigned = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val assigned = state.presentations.sumOf {
+        it.equivalenceText
+            .trim()
+            .replace(",", ".")
+            .toDoubleOrNull() ?: 0.0
+    }
     val remaining = (total - assigned).coerceAtLeast(0.0)
     val unit = resolveStockUnitLabel(state)
 
@@ -1461,7 +1928,9 @@ fun StockLimitErrorDialog(
                 color = Color.White,
                 shadowElevation = 12.dp,
                 border = BorderStroke(2.dp, CreateRed.copy(alpha = 0.4f)),
-                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
             ) {
                 Box(modifier = Modifier.background(WarningGradient)) {
                     Column(
@@ -1522,7 +1991,9 @@ fun StockLimitErrorDialog(
 
                         Button(
                             onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = CreateRed)
                         ) {
@@ -1617,7 +2088,9 @@ fun StockUsageCompleteDialog(
                 
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
                 ) {
@@ -1635,8 +2108,15 @@ fun CreatePresentationDialog(
     onSavePresentation: (SavedPresentation) -> Unit = {},
     onDismiss: () -> Unit
 ) {
+
+
     val totalStock = calculateTotalBaseStock(state)
-    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val assignedStock = state.presentations.sumOf {
+        it.equivalenceText
+            .trim()
+            .replace(",", ".")
+            .toDoubleOrNull() ?: 0.0
+    }
     val remainingStock = (totalStock - assignedStock).coerceAtLeast(0.0)
 
     val unitToUse = state.draftPresentationCustomUnit.ifBlank {
@@ -1647,16 +2127,43 @@ fun CreatePresentationDialog(
         }
     }
 
-    val inputAmount = state.draftPresentationCustomAmount.toDoubleOrNull() ?: 0.0
+    val inputAmount = state.draftPresentationCustomAmount
+        .trim()
+        .replace(",", ".")
+        .toDoubleOrNull() ?: 0.0
     val inputInBase = when (state.controlType) {
         CreateProductControlType.PESO -> if (unitToUse == "kg") inputAmount * 1000.0 else inputAmount
         CreateProductControlType.LIQUIDO -> if (unitToUse == "L") inputAmount * 1000.0 else inputAmount
         else -> inputAmount
     }
 
+    val normalizedDraftName = normalizePresentationNameForDuplicate(
+        state.draftPresentationName
+    )
+
+    val nameAlreadyExists =
+        normalizedDraftName.isNotBlank() &&
+                state.presentations.any {
+                    normalizePresentationNameForDuplicate(it.name) == normalizedDraftName
+                }
+
+    val equivalenceAlreadyExists =
+        inputInBase > 0 &&
+                state.presentations.any {
+                    kotlin.math.abs(
+                        parsePresentationDouble(it.equivalenceText) - inputInBase
+                    ) < 0.0001
+                }
+
+
     val canAdd = state.draftPresentationName.isNotBlank() &&
             inputAmount > 0 &&
-            state.draftPresentationSalePriceText.toDoubleOrNull()?.let { it > 0 } == true
+            state.draftPresentationSalePriceText
+                .trim()
+                .replace(",", ".")
+                .toDoubleOrNull()
+                ?.let { it > 0 } == true &&
+            !nameAlreadyExists
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1678,7 +2185,9 @@ fun CreatePresentationDialog(
                     .fillMaxWidth()
                     .wrapContentHeight()
             ) {
-                Box(modifier = Modifier.fillMaxWidth().background(WaterGradient)) {
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WaterGradient)) {
                     val configuration = LocalConfiguration.current
                     val maxHeight = (configuration.screenHeightDp.dp * 0.7f)
 
@@ -1699,10 +2208,22 @@ fun CreatePresentationDialog(
                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             // 1. Nombre (Ahora siempre visible para cualquier tipo)
                             AppTextField(
-                                label = "NOMBRE (EJ. BLÍSTER, CAJA, FRASCO)",
+                                label = "NOMBRE (EJ. PAQUETE, CAJA, FRASCO)",
                                 value = state.draftPresentationName,
                                 placeholder = "Escribe el nombre...",
-                                onValueChange = { onStateChange(state.copy(draftPresentationName = it)) }
+                                error = if (nameAlreadyExists) {
+                                    "Ya existe una presentación con ese nombre."
+                                } else {
+                                    state.errors["draftPresentationName"]
+                                },
+                                onValueChange = {
+                                    onStateChange(
+                                        state.copy(
+                                            draftPresentationName = it,
+                                            errors = state.errors - "draftPresentationName"
+                                        )
+                                    )
+                                }
                             )
 
                             // 2. Cantidad y Selector de Unidades
@@ -1742,14 +2263,59 @@ fun CreatePresentationDialog(
                             }
 
                             // 3. Precio
+                            val monedaSimbolo = com.app.administradorfarmadon.ClasesDatabase.SessionManager
+                                .monedaSimbolo
+                                .trim()
+
                             AppTextField(
-                                label = "PRECIO DE VENTA (BS)",
+                                label = if (monedaSimbolo.isNotBlank()) {
+                                    "PRECIO DE VENTA ($monedaSimbolo)"
+                                } else {
+                                    "PRECIO DE VENTA"
+                                },
                                 value = state.draftPresentationSalePriceText,
                                 placeholder = "Ej. 45.50",
                                 keyboardType = KeyboardType.Decimal,
                                 leadingIcon = Icons.Outlined.AttachMoney,
-                                onValueChange = { onStateChange(state.copy(draftPresentationSalePriceText = it)) }
+                                onValueChange = {
+                                    onStateChange(
+                                        state.copy(draftPresentationSalePriceText = it)
+                                    )
+                                }
                             )
+                        }
+
+                        if (!nameAlreadyExists && equivalenceAlreadyExists) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = CreateOrangeSoft.copy(alpha = 0.75f),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    CreateOrange.copy(alpha = 0.18f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = null,
+                                        tint = CreateOrange,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+
+                                    Text(
+                                        text = "Ya existe una presentación con la misma equivalencia. Puedes agregarla si tendrá otro nombre o precio.",
+                                        color = CreateTextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        lineHeight = 17.sp
+                                    )
+                                }
+                            }
                         }
 
                         // Resumen de disponibilidad
@@ -1773,7 +2339,9 @@ fun CreatePresentationDialog(
                         ) {
                             OutlinedButton(
                                 onClick = onDismiss,
-                                modifier = Modifier.weight(1f).height(54.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(54.dp),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
                                 Text("Cancelar", fontWeight = FontWeight.Bold)
@@ -1802,22 +2370,55 @@ fun CreatePresentationDialog(
                                         isAiSuggested = false
                                     )
 
-                                    val (nextList, idFinal) = mergePresentacionEvitandoDuplicado(state.presentations, newPresentation)
-                                    val nextAssigned = nextList.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
-                                    
-                                    onStateChange(state.copy(
-                                        presentations = nextList,
-                                        mainPresentationId = if (nextList.any { it.id == state.mainPresentationId }) state.mainPresentationId else idFinal,
-                                        addPresentationExpanded = false,
-                                        draftPresentationName = "",
-                                        draftPresentationCustomAmount = "",
-                                        draftPresentationCustomUnit = "",
-                                        draftPresentationSalePriceText = "",
-                                        showStockCompleteDialog = (totalStock - nextAssigned) <= 0.0
-                                    ))
+                                    val duplicatedName = state.presentations.any {
+                                        normalizePresentationNameForDuplicate(it.name) ==
+                                                normalizePresentationNameForDuplicate(newPresentation.name)
+                                    }
+
+                                    if (duplicatedName) {
+                                        onStateChange(
+                                            state.copy(
+                                                errors = state.errors + (
+                                                        "draftPresentationName" to "Ya existe una presentación con ese nombre."
+                                                        )
+                                            )
+                                        )
+                                        return@Button
+                                    }
+
+                                    val nextList = state.presentations + newPresentation
+
+                                    val nextAssigned = nextList.sumOf {
+                                        it.equivalenceText
+                                            .trim()
+                                            .replace(",", ".")
+                                            .toDoubleOrNull() ?: 0.0
+                                    }
+
+                                    onStateChange(
+                                        state.copy(
+                                            presentations = nextList,
+                                            mainPresentationId = state.mainPresentationId.ifBlank {
+                                                newPresentation.id
+                                            },
+                                            addPresentationExpanded = false,
+                                            draftPresentationName = "",
+                                            draftPresentationCustomAmount = "",
+                                            draftPresentationCustomUnit = "",
+                                            draftPresentationSalePriceText = "",
+                                            showStockCompleteDialog = (totalStock - nextAssigned) <= 0.0,
+                                            errors = state.errors -
+                                                    "draftPresentationName" -
+                                                    "presentations" -
+                                                    "presentations_total" -
+                                                    "mainPresentation"
+                                        )
+                                    )
                                 },
                                 enabled = canAdd,
-                                modifier = Modifier.weight(1.2f).height(54.dp),
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .height(54.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
                             ) {
@@ -2281,8 +2882,9 @@ fun ProductStepContent(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
-fun AiBarcodeProductStep(
+private fun AiBarcodeProductStep(
     state: CreateProductState,
     onStateChange: (CreateProductState) -> Unit,
     onRequestBarcodeScan: () -> Unit,
@@ -2290,9 +2892,31 @@ fun AiBarcodeProductStep(
     onIdentificarBarcode: (String, String?) -> Unit,
     isCheckingBarcodeRemote: Boolean,
     onNext: () -> Unit,
-    onRequestLabelScan: () -> Unit
+    onRequestLabelScan: () -> Unit,
+    onClearBarcodeIntegrityConflict: () -> Unit = {}
 ) {
+
+
+    val scope = rememberCoroutineScope()
+
+    var isApplyingBarcodeResult by remember {
+        mutableStateOf(false)
+    }
+
+    var showBarcodeLocationDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var pendingBarcodeApplyState by remember {
+        mutableStateOf<CreateProductState?>(null)
+    }
+
+    val result = state.barcodeAiResult
+    val hasDuplicateProduct = state.duplicateProductFound != null
+
     val resetAndScanAgain = {
+        onClearBarcodeIntegrityConflict()
+
         onStateChange(
             state.copy(
                 barcode = "",
@@ -2300,160 +2924,587 @@ fun AiBarcodeProductStep(
                 category = "",
                 controlType = null,
                 requiresPrescription = false,
-                forceManualProductEntry = false,
-                scannedImageBase64 = null,
+
                 barcodeAiResult = null,
-                barcodeAiError = null,
                 barcodeAiApplied = false,
-                duplicateProductFound = null,
+                barcodeAiError = null,
                 barcodeMismatchDetected = false,
                 barcodeMismatchOriginalName = null,
-                errors = state.errors - setOf("barcode", "name", "category", "controlType")
+                defaultSalePresentationName = "",
+                defaultSalePresentationFromAi = false,
+                saleByFractionSuggested = null,
+                defaultSalePresentationConfidence = 0,
+                defaultSalePresentationReason = "",
+
+                duplicateProductFound = null,
+                scannedImageBase64 = null,
+
+                forceManualProductEntry = false,
+                productoSinCodigoBarra = false,
+                isBarcodeManualMode = false,
+
+                errors = state.errors - setOf(
+                    "barcode",
+                    "name",
+                    "category",
+                    "controlType",
+                    "location"
+                )
             )
         )
+
         onRequestBarcodeScan()
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 24.dp)
     ) {
-        val result = state.barcodeAiResult
-        val hasDuplicate = state.duplicateProductFound != null
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            when {
+                hasDuplicateProduct -> {
+                    state.duplicateProductFound?.let { producto ->
+                        DuplicateProductCard(
+                            producto = producto,
+                            onAddStock = {
+                                onAddStockToExistingProduct(producto)
+                            }
+                        )
 
-        when {
-            // 1. Producto existente detectado por Firebase
-            hasDuplicate -> {
-                state.duplicateProductFound?.let { producto ->
-                    DuplicateProductCard(
-                        producto = producto,
-                        onAddStock = { onAddStockToExistingProduct(producto) }
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
                         OutlinedButton(
                             onClick = resetAndScanAgain,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 54.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                CreateBorderStrong.copy(alpha = 0.72f)
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.White,
+                                contentColor = CreateTextSecondary
+                            )
                         ) {
-                            Text("Escanear otro", color = CreateTextSecondary)
+                            Text(
+                                text = "Escanear otro producto",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
                         }
+                    }
+                }
 
-                        OutlinedButton(
-                            onClick = { onStateChange(state.copy(forceManualProductEntry = true)) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                state.isIdentifyingBarcode || isCheckingBarcodeRemote -> {
+                    IdentifyingBarcodeCard(
+                        barcode = state.barcode
+                    )
+                }
+
+                result != null -> {
+                    if (result.estado == "IDENTIFICADO") {
+                        BarcodeIdentifiedCard(
+                            result = result,
+                            onApply = {
+                                val mappedType = when (result.tipoControl) {
+                                    "UNIDAD" -> CreateProductControlType.UNIDAD
+                                    "PESO" -> CreateProductControlType.PESO
+                                    "LIQUIDO" -> CreateProductControlType.LIQUIDO
+                                    else -> null
+                                }
+
+                                isApplyingBarcodeResult = true
+
+                                scope.launch {
+                                    if (mappedType != null) {
+                                        delay(650)
+
+                                        pendingBarcodeApplyState = state.copy(
+                                            name = result.nombre.orEmpty(),
+                                            category = result.categoria.orEmpty(),
+                                            controlType = mappedType,
+                                            requiresPrescription = result.requiereReceta,
+                                            barcode = result.codigo.ifBlank { state.barcode },
+                                            barcodeAiApplied = true,
+
+                                            defaultSalePresentationName = result.presentacionVentaDefault.orEmpty(),
+                                            defaultSalePresentationFromAi =
+                                                !result.presentacionVentaDefault.isNullOrBlank() &&
+                                                result.confianzaPresentacion >= 80,
+                                            saleByFractionSuggested = result.ventaFraccionadaPermitida,
+                                            defaultSalePresentationConfidence = result.confianzaPresentacion,
+                                            defaultSalePresentationReason = result.razonPresentacion.orEmpty(),
+
+                                            currentStep = CreateProductStep.PRODUCTO,
+                                            errors = state.errors - setOf(
+                                                "name",
+                                                "category",
+                                                "controlType",
+                                                "barcode",
+                                                "location"
+                                            )
+                                        )
+
+                                        isApplyingBarcodeResult = false
+                                        showBarcodeLocationDialog = true
+                                    } else {
+                                        delay(650)
+
+                                        onStateChange(
+                                            state.copy(
+                                                name = result.nombre.orEmpty(),
+                                                category = result.categoria.orEmpty(),
+                                                requiresPrescription = result.requiereReceta,
+                                                forceManualProductEntry = true,
+                                                barcodeAiApplied = false,
+                                                defaultSalePresentationName = "",
+                                                defaultSalePresentationFromAi = false,
+                                                saleByFractionSuggested = null,
+                                                defaultSalePresentationConfidence = 0,
+                                                defaultSalePresentationReason = "",
+                                                errors = state.errors + (
+                                                        "controlType" to "La IA detectó el producto. Solo confirma cómo se controla."
+                                                        )
+                                            )
+                                        )
+
+                                        isApplyingBarcodeResult = false
+                                    }
+                                }
+                            },
+                            onScanOther = resetAndScanAgain,
+                            onEditManual = {
+                                val mappedType = when (result.tipoControl) {
+                                    "UNIDAD" -> CreateProductControlType.UNIDAD
+                                    "PESO" -> CreateProductControlType.PESO
+                                    "LIQUIDO" -> CreateProductControlType.LIQUIDO
+                                    else -> null
+                                }
+
+                                onStateChange(
+                                    state.copy(
+                                        name = result.nombre.orEmpty(),
+                                        category = result.categoria.orEmpty(),
+                                        controlType = mappedType,
+                                        requiresPrescription = result.requiereReceta,
+                                        forceManualProductEntry = true,
+                                        barcodeAiApplied = false,
+                                        defaultSalePresentationName = "",
+                                        defaultSalePresentationFromAi = false,
+                                        saleByFractionSuggested = null,
+                                        defaultSalePresentationConfidence = 0,
+                                        defaultSalePresentationReason = "",
+                                        errors = state.errors - setOf(
+                                            "name",
+                                            "category",
+                                            "barcode"
+                                        )
+                                    )
+                                )
+                            }
+                        )
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = CreateSurfaceSoft.copy(alpha = 0.76f),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                CreateBorder.copy(alpha = 0.7f)
+                            )
                         ) {
-                            Text("Ajustar", color = CreateTextSecondary)
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 12.dp,
+                                    vertical = 10.dp
+                                ),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = CreateTextMuted,
+                                    modifier = Modifier.size(17.dp)
+                                )
+
+                                val suggestionSourceText = if (result.codigo.isBlank()) {
+                                    "Sugerencia generada a partir de la imagen del producto. Puedes editarla antes de guardar."
+                                } else {
+                                    "Sugerencia generada a partir del código y la etiqueta escaneada. Puedes editarla antes de guardar."
+                                }
+
+                                Text(
+                                    text = suggestionSourceText,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    } else {
+                        BarcodeNotIdentifiedCard(
+                            barcode = state.barcode,
+                            onScanOther = resetAndScanAgain,
+                            onEditManual = {
+                                onStateChange(
+                                    state.copy(
+                                        forceManualProductEntry = true,
+                                        barcodeAiApplied = false,
+                                        defaultSalePresentationName = "",
+                                        defaultSalePresentationFromAi = false,
+                                        saleByFractionSuggested = null,
+                                        defaultSalePresentationConfidence = 0,
+                                        defaultSalePresentationReason = ""
+                                    )
+                                )
+                            }
+                        )
+                    }
+                }
+
+                state.barcode.isBlank() -> {
+                    InitialScanCard(
+                        onStartScan = onRequestBarcodeScan
+                    )
+                }
+
+                state.errors["barcode"] != null -> {
+                    BarcodeValidationErrorCard(
+                        message = state.errors["barcode"].orEmpty(),
+                        onRetry = resetAndScanAgain,
+                        onAdjust = {
+                            onStateChange(
+                                state.copy(
+                                    forceManualProductEntry = true,
+                                    barcodeAiApplied = false,
+                                    defaultSalePresentationName = "",
+                                    defaultSalePresentationFromAi = false,
+                                    saleByFractionSuggested = null,
+                                    defaultSalePresentationConfidence = 0,
+                                    defaultSalePresentationReason = "",
+                                    errors = state.errors - "barcode"
+                                )
+                            )
+                        }
+                    )
+                }
+
+                else -> {
+                    IdentifyingBarcodeCard(
+                        barcode = state.barcode
+                    )
+                }
+            }
+        }
+
+        if (isApplyingBarcodeResult) {
+            Dialog(
+                onDismissRequest = {},
+                properties = DialogProperties(
+                    dismissOnBackPress = false,
+                    dismissOnClickOutside = false,
+                    usePlatformDefaultWidth = false
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.66f))
+                        .padding(horizontal = 30.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 420.dp),
+                        color = Color.White,
+                        shape = RoundedCornerShape(32.dp),
+                        shadowElevation = 24.dp,
+                        tonalElevation = 8.dp
+                    ) {
+                        Box(
+                            modifier = Modifier.background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White,
+                                        CreateGreenUltraSoft,
+                                        CreateBlueSoft.copy(alpha = 0.42f)
+                                    )
+                                )
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = 28.dp,
+                                    vertical = 30.dp
+                                ),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(72.dp),
+                                    color = CreateGreenSoft,
+                                    shape = CircleShape,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        CreateGreen.copy(alpha = 0.22f)
+                                    )
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(
+                                            color = CreateGreen,
+                                            strokeWidth = 3.dp,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = "Aplicando datos",
+                                    color = CreateTextPrimary,
+                                    fontSize = 21.sp,
+                                    fontWeight = FontWeight.Black,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Text(
+                                    text = "Preparando lote inicial del producto",
+                                    color = CreateTextSecondary,
+                                    fontSize = 14.sp,
+                                    lineHeight = 19.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
 
-            // 2. Resultado ya aplicado (resumen compacto o ir a manual)
-            state.barcodeAiApplied -> {
-                ProductAppliedSummaryCard(
-                    state = state,
-                    onEditManual = { onStateChange(state.copy(barcodeAiApplied = false, forceManualProductEntry = true)) },
-                    onScanOther = resetAndScanAgain
-                )
-            }
+        if (showBarcodeLocationDialog && pendingBarcodeApplyState != null) {
+            BarcodeLocationQuickDialog(
+                productName = pendingBarcodeApplyState?.name.orEmpty(),
+                initialLocation = pendingBarcodeApplyState?.location.orEmpty(),
+                onDismiss = {
+                    showBarcodeLocationDialog = false
+                    pendingBarcodeApplyState = null
+                },
+                onConfirm = { location ->
+                    val finalState = pendingBarcodeApplyState ?: return@BarcodeLocationQuickDialog
 
-            // 3. Identificando...
-            state.isIdentifyingBarcode || isCheckingBarcodeRemote -> {
-                IdentifyingBarcodeCard(barcode = state.barcode)
-            }
-
-            // 4. Resultado IA disponible
-            result != null -> {
-                if (result.estado == "IDENTIFICADO") {
-                    BarcodeIdentifiedCard(
-                        result = result,
-                        onApply = {
-                            val mappedType = when (result.tipoControl) {
-                                "UNIDAD" -> CreateProductControlType.UNIDAD
-                                "PESO" -> CreateProductControlType.PESO
-                                "LIQUIDO" -> CreateProductControlType.LIQUIDO
-                                else -> null
-                            }
-
-                            if (mappedType != null) {
-                                onStateChange(state.copy(
-                                    name = result.nombre.orEmpty(),
-                                    category = result.categoria.orEmpty(),
-                                    controlType = mappedType,
-                                    requiresPrescription = result.requiereReceta,
-                                    barcode = result.codigo.ifBlank { state.barcode },
-                                    barcodeAiApplied = true,
-                                    currentStep = CreateProductStep.LOTE_INICIAL,
-                                    errors = state.errors - setOf("name", "category", "controlType", "barcode")
-                                ))
-                                // V18.5: Avance automÃ¡tico al Paso 2 tras aplicar datos exitosos de la IA
-                            } else {
-                                // Si el tipo es DESCONOCIDO, forzar manual para que el usuario elija
-                                onStateChange(state.copy(
-                                    name = result.nombre.orEmpty(),
-                                    category = result.categoria.orEmpty(),
-                                    requiresPrescription = result.requiereReceta,
-                                    forceManualProductEntry = true,
-                                    errors = state.errors + ("controlType" to "âœ¨ La IA hizo su magia, solo confirma como se controla este producto.")
-                                ))
-                            }
-                        },
-                        onScanOther = resetAndScanAgain,
-                        onEditManual = {
-                            val mappedType = when (result.tipoControl) {
-                                "UNIDAD" -> CreateProductControlType.UNIDAD
-                                "PESO" -> CreateProductControlType.PESO
-                                "LIQUIDO" -> CreateProductControlType.LIQUIDO
-                                else -> null
-                            }
-                            onStateChange(state.copy(
-                                name = result.nombre.orEmpty(),
-                                category = result.categoria.orEmpty(),
-                                controlType = mappedType,
-                                requiresPrescription = result.requiereReceta,
-                                forceManualProductEntry = true
-                            ))
-                        }
+                    onStateChange(
+                        finalState.copy(
+                            location = location.trim(),
+                            currentStep = CreateProductStep.LOTE_INICIAL,
+                            errors = finalState.errors - "location"
+                        )
                     )
-                } else {
-                    BarcodeNotIdentifiedCard(
-                        barcode = state.barcode,
-                        onScanOther = resetAndScanAgain,
-                        onEditManual = { onStateChange(state.copy(forceManualProductEntry = true)) },
-                        onRequestLabelScan = onRequestLabelScan
-                    )
+
+                    showBarcodeLocationDialog = false
+                    pendingBarcodeApplyState = null
                 }
-            }
+            )
+        }
 
-            // 5. Estado inicial o codigo vacio
-            state.barcode.isBlank() -> {
-                InitialScanCard(
-                    onStartScan = onRequestBarcodeScan
-                )
-            }
+    }
+}
 
-            // 6. Error de red o validacion del cÃ³digo.
-            state.errors["barcode"] != null -> {
-                BarcodeValidationErrorCard(
-                    message = state.errors["barcode"].orEmpty(),
-                    onRetry = resetAndScanAgain,
-                    onAdjust = { onStateChange(state.copy(forceManualProductEntry = true)) }
-                )
-            }
 
-            // 7. Codigo nuevo sin resultado todavia  (esperando).
-            else -> {
-                IdentifyingBarcodeCard(barcode = state.barcode)
-                // V18.3: Eliminado el LaunchedEffect que duplicaba llamadas a IA
-                // y causaba carreras con la validación de Firebase. La validación
-                // ahora fluye únicamente desde programarValidacionBarcodeCompose
+@Composable
+private fun BarcodeLocationQuickDialog(
+    productName: String,
+    initialLocation: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var location by remember(initialLocation) {
+        mutableStateOf(initialLocation)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = false,
+            dismissOnBackPress = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.62f))
+                .padding(horizontal = 24.dp)
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ){
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 430.dp),
+                color = Color.White,
+                shape = RoundedCornerShape(32.dp),
+                shadowElevation = 22.dp,
+                tonalElevation = 8.dp
+            ) {
+                Box(
+                    modifier = Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White,
+                                CreateGreenUltraSoft,
+                                CreateBlueSoft.copy(alpha = 0.38f)
+                            )
+                        )
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(66.dp),
+                            color = CreateGreenSoft,
+                            shape = CircleShape,
+                            border = BorderStroke(
+                                1.dp,
+                                CreateGreen.copy(alpha = 0.22f)
+                            )
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = CreateGreen,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Ubicación del producto",
+                                color = CreateTextPrimary,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Text(
+                                text = productName.ifBlank { "Producto identificado" },
+                                color = CreateTextSecondary,
+                                fontSize = 14.sp,
+                                lineHeight = 19.sp,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                CreateBorder.copy(alpha = 0.85f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "¿Dónde estará guardado?",
+                                    color = CreateTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+
+                                AppTextField(
+                                    label = "",
+                                    value = location,
+                                    placeholder = "Ej: Estante B-3, Vitrina 1...",
+                                    isSuccess = location.trim().isNotBlank(),
+                                    error = null,
+                                    onValueChange = { location = it }
+                                )
+
+                                Text(
+                                    text = "Esto ayuda a encontrar rápido el producto al vender o reponer stock.",
+                                    color = CreateTextSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                border = BorderStroke(1.dp, CreateBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.70f),
+                                    contentColor = CreateTextSecondary
+                                )
+                            ) {
+                                Text(
+                                    text = "Volver",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    onConfirm(location)
+                                },
+                                enabled = location.trim().isNotBlank(),
+                                modifier = Modifier
+                                    .weight(1.35f)
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CreateGreenDark,
+                                    contentColor = Color.White,
+                                    disabledContainerColor = CreateBorder,
+                                    disabledContentColor = CreateTextSecondary.copy(alpha = 0.55f)
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 7.dp,
+                                    pressedElevation = 2.dp
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Text(
+                                    text = "Continuar",
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2505,31 +3556,134 @@ fun InitialScanCard(onStartScan: () -> Unit) {
 }
 
 @Composable
-fun IdentifyingBarcodeCard(barcode: String) {
+private fun IdentifyingBarcodeCard(barcode: String) {
+    var stage by remember(barcode) { mutableStateOf(0) }
+
+    LaunchedEffect(barcode) {
+        stage = 0
+        delay(700)
+        stage = 1
+        delay(1100)
+        stage = 2
+    }
+
+    val title = when (stage) {
+        0 -> "Verificando código"
+        1 -> "Consultando inventario"
+        else -> "Identificando con IA"
+    }
+
+    val subtitle = when (stage) {
+        0 -> "Revisando si este código ya existe."
+        1 -> "Buscando coincidencias en tu inventario."
+        else -> "Analizando el código y la etiqueta escaneada."
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "barcode_loading")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, CreateBorder)
+        shape = RoundedCornerShape(34.dp),
+        shadowElevation = 16.dp,
+        tonalElevation = 6.dp,
+        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.14f))
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color.White, CreateGreenUltraSoft, CreateBlueSoft.copy(alpha = 0.32f))
+                    )
+                )
         ) {
-            CircularProgressIndicator(color = CreateGreen, modifier = Modifier.size(32.dp))
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Identificando producto...",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Codigo: $barcode",
-                style = MaterialTheme.typography.bodySmall,
-                color = CreateTextSecondary
-            )
-        }
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(76.dp).graphicsLayer {
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                    },
+                    color = CreateGreenSoft,
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.22f)),
+                    shadowElevation = 8.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(38.dp),
+                            color = CreateGreen,
+                            strokeWidth = 3.dp
+                        )
+                    }
+                }
 
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = title,
+                        color = CreateTextPrimary,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = subtitle,
+                        color = CreateTextSecondary,
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Surface(
+                    color = Color.White.copy(alpha = 0.76f),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.7f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.QrCodeScanner,
+                            contentDescription = null,
+                            tint = CreateTextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = barcode.ifBlank { "Código en análisis" },
+                            color = CreateTextSecondary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.4.sp
+                        )
+                    }
+                }
+
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 5.dp).clip(RoundedCornerShape(999.dp)),
+                    color = CreateGreen,
+                    trackColor = CreateGreen.copy(alpha = 0.12f)
+                )
+            }
+        }
     }
 }
 
@@ -2605,6 +3759,7 @@ fun BarcodeValidationErrorCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BarcodeIdentifiedCard(
     result: com.app.administradorfarmadon.ActivityInventario.reference.BarcodeAiResult,
@@ -2612,138 +3767,339 @@ fun BarcodeIdentifiedCard(
     onScanOther: () -> Unit,
     onEditManual: () -> Unit
 ) {
+    val productName = result.nombre.orEmpty().ifBlank { "Producto detectado" }
+    val barcode = result.codigo.ifBlank { "Código no disponible" }
+    val category = result.categoria.orEmpty().ifBlank { "Sin categoría" }
+    val control = result.tipoControl.orEmpty().ifBlank { "Pendiente" }
+    val prescriptionText = if (result.requiereReceta) "Requiere" else "No requiere"
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(30.dp),
-        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.18f))
+        shape = RoundedCornerShape(34.dp),
+        shadowElevation = 18.dp,
+        tonalElevation = 6.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = CreateGreen.copy(alpha = 0.16f)
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color.White,
+                            CreateGreenUltraSoft,
+                            CreateBlueSoft.copy(alpha = 0.35f)
+                        )
+                    )
+                )
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                Surface(
-                    color = CreateGreenSoft,
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.12f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                        tint = CreateGreen,
-                        modifier = Modifier.padding(10.dp).size(26.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Producto identificado",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = CreateGreen
-                    )
-                    Text(
-                        text = "Revisa y aplica los datos sugeridos",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = CreateTextSecondary
-                    )
-                }
-                Surface(
-                    color = CreateGreen.copy(alpha = 0.09f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text(
-                        text = "IA",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = CreateGreen
-                    )
-                }
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = CreateGreenSoft.copy(alpha = 0.46f),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.12f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text(
-                        text = result.nombre.orEmpty().ifBlank { "Producto sin nombre confirmado" },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = CreateTextPrimary,
-                        lineHeight = 28.sp
-                    )
-
-                    Text(
-                        text = "Codigo ${result.codigo}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = CreateTextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        modifier = Modifier.size(62.dp),
+                        color = CreateGreenSoft,
+                        shape = CircleShape,
+                        border = BorderStroke(
+                            1.dp,
+                            CreateGreen.copy(alpha = 0.20f)
+                        ),
+                        shadowElevation = 6.dp
                     ) {
-                        BarcodeInfoPill("Categoria", result.categoria.orEmpty(), CreateGreen, CreateGreenSoft)
-                        BarcodeInfoPill("Control", result.tipoControl.orEmpty(), CreateGreen, CreateGreenSoft)
-                        BarcodeInfoPill(
-                            "Receta",
-                            if (result.requiereReceta) "Requiere" else "No requiere",
-                            CreateTextPrimary,
-                            CreateBackground
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = CreateGreen,
+                                modifier = Modifier.size(34.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = "Producto reconocido",
+                            color = CreateTextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.3).sp
+                        )
+
+                        Text(
+                            text = "Información detectada por IA",
+                            color = CreateTextSecondary,
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
+
+                    Surface(
+                        color = CreateAiFocusSoft,
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            CreateAiFocus.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Text(
+                            text = "IA",
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 6.dp
+                            ),
+                            color = CreateTextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.White.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(28.dp),
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(
+                        1.dp,
+                        CreateBorder.copy(alpha = 0.72f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Surface(
+                                color = CreateGreenSoft,
+                                shape = RoundedCornerShape(999.dp)
+                            ) {
+                                Text(
+                                    text = "PRODUCTO DETECTADO",
+                                    modifier = Modifier.padding(
+                                        horizontal = 10.dp,
+                                        vertical = 4.dp
+                                    ),
+                                    color = CreateGreenDark,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+
+                            Text(
+                                text = productName,
+                                color = CreateTextPrimary,
+                                fontSize = 25.sp,
+                                lineHeight = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.6).sp
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = CreateTextMuted,
+                                    modifier = Modifier.size(17.dp)
+                                )
+
+                                Text(
+                                    text = barcode,
+                                    color = CreateTextSecondary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.4.sp
+                                )
+                            }
+                        }
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            PremiumAiResultChip(
+                                label = "Categoría",
+                                value = category,
+                                surfaceColor = CreateGreenSoft,
+                                accentColor = CreateGreen
+                            )
+
+                            PremiumAiResultChip(
+                                label = "Control",
+                                value = control,
+                                surfaceColor = CreateBlueSoft,
+                                accentColor = CreateBlue
+                            )
+
+                            PremiumAiResultChip(
+                                label = "Receta",
+                                value = prescriptionText,
+                                surfaceColor = if (result.requiereReceta) {
+                                    CreateOrangeSoft
+                                } else {
+                                    CreateSurfaceSoft
+                                },
+                                accentColor = if (result.requiereReceta) {
+                                    CreateOrange
+                                } else {
+                                    CreateTextSecondary
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onApply,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 62.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CreateGreenDark,
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 8.dp,
+                        pressedElevation = 2.dp
+                    )
+                ) {
+                    Text(
+                        text = "Aplicar y continuar",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onScanOther,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 54.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            CreateBorderStrong.copy(alpha = 0.75f)
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.72f),
+                            contentColor = CreateTextSecondary
+                        )
+                    ) {
+                        Text(
+                            text = "Escanear otro",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onEditManual,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 54.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            CreateGreen.copy(alpha = 0.32f)
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = CreateGreenUltraSoft,
+                            contentColor = CreateGreenDark
+                        )
+                    ) {
+                        Text(
+                            text = "Editar datos",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             }
+        }
+    }
+}
 
-            val isTypeUnknown = result.tipoControl !in listOf("UNIDAD", "PESO", "LIQUIDO")
 
-            Button(
-                onClick = onApply,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
-            ) {
-                Text(
-                    text = if (isTypeUnknown) "Completar tipo de control" else "Aplicar datos",
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    fontWeight = FontWeight.Bold
-                )
-            }
+@Composable
+private fun PremiumAiResultChip(
+    label: String,
+    value: String,
+    surfaceColor: Color,
+    accentColor: Color
+) {
+    Surface(
+        modifier = Modifier
+            .widthIn(min = 128.dp)
+            .heightIn(min = 70.dp),
+        color = surfaceColor.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = accentColor.copy(alpha = 0.18f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 12.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(
+                text = label.uppercase(),
+                color = accentColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.8.sp,
+                maxLines = 1
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onScanOther,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, CreateBorder)
-                ) {
-                    Text("Otro", color = CreateTextSecondary)
-                }
-                OutlinedButton(
-                    onClick = onEditManual,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, CreateBorder)
-                ) {
-                    Text("Ajustar", color = CreateTextSecondary)
-                }
-            }
+            Text(
+                text = value,
+                color = CreateTextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -2784,69 +4140,175 @@ private fun BarcodeInfoPill(
     }
 }
 @Composable
-fun BarcodeNotIdentifiedCard(
+private fun BarcodeNotIdentifiedCard(
     barcode: String,
     onScanOther: () -> Unit,
-    onEditManual: () -> Unit,
-    onRequestLabelScan: () -> Unit
+    onEditManual: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFFEF2F2),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, Color(0xFFFEE2E2))
+        color = Color.White,
+        shape = RoundedCornerShape(34.dp),
+        shadowElevation = 16.dp,
+        tonalElevation = 6.dp,
+        border = BorderStroke(1.dp, CreateOrange.copy(alpha = 0.20f))
     ) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.AutoMirrored.Outlined.Label,
-                contentDescription = null,
-                tint = CreateRed,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "No pude identificarlo por codigo",
-                fontWeight = FontWeight.Bold,
-                color = CreateRed,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                "El codigo $barcode no arroja resultados claros.",
-                style = MaterialTheme.typography.bodySmall,
-                color = CreateTextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = onEditManual,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = CreateRed),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Crear con ayuda")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = onRequestLabelScan,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.5f))
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.Label,
-                    contentDescription = null,
-                    tint = CreateRed,
-                    modifier = Modifier.size(18.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color.White,
+                            CreateOrangeSoft.copy(alpha = 0.62f),
+                            CreateSurfaceSoft
+                        )
+                    )
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Escanear etiqueta o foto", color = CreateRed)
-            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(64.dp),
+                        color = CreateOrangeSoft,
+                        shape = CircleShape,
+                        border = BorderStroke(
+                            1.dp,
+                            CreateOrange.copy(alpha = 0.22f)
+                        ),
+                        shadowElevation = 6.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = CreateOrange,
+                                modifier = Modifier.size(34.dp)
+                            )
+                        }
+                    }
 
-            TextButton(onClick = onScanOther) {
-                Text("Escanear otro codigo", color = CreateTextSecondary)
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "No pudimos identificarlo",
+                            color = CreateTextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black
+                        )
+
+                        Text(
+                            text = "Puedes escanear el código otra vez o ingresar los datos manualmente.",
+                            color = CreateTextSecondary,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.White.copy(alpha = 0.82f),
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        CreateBorder.copy(alpha = 0.72f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "CÓDIGO ESCANEADO",
+                            color = CreateTextMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.QrCodeScanner,
+                                contentDescription = null,
+                                tint = CreateTextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Text(
+                                text = barcode.ifBlank { "Sin código" },
+                                color = CreateTextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.4.sp
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onScanOther,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 60.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CreateGreenDark,
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 8.dp,
+                        pressedElevation = 2.dp
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.QrCodeScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "Escanear código otra vez",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onEditManual,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, CreateBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.78f),
+                        contentColor = CreateTextSecondary
+                    )
+                ) {
+                    Text(
+                        text = "Ingresar datos manualmente",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp
+                    )
+                }
             }
         }
     }
@@ -2923,22 +4385,42 @@ fun ProductBasicStep(
     val nameRequester = remember { BringIntoViewRequester() }
     val categoryRequester = remember { BringIntoViewRequester() }
     val requirementsRequester = remember { BringIntoViewRequester() }
+    val locationRequester = remember { BringIntoViewRequester() }
 
     var isMagicScrolling by remember { mutableStateOf(false) }
-    var previouslyMagicTriggered by remember { 
-        mutableStateOf(state.categorySelectedFromAi && state.controlType != null) 
+    var previouslyMagicTriggered by remember {
+        mutableStateOf(state.categorySelectedFromAi && state.controlType != null)
     }
 
     LaunchedEffect(state.categorySelectedFromAi, state.controlType) {
         val currentTrigger = state.categorySelectedFromAi && state.controlType != null
-        if (currentTrigger && !previouslyMagicTriggered) {
-            isMagicScrolling = true
-            delay(150)
-            requirementsRequester.bringIntoView()
-            delay(800) // Un poco más de tiempo para que se vea suave
+
+        if (!currentTrigger) {
+            previouslyMagicTriggered = false
             isMagicScrolling = false
+            return@LaunchedEffect
         }
-        previouslyMagicTriggered = currentTrigger
+
+        if (!previouslyMagicTriggered) {
+            previouslyMagicTriggered = true
+
+            try {
+                // 1. Encendemos loading antes de mover la pantalla
+                isMagicScrolling = true
+
+                // 2. Esperamos que Compose pinte el tipo seleccionado y la sección ubicación
+                delay(250)
+
+                // 3. Bajamos hasta ubicación física
+                locationRequester.bringIntoView()
+
+                // 4. Mantenemos loading para evitar parpadeo visual
+                delay(1200)
+
+            } finally {
+                isMagicScrolling = false
+            }
+        }
     }
 
     val focusManager = LocalFocusManager.current
@@ -2961,16 +4443,39 @@ fun ProductBasicStep(
     }
 
     // IA silenciosa: un solo debounce (300 ms en el ViewModel), sin espera extra en UI.
-    LaunchedEffect(state.name, state.category, state.categorySelectedFromAi, state.duplicateProductFound) {
-        if (
-            state.name.length >= 5 && // V28.3: Subimos a 5 letras para evitar lag en tipeo corto
-            state.category.isBlank() &&
-            !state.categorySelectedFromAi &&
-            state.duplicateProductFound == null
-        ) {
-            delay(400) // V28.3: Respiro extra antes de activar IA
-            onSearchIA(false)
+    LaunchedEffect(
+        state.name,
+        state.category,
+        state.categorySelectedFromAi,
+        state.duplicateProductFound,
+        state.errors["name"]
+    ) {
+        val cleanName = state.name.trim()
+
+        val canSearch =
+            cleanName.length >= 5 &&
+                    state.category.isBlank() &&
+                    !state.categorySelectedFromAi &&
+                    state.duplicateProductFound == null &&
+                    state.errors["name"].isNullOrBlank()
+
+        if (canSearch) {
+            // Esperamos a que el usuario deje de escribir.
+            // Así no animamos ni movemos layout por cada letra.
+            delay(650)
+
+            val stillValid =
+                state.name.trim() == cleanName &&
+                        state.category.isBlank() &&
+                        !state.categorySelectedFromAi &&
+                        state.duplicateProductFound == null &&
+                        state.errors["name"].isNullOrBlank()
+
+            if (stillValid) {
+                onSearchIA(false)
+            }
         }
+
     }
 
     // V18.8: Validación de Integridad (Nombre vs Código) con Debounce
@@ -3013,7 +4518,8 @@ fun ProductBasicStep(
             onIdentificarBarcode = onIdentificarBarcode,
             isCheckingBarcodeRemote = isCheckingBarcodeRemote,
             onNext = onNext,
-            onRequestLabelScan = onRequestLabelScan
+            onRequestLabelScan = onRequestLabelScan,
+            onClearBarcodeIntegrityConflict = onClearBarcodeIntegrityConflict
         )
         return
     }
@@ -3037,7 +4543,7 @@ fun ProductBasicStep(
 
         // --- SECCIÓN: IDENTIDAD (BLOQUE UNIFICADO) ---
         val isIdentityValid = state.name.isNotBlank() && state.category.isNotBlank() && state.controlType != null
-        
+
         CreateSectionCard(
             title = "IDENTIDAD DEL PRODUCTO",
             subtitle = "Define el nombre, su clasificación y control",
@@ -3101,38 +4607,167 @@ fun ProductBasicStep(
         // --- SECCIÓN: UBICACIÓN FÍSICA ---
         ProductLocationSection(
             state = state,
+            locationRequester = locationRequester,
             onStateChange = onStateChange
         )
     }
 
     if (state.showAddSupplierDialog) {
+        // Cambia la llamada en ambos lugares a:
         AddSupplierDialog(
+            isSaving = state.isSavingSupplier,
+            isSuccess = state.supplierSaveSuccess,
+            suppliers = state.suppliers, // <-- Pasar la lista aquí
             onDismiss = { onStateChange(state.copy(showAddSupplierDialog = false)) },
             onSave = onSaveSupplier
         )
     }
 
     if (isMagicScrolling) {
+        val infiniteTransition = rememberInfiniteTransition(label = "magic_scroll_loading")
+
+        val pulseScale by infiniteTransition.animateFloat(
+            initialValue = 0.94f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = 900,
+                    easing = FastOutSlowInEasing
+                ),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulse_scale"
+        )
+
         Dialog(
             onDismissRequest = {},
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.White.copy(alpha = 0.96f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.68f))
+                    .padding(horizontal = 28.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 420.dp)
+                        .wrapContentHeight(),
+                    color = Color.White,
+                    shape = RoundedCornerShape(32.dp),
+                    shadowElevation = 26.dp,
+                    tonalElevation = 10.dp
                 ) {
-                    CircularProgressIndicator(color = CreateGreen)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Analizando producto...",
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White,
+                                        CreateGreenUltraSoft,
+                                        CreateBlueSoft.copy(alpha = 0.55f)
+                                    )
+                                )
+                            )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 28.dp, vertical = 30.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(74.dp)
+                                    .graphicsLayer {
+                                        scaleX = pulseScale
+                                        scaleY = pulseScale
+                                    },
+                                color = CreateGreenSoft,
+                                shape = CircleShape,
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = CreateGreen.copy(alpha = 0.22f)
+                                )
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Lightbulb,
+                                        contentDescription = null,
+                                        tint = CreateGreen,
+                                        modifier = Modifier.size(34.dp)
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                color = CreateAiFocusSoft,
+                                shape = RoundedCornerShape(999.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    CreateAiFocus.copy(alpha = 0.35f)
+                                )
+                            ) {
+                                Text(
+                                    text = "IA FARMADON",
+                                    modifier = Modifier.padding(
+                                        horizontal = 12.dp,
+                                        vertical = 5.dp
+                                    ),
+                                    color = CreateTextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Configurando producto",
+                                    color = CreateTextPrimary,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 19.sp,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Text(
+                                    text = "Validando receta, tipo de control y ubicación física",
+                                    color = CreateTextSecondary,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 5.dp)
+                                    .clip(RoundedCornerShape(999.dp)),
+                                color = CreateGreen,
+                                trackColor = CreateGreen.copy(alpha = 0.12f)
+                            )
+
+                            Text(
+                                text = "Preparando la pantalla...",
+                                color = CreateTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -3174,6 +4809,11 @@ private fun BarcodeManagementSection(
                     barcodeAiResult = null,
                     barcodeAiError = null,
                     barcodeAiApplied = false,
+                    defaultSalePresentationName = "",
+                    defaultSalePresentationFromAi = false,
+                    saleByFractionSuggested = null,
+                    defaultSalePresentationConfidence = 0,
+                    defaultSalePresentationReason = "",
                     forceManualProductEntry = if (resetIdentityForAi) false else true,
                     isBarcodeManualMode = false,
                     duplicateProductFound = null,
@@ -3196,6 +4836,11 @@ private fun BarcodeManagementSection(
                     barcode = "",
                     barcodeAiResult = null,
                     barcodeAiApplied = false,
+                    defaultSalePresentationName = "",
+                    defaultSalePresentationFromAi = false,
+                    saleByFractionSuggested = null,
+                    defaultSalePresentationConfidence = 0,
+                    defaultSalePresentationReason = "",
                     forceManualProductEntry = true,
                     isBarcodeManualMode = false,
                     duplicateProductFound = null,
@@ -3227,40 +4872,71 @@ private fun ProductNameSection(
     onStateChange: (CreateProductState) -> Unit,
     onClearAsistManual: () -> Unit
 ) {
+    // Definimos si el nombre es válido para mostrar el check de éxito
     val isNameValid = state.name.isNotBlank() && state.errors["name"] == null && !state.isValidatingNameRemote
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AppTextField(
             modifier = Modifier.bringIntoViewRequester(nameRequester),
-            label = "NOMBRE DEL PRODUCTO",
+            label = "",
             value = state.name,
             error = state.errors["name"],
             isSuccess = isNameValid,
             placeholder = "Escribe el nombre o marca...",
-            leadingIcon = Icons.AutoMirrored.Outlined.Label,
-            trailingIcon = if (state.isValidatingNameRemote) {
-                { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.5.dp, color = CreateGreen) }
-            } else if (state.name.length >= 3 && state.errors["name"].isNullOrBlank()) {
+            // CAMBIO: El icono de la izquierda solo aparece si el texto está vacío
+            leadingIcon = if (state.name.isEmpty()) Icons.AutoMirrored.Outlined.Label else null,
+            trailingIcon = if (state.name.length >= 3 && state.errors["name"].isNullOrBlank() && !state.isValidatingNameRemote) {
                 { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
             } else null,
             onValueChange = { input ->
                 if (input.isBlank()) {
-                    onStateChange(state.copy(
-                        name = "",
-                        category = "",
-                        controlType = null,
-                        requiresPrescription = false,
-                        categorySelectedFromAi = false,
-                        duplicateProductFound = null,
-                        errors = state.errors - setOf("name", "category", "controlType")
-                    ))
+                    onStateChange(
+                        state.copy(
+                            name = "",
+                            category = "",
+                            controlType = null,
+                            requiresPrescription = false,
+                            categorySelectedFromAi = false,
+                            typeSelectedManually = false,
+                            duplicateProductFound = null,
+                            isAnalyzingKeywords = false,
+
+                            // IMPORTANTE:
+                            // Si el usuario ya está escribiendo manualmente,
+                            // no lo regresamos a la pantalla inicial de IA.
+                            forceManualProductEntry = true,
+                            barcodeAiApplied = false,
+                            defaultSalePresentationName = "",
+                            defaultSalePresentationFromAi = false,
+                            saleByFractionSuggested = null,
+                            defaultSalePresentationConfidence = 0,
+                            defaultSalePresentationReason = "",
+
+                            errors = state.errors - setOf(
+                                "name",
+                                "category",
+                                "controlType"
+                            )
+                        )
+                    )
+
                     onClearAsistManual()
-                } else {
-                    onStateChange(state.copy(
-                        name = input,
-                        duplicateProductFound = null,
-                        errors = state.errors - "name"
-                    ))
+                }
+                else {
+                    onStateChange(
+                        state.copy(
+                            name = input,
+                            forceManualProductEntry = true,
+                            barcodeAiApplied = false,
+                            defaultSalePresentationName = "",
+                            defaultSalePresentationFromAi = false,
+                            saleByFractionSuggested = null,
+                            defaultSalePresentationConfidence = 0,
+                            defaultSalePresentationReason = "",
+                            isAnalyzingKeywords = false,
+                            errors = state.errors - "name"
+                        )
+                    )
                 }
             }
         )
@@ -3270,46 +4946,76 @@ private fun ProductNameSection(
 @Composable
 private fun ProductLocationSection(
     state: CreateProductState,
+    locationRequester: BringIntoViewRequester,
     onStateChange: (CreateProductState) -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+
+    val scrollComfortSpace = remember(
+        configuration.screenHeightDp,
+        configuration.smallestScreenWidthDp
+    ) {
+        val percent = if (isTablet) 0.20f else 0.14f
+        val calculated = (configuration.screenHeightDp * percent).dp
+
+        calculated.coerceIn(
+            minimumValue = if (isTablet) 140.dp else 90.dp,
+            maximumValue = if (isTablet) 260.dp else 170.dp
+        )
+    }
+
     val hasDuplicateProduct = state.duplicateProductFound != null
-    val mostrarUbicacion = !hasDuplicateProduct && 
-                          state.name.isNotBlank() && 
-                          state.category.isNotBlank() && 
-                          state.controlType != null
+    val mostrarUbicacion = !hasDuplicateProduct &&
+            state.name.isNotBlank() &&
+            state.category.isNotBlank() &&
+            state.controlType != null
 
     AnimatedVisibility(
         visible = mostrarUbicacion,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        CreateSectionCard(
-            title = "UBICACIÓN FÍSICA",
-            subtitle = "Indica dónde se guarda el producto",
-            icon = Icons.Default.Place,
-            isSuccess = state.location.isNotBlank()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppTextField(
-                    label = "",
-                    value = state.location,
-                    error = state.errors["location"],
-                    isSuccess = state.location.isNotBlank(),
-                    placeholder = "Ej: Estante B-3, Vitrina 1...",
-                    onValueChange = { 
-                        onStateChange(state.copy(
-                            location = it,
-                            errors = state.errors - "location"
-                        )) 
-                    }
-                )
-                Text(
-                    text = "Es obligatorio indicar la ubicación para continuar.",
-                    fontSize = 11.sp,
-                    color = CreateTextSecondary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+        Column {
+            CreateSectionCard(
+                title = "UBICACIÓN FÍSICA",
+                subtitle = "Indica dónde se guarda el producto",
+                icon = Icons.Default.Place,
+                isSuccess = state.location.isNotBlank()
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppTextField(
+                        label = "",
+                        value = state.location,
+                        error = state.errors["location"],
+                        isSuccess = state.location.isNotBlank(),
+                        placeholder = "Ej: Estante B-3, Vitrina 1...",
+                        onValueChange = {
+                            onStateChange(
+                                state.copy(
+                                    location = it,
+                                    errors = state.errors - "location"
+                                )
+                            )
+                        }
+                    )
+
+                    Text(
+                        text = "Es obligatorio indicar la ubicación para continuar.",
+                        fontSize = 11.sp,
+                        color = CreateTextSecondary,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
             }
+
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(scrollComfortSpace)
+                    .bringIntoViewRequester(locationRequester)
+            )
         }
     }
 }
@@ -3320,38 +5026,59 @@ private fun SupplierSelectionSection(
     onStateChange: (CreateProductState) -> Unit
 ) {
     val hasDuplicateProduct = state.duplicateProductFound != null
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
+    // --- ANIMACIÓN DE DESTELLO (SHIMMER DE SELECCIÓN) ---
+    val highlightColor by animateColorAsState(
+        targetValue = if (state.isSupplierHighlighting) CreateGreen.copy(alpha = 0.15f) else CreateSurfaceSoft,
+        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
+        label = "highlight"
+    )
 
     if (!hasDuplicateProduct && state.name.isNotBlank()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = "PROVEEDOR",
-                fontSize = 11.sp,
+                fontSize = if (isTablet) 13.sp else 11.sp,
                 fontWeight = FontWeight.Black,
                 color = CreateTextSecondary,
                 letterSpacing = 1.2.sp
             )
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Dropdown sutil
                 var expanded by remember { mutableStateOf(false) }
-                
+
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    color = CreateSurfaceSoft,
-                    border = BorderStroke(1.dp, CreateBorder)
+                    color = highlightColor, // APLICAMOS EL COLOR ANIMADO AQUÍ
+                    border = BorderStroke(
+                        width = if (state.isSupplierHighlighting) 2.dp else 1.dp,
+                        color = if (state.isSupplierHighlighting) CreateGreen else CreateBorder
+                    )
                 ) {
-                    Box(modifier = Modifier.clickable { expanded = true }.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Box(modifier = Modifier
+                        .clickable { expanded = true }
+                        .padding(horizontal = 16.dp, vertical = if (isTablet) 18.dp else 14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Business, null, tint = CreateTextSecondary, modifier = Modifier.size(20.dp))
+                            Icon(
+                                imageVector = if (state.isSupplierHighlighting) Icons.Outlined.CheckCircle else Icons.Default.Business,
+                                contentDescription = null,
+                                tint = if (state.isSupplierHighlighting) CreateGreen else CreateTextSecondary,
+                                modifier = Modifier.size(if (isTablet) 24.dp else 20.dp)
+                            )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = state.supplierName.ifBlank { "Seleccionar proveedor..." },
+                                text = state.supplierName.ifBlank { "Seleccionar origen del lote" },
                                 color = if (state.supplierName.isBlank()) CreateTextSecondary else CreateTextPrimary,
-                                fontSize = 14.sp
+                                fontSize = if (isTablet) 16.sp else 14.sp,
+                                fontWeight = if (state.supplierName.isBlank()) FontWeight.Normal else FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             Icon(Icons.Default.ArrowDropDown, null, tint = CreateTextSecondary)
@@ -3360,48 +5087,125 @@ private fun SupplierSelectionSection(
                         DropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
-                            modifier = Modifier.fillMaxWidth(0.7f).background(Color.White)
+                            modifier = Modifier
+                                .then(
+                                    if (isTablet) Modifier.width(400.dp) else Modifier.fillMaxWidth(
+                                        0.85f
+                                    )
+                                )
+                                .background(Color.White)
                         ) {
+                            // Opción "Ninguno"
                             DropdownMenuItem(
-                                text = { Text("Ninguno", fontSize = 14.sp) },
-                                onClick = { 
-                                    onStateChange(state.copy(supplierId = "", supplierName = ""))
-                                    expanded = false 
+                                text = {
+                                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                                        Text(
+                                            text = "Inventario inicial / Sin proveedor",
+                                            fontSize = if (isTablet) 16.sp else 14.sp,
+                                            color = CreateTextPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        Text(
+                                            text = "Usar cuando estás cargando stock existente sin factura.",
+                                            fontSize = if (isTablet) 13.sp else 12.sp,
+                                            color = CreateTextSecondary
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onStateChange(
+                                        state.copy(
+                                            supplierId = "",
+                                            supplierName = INITIAL_INVENTORY_SOURCE_NAME,
+                                            invoiceNumber = "",
+                                            invoiceImageBase64 = null,
+                                            paymentCondition = "CONTADO",
+                                            paymentDueDate = "",
+                                            isSupplierHighlighting = true,
+                                            isInvoiceHighlighting = false,
+                                            errors = state.errors - setOf(
+                                                "supplier",
+                                                "invoiceNumber",
+                                                "paymentDueDate"
+                                            )
+                                        )
+                                    )
+                                    expanded = false
                                 }
                             )
-                            state.suppliers.forEach { proveedor ->
+
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+
+                            state.suppliers.forEachIndexed { index, proveedor ->
                                 DropdownMenuItem(
-                                    text = { Text(proveedor.nombre, fontSize = 14.sp) },
-                                    onClick = { 
-                                        onStateChange(state.copy(supplierId = proveedor.id, supplierName = proveedor.nombre))
-                                        expanded = false 
+                                    text = {
+                                        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                                            Text(proveedor.nombre, fontSize = if (isTablet) 17.sp else 15.sp, fontWeight = FontWeight.Bold)
+                                            if (proveedor.idFiscal.isNotBlank()) Text(proveedor.idFiscal, fontSize = if (isTablet) 14.sp else 12.sp, color = CreateTextSecondary)
+                                        }
+                                    },
+                                    onClick = {
+                                        // DISPARAMOS EL RESALTADO MANUAL
+                                        onStateChange(state.copy(
+                                            supplierId = proveedor.id,
+                                            supplierName = proveedor.nombre,
+                                            isSupplierHighlighting = true // ACTIVAR FLASH
+                                        ))
+                                        expanded = false
                                     }
                                 )
+                                if (index < state.suppliers.size - 1) Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(CreateBorder.copy(alpha = 0.5f)))
                             }
                         }
                     }
                 }
 
-                // Botón Añadir
+                // --- BOTÓN AÑADIR PROVEEDOR ---
                 IconButton(
                     onClick = { onStateChange(state.copy(showAddSupplierDialog = true)) },
-                    modifier = Modifier.size(48.dp).background(CreateGreen.copy(alpha = 0.1f), CircleShape)
+                    modifier = Modifier
+                        .size(if (isTablet) 56.dp else 48.dp)
+                        .background(CreateGreen.copy(alpha = 0.1f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, null, tint = CreateGreen)
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Añadir",
+                        tint = CreateGreen,
+                        modifier = Modifier.size(if (isTablet) 28.dp else 24.dp)
+                    )
                 }
             }
         }
     }
 }
 
+
 @Composable
 private fun AddSupplierDialog(
+    isSaving: Boolean,
+    isSuccess: Boolean,
+    suppliers: List<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Proveedor>,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit
 ) {
     var nombre by remember { mutableStateOf("") }
     var idFiscal by remember { mutableStateOf("") }
-    
+
+    // --- VALIDACIÓN EN TIEMPO REAL ---
+    val nombreExiste = remember(nombre, suppliers) {
+        nombre.trim().isNotBlank() && suppliers.any { it.nombre.equals(nombre.trim(), ignoreCase = true) }
+    }
+    val idExiste = remember(idFiscal, suppliers) {
+        idFiscal.trim().isNotBlank() && suppliers.any { it.idFiscal.equals(idFiscal.trim(), ignoreCase = true) }
+    }
+
+    // El botón solo se activa si hay nombre y no hay errores de duplicado
+    val canSave = nombre.isNotBlank() && !nombreExiste && !idExiste
+
     val pais = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion.lowercase()
     val labelId = when {
         pais.contains("venezuela") -> "RIF"
@@ -3412,46 +5216,133 @@ private fun AddSupplierDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nuevo Proveedor", fontWeight = FontWeight.Black) },
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = {
+            Text(
+                text = if (isSuccess) "¡Excelente!" else "Nuevo Proveedor",
+                fontWeight = FontWeight.Black,
+                color = if (isSuccess) CreateGreen else CreateTextPrimary
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = nombre,
-                    onValueChange = { nombre = it },
-                    label = { Text("Nombre / Razón Social") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                OutlinedTextField(
-                    value = idFiscal,
-                    onValueChange = { idFiscal = it },
-                    label = { Text(labelId) },
-                    placeholder = { Text("Nro de identificación...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                if (isSaving || isSuccess) {
+                    // --- VISTA DE CARGA / ÉXITO (SKELETON) ---
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SupplierPlaceholderItem(widthFraction = 1f)
+                        SupplierPlaceholderItem(widthFraction = 0.6f)
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isSuccess) "Registrado con éxito..." else "Sincronizando con el servidor...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CreateTextSecondary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    // --- VISTA DE FORMULARIO CON ERRORES ---
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = nombre,
+                            onValueChange = { nombre = it },
+                            label = { Text("Nombre / Razón Social") },
+                            placeholder = { Text("Ej. Droguería Central") },
+                            isError = nombreExiste,
+                            supportingText = if (nombreExiste) {
+                                { Text("Este nombre ya existe en tu lista", color = CreateRed) }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            enabled = !isSaving
+                        )
+
+                        OutlinedTextField(
+                            value = idFiscal,
+                            onValueChange = { idFiscal = it },
+                            label = { Text(labelId) },
+                            placeholder = { Text("Nro de identificación...") },
+                            isError = idExiste,
+                            supportingText = if (idExiste) {
+                                { Text("Esta identificación ya está registrada", color = CreateRed) }
+                            } else null,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            enabled = !isSaving
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(
-                onClick = { if (nombre.isNotBlank()) onSave(nombre, idFiscal) },
-                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen),
-                enabled = nombre.isNotBlank(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Guardar Proveedor", fontWeight = FontWeight.Bold)
+            if (!isSaving && !isSuccess) {
+                Button(
+                    onClick = { onSave(nombre, idFiscal) },
+                    colors = ButtonDefaults.buttonColors(containerColor = CreateGreen),
+                    enabled = canSave,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Guardar Proveedor", fontWeight = FontWeight.Bold)
+                }
+            } else if (isSuccess) {
+                // Check de éxito final
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = CreateGreen,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .padding(end = 16.dp)
+                )
+            } else {
+                // Indicador de guardado progresivo
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(end = 16.dp),
+                    color = CreateGreen,
+                    strokeWidth = 3.dp
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = CreateTextSecondary)
+            if (!isSaving && !isSuccess) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancelar", color = CreateTextSecondary)
+                }
             }
         },
         containerColor = Color.White,
         shape = RoundedCornerShape(24.dp)
     )
 }
+
+// COMPONENTE AUXILIAR PARA LA ANIMACIÓN DE CARGA (SHIMMER)
+@Composable
+private fun SupplierPlaceholderItem(widthFraction: Float) {
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer_supplier")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .height(52.dp)
+            .background(Color(0xFFF3F4F6).copy(alpha = alpha), RoundedCornerShape(12.dp))
+    )
+}
+
+
 
 /**
  * Gestiona el campo de categoria, el asistente de Gemini y el selector de tipo.
@@ -3475,12 +5366,14 @@ private fun CategorySelectionSection(
     // V28.7: Comportamiento Premium - Ocultar teclado cuando el usuario espera la sugerencia
     LaunchedEffect(categorySuggestionState.status) {
         val currentStatus = categorySuggestionState.status
-        val isWaiting = currentStatus == com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus.LOADING ||
-                       currentStatus == com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus.READY
-        
-        // Solo ocultamos si NO estamos en modo manual forzado por el usuario y el campo está vacío
-        if (isWaiting && state.category.isBlank()) {
-            delay(100)
+
+        val shouldHideKeyboard =
+            currentStatus == com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionStatus.READY &&
+                    state.categorySelectedFromAi &&
+                    state.category.isNotBlank()
+
+        if (shouldHideKeyboard) {
+            delay(120)
             focusManager.clearFocus(force = true)
             keyboardController?.hide()
         }
@@ -3500,22 +5393,72 @@ private fun CategorySelectionSection(
             onBackToAi = onBackToAiCategory,
             categorySelectedFromAi = state.categorySelectedFromAi,
             onValueChange = {
-                onStateChange(state.copy(
-                    category = it,
-                    errors = state.errors - "category",
-                    categorySelectedFromAi = false
-                ))
+                onStateChange(
+                    state.copy(
+                        category = it,
+                        isAnalyzingKeywords = false,
+                        errors = state.errors - "category",
+                        categorySelectedFromAi = false
+                    )
+                )
             },
             onCategorySelectedFromSuggestion = { selected ->
-                onStateChange(state.copy(
-                    category = selected,
-                    categorySelectedFromAi = true,
-                    typeSelectedManually = false,
-                    controlType = null,
-                    errors = state.errors - "category"
-                ))
+                val mappedTypeFromMainSuggestion =
+                    categorySuggestionState.suggestion
+                        ?.tipoControl
+                        ?.toCreateProductControlTypeOrNull()
+
+                val mappedTypeFromManualSuggestion =
+                    categorySuggestionState.sugerenciaTipoManual
+                        ?.takeIf { it.confianza == ConfianzaIA.ALTA }
+                        ?.tipo
+                        ?.toCreateProductControlTypeOrNull()
+
+                val fallbackType = when {
+                    state.name.contains("jarabe", ignoreCase = true) ||
+                            state.name.contains("solucion", ignoreCase = true) ||
+                            state.name.contains("solución", ignoreCase = true) ||
+                            state.name.contains("gotas", ignoreCase = true) ||
+                            state.name.contains("suspension", ignoreCase = true) ||
+                            state.name.contains("suspensión", ignoreCase = true) ||
+                            selected.contains("liquido", ignoreCase = true) ||
+                            selected.contains("líquido", ignoreCase = true) -> {
+                        CreateProductControlType.LIQUIDO
+                    }
+
+                    state.name.contains("crema", ignoreCase = true) ||
+                            state.name.contains("pomada", ignoreCase = true) ||
+                            state.name.contains("gel", ignoreCase = true) ||
+                            state.name.contains("polvo", ignoreCase = true) ||
+                            selected.contains("peso", ignoreCase = true) -> {
+                        CreateProductControlType.PESO
+                    }
+
+                    else -> {
+                        CreateProductControlType.UNIDAD
+                    }
+                }
+
+                val mappedType =
+                    mappedTypeFromMainSuggestion
+                        ?: mappedTypeFromManualSuggestion
+                        ?: fallbackType
+
+                onStateChange(
+                    state.copy(
+                        category = selected,
+                        categorySelectedFromAi = true,
+                        typeSelectedManually = false,
+                        controlType = mappedType,
+                        isAnalyzingKeywords = false,
+                        errors = state.errors - setOf(
+                            "category",
+                            "controlType"
+                        )
+                    )
+                )
+
                 onClearAsistManual()
-                // Toque Premium: Ocultar teclado suavemente
                 focusManager.clearFocus(force = true)
                 keyboardController?.hide()
             },
@@ -3536,12 +5479,15 @@ private fun ProductRequirementsSection(
     aiPrescriptionSuggestion: Boolean?,
     onStateChange: (CreateProductState) -> Unit
 ) {
+    // CORREGIDO: Se eliminó la marca de texto que causaba el error aquí
     val hasDuplicateProduct = state.duplicateProductFound != null
+
+    // CORREGIDO: Se eliminó la marca de texto al final de la validación del controlType
     val mostrarCamposSecundarios =
         !hasDuplicateProduct &&
-        state.name.isNotBlank() &&
-        state.category.isNotBlank() &&
-        state.controlType != null
+                state.name.isNotBlank() &&
+                state.category.isNotBlank() &&
+                state.controlType != null
 
     AnimatedVisibility(
         visible = mostrarCamposSecundarios,
@@ -3569,27 +5515,39 @@ private fun ProductRequirementsSection(
                 )
             ) {
                 Column {
+                    // Título dinámico que afirma el estado real del switch
+                    val dynamicTitle = if (state.requiresPrescription) {
+                        "Venta bajo receta médica"
+                    } else {
+                        "Venta libre (Sin receta)"
+                    }
+
                     CompactSwitchRow(
-                        title = "¿Requiere receta médica?",
-                        subtitle = "Actívalo si solicitas receta al vender",
+                        title = dynamicTitle,
                         checked = state.requiresPrescription,
-                        onCheckedChange = {
-                            onStateChange(state.copy(requiresPrescription = it))
+                        onCheckedChange = { nuevoEstado ->
+                            onStateChange(state.copy(requiresPrescription = nuevoEstado))
                         }
                     )
-                    
+
+                    // Bloque informativo de la IA
                     if (shouldShowAiPrescriptionInfo || aiPrescriptionSuggestion != null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(CreateBorder.copy(alpha = 0.55f))
-                        )
-                        val sourceRequires = if (shouldShowAiPrescriptionInfo) 
-                            state.barcodeAiResult?.requiereReceta == true 
-                        else aiPrescriptionSuggestion == true
-                        
-                        AiPrescriptionInfoRow(requiresPrescription = sourceRequires)
+                        val sourceRequires = if (shouldShowAiPrescriptionInfo) {
+                            state.barcodeAiResult?.requiereReceta == true
+                        } else {
+                            aiPrescriptionSuggestion == true
+                        }
+
+                        // Solo se muestra si coincide con la selección actual
+                        if (state.requiresPrescription == sourceRequires) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(CreateBorder.copy(alpha = 0.55f))
+                            )
+                            AiPrescriptionInfoRow(requiresPrescription = sourceRequires)
+                        }
                     }
                 }
             }
@@ -3602,46 +5560,64 @@ fun InitialLotStep(
     state: CreateProductState,
     existingLotNumbers: Set<String>,
     onStateChange: (CreateProductState) -> Unit,
-    // Estado y disparador del escaner OCR (camara + Gemini Vision).
     labelScannerState: com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState =
         com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.UiState(),
     onRequestLabelScan: () -> Unit = {},
     onConsumeLabelScan: () -> Unit = {},
     isCheckingLotRemote: Boolean = false,
     lotConflictInfo: String? = null,
-    lotConflictColor: Color = Color.Transparent,
+    lotConflictColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Transparent,
     lotConflictSeverity: Int = 0,
     onSaveSupplier: (String, String) -> Unit = { _, _ -> }
 ) {
-    val lotRequester = remember { BringIntoViewRequester() }
-    val expirationRequester = remember { BringIntoViewRequester() }
-    val entryModeRequester = remember { BringIntoViewRequester() }
-    val minimumStockRequester = remember { BringIntoViewRequester() }
-    val purchaseCostRequester = remember { BringIntoViewRequester() }
+    val initialInventorySourceName = "Inventario inicial / Sin proveedor"
 
-    var isMagicScrolling by remember { mutableStateOf(false) }
-    var previouslyConfigured by remember { mutableStateOf(state.stockEntryConfigured) }
+    val hasRealSupplier = state.supplierId.isNotBlank()
+    val isInitialInventorySource =
+        state.supplierId.isBlank() && state.supplierName == initialInventorySourceName
 
-    LaunchedEffect(state.stockEntryConfigured) {
-        if (state.stockEntryConfigured && !previouslyConfigured) {
-            isMagicScrolling = true
-            delay(150)
-            minimumStockRequester.bringIntoView()
-            delay(600)
-            isMagicScrolling = false
+    val hasStockOriginSelected = hasRealSupplier || isInitialInventorySource
+
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let { selectedUri ->
+            scope.launch {
+                try {
+                    val base64 = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(selectedUri)?.use { inputStream ->
+                            val bytes = inputStream.readBytes()
+                            android.util.Base64.encodeToString(
+                                bytes,
+                                android.util.Base64.NO_WRAP
+                            )
+                        }
+                    }
+
+                    if (!base64.isNullOrBlank()) {
+                        onStateChange(
+                            state.copy(
+                                invoiceImageBase64 = base64,
+                                isInvoiceHighlighting = true
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("FilePicker", "Error leyendo archivo", e)
+                }
+            }
         }
-        previouslyConfigured = state.stockEntryConfigured
     }
+
+    var showInvoicePreview by remember { mutableStateOf(false) }
 
     val expirationStatus = remember(state.expirationDate) {
         evaluateExpirationStatus(state.expirationDate)
     }
-
-    // Fix: se removieron un `when` y un `remember` cuyos valores no se asignaban
-    // ni se consuman. El resumen ya se calcula dentro de StockConfiguredCard y
-    // StockEntryDialog, y la etiqueta de unidad la usa cada subcomponente que
-    // la necesita. Aqui solo se manteniean como codigo muerto que disparaba
-    // recomposiciones innecesarias.
 
     val normalizedLot = remember(state.lotNumber) {
         state.lotNumber.trim().uppercase()
@@ -3651,201 +5627,240 @@ fun InitialLotStep(
         normalizedLot.isNotBlank() && existingLotNumbers.contains(normalizedLot)
     }
 
+    val isLotAvailableForExpiration = remember(
+        normalizedLot,
+        isCheckingLotRemote,
+        lotExists,
+        lotConflictSeverity,
+        lotConflictInfo,
+        state.errors
+    ) {
+        normalizedLot.isNotBlank() &&
+                !isCheckingLotRemote &&
+                !lotExists &&
+                lotConflictSeverity == 0 &&
+                state.errors["lotNumber"] == null &&
+                lotConflictInfo?.contains("disponible", ignoreCase = true) == true
+    }
+
     val isLotInfoReady = remember(
         state.lotNumber,
         state.expirationDate,
         state.errors,
+        lotConflictSeverity,
         expirationStatus,
-        lotExists,
-        lotConflictSeverity
+        lotExists
     ) {
         state.lotNumber.isNotBlank() &&
-            state.expirationDate.isNotBlank() &&
-            !lotExists &&
-            lotConflictSeverity == 0 &&
-            state.errors["lotNumber"].isNullOrBlank() &&
-            state.errors["expirationDate"].isNullOrBlank() &&
-            expirationStatus?.kind != ExpirationStatusKind.INVALIDO &&
-            expirationStatus?.kind != ExpirationStatusKind.VENCIDO
+                state.expirationDate.isNotBlank() &&
+                lotConflictSeverity == 0 &&
+                !lotExists &&
+                state.errors["lotNumber"] == null &&
+                expirationStatus?.kind != ExpirationStatusKind.VENCIDO &&
+                expirationStatus?.kind != ExpirationStatusKind.INVALIDO
     }
 
-    val suggestedLot = remember(state.name, normalizedLot, existingLotNumbers) {
-        suggestUniqueLotNumber(
-            productName = state.name,
-            currentLot = normalizedLot,
-            existingLots = existingLotNumbers
+    val purchaseCostValue = state.purchaseCost
+        .replace(
+            com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+            "",
+            ignoreCase = true
         )
-    }
+        .trim()
+        .replace(",", ".")
+        .toDoubleOrNull()
+        ?: 0.0
 
-    val firstErrorKey = remember(state.errors, expirationStatus, lotExists) {
-        when {
-            lotExists || !state.errors["lotNumber"].isNullOrBlank() -> "lotNumber"
-            expirationStatus?.kind == ExpirationStatusKind.VENCIDO ||
-                    expirationStatus?.kind == ExpirationStatusKind.INVALIDO ||
-                    !state.errors["expirationDate"].isNullOrBlank() -> "expirationDate"
-            !state.errors["stockEntryMode"].isNullOrBlank() -> "stockEntryMode"
-            !state.errors["minimumStock"].isNullOrBlank() -> "minimumStock"
-            !state.errors["purchaseCost"].isNullOrBlank() -> "purchaseCost"
-            else -> null
-        }
-    }
+    val hasPurchaseCost = purchaseCostValue > 0.0
 
-    LaunchedEffect(firstErrorKey) {
-        when (firstErrorKey) {
-            "lotNumber" -> lotRequester.bringIntoView()
-            "expirationDate" -> expirationRequester.bringIntoView()
-            "stockEntryMode" -> entryModeRequester.bringIntoView()
-            "minimumStock" -> minimumStockRequester.bringIntoView()
-            "purchaseCost" -> purchaseCostRequester.bringIntoView()
+    val hasInvoiceData = hasRealSupplier &&
+            state.invoiceNumber.isNotBlank() &&
+            hasPurchaseCost
+
+    val isPaymentDataValid = remember(
+        state.supplierId,
+        state.supplierName,
+        state.invoiceNumber,
+        state.purchaseCost,
+        state.paymentCondition,
+        state.paymentDueDate
+    ) {
+        val costOk = state.purchaseCost
+            .replace(
+                com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                "",
+                ignoreCase = true
+            )
+            .trim()
+            .replace(",", ".")
+            .toDoubleOrNull()
+            ?.let { it > 0.0 }
+            ?: false
+
+        val originOk =
+            state.supplierId.isNotBlank() ||
+                    (state.supplierId.isBlank() && state.supplierName == initialInventorySourceName)
+
+        val invoiceOk = if (state.supplierId.isNotBlank()) {
+            state.invoiceNumber.isNotBlank()
+        } else {
+            true
         }
+
+        val creditOk = if (state.paymentCondition == "CREDITO") {
+            val cleanedDate = state.paymentDueDate.trim()
+
+            val validCreditDate = try {
+                if (!cleanedDate.matches(Regex("\\d{2}/\\d{2}/\\d{4}"))) {
+                    false
+                } else {
+                    val parts = cleanedDate.split("/")
+                    val day = parts[0].toInt()
+                    val month = parts[1].toInt()
+                    val year = parts[2].toInt()
+
+                    val date = java.time.LocalDate.of(year, month, day)
+
+                    !date.isBefore(java.time.LocalDate.now())
+                }
+            } catch (e: Exception) {
+                false
+            }
+
+            state.supplierId.isNotBlank() && validCreditDate
+        } else {
+            true
+        }
+
+        originOk && costOk && invoiceOk && creditOk
     }
 
     var showManualLotEntry by remember {
-        mutableStateOf(state.lotNumber.isNotBlank() || state.expirationDate.isNotBlank())
+        mutableStateOf(
+            state.lotNumber.isNotBlank() || state.expirationDate.isNotBlank()
+        )
     }
+
     LaunchedEffect(state.lotNumber, state.expirationDate) {
         if (state.lotNumber.isNotBlank() || state.expirationDate.isNotBlank()) {
             showManualLotEntry = true
         }
     }
 
+
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
+    )
+    {
         CreateSectionCard(
             title = "Lote y vencimiento",
-            subtitle = "Escanea o completa manualmente.",
             icon = Icons.Outlined.Inventory2,
             isSuccess = isLotInfoReady,
             onClear = if (showManualLotEntry || state.lotScanned) {
                 {
                     showManualLotEntry = false
-                    onStateChange(state.copy(
-                        lotNumber = "",
-                        expirationDate = "",
-                        lotScanned = false,
-                        errors = state.errors - setOf("lotNumber", "expirationDate")
-                    ))
+                    onStateChange(
+                        state.copy(
+                            lotNumber = "",
+                            expirationDate = "",
+                            lotScanned = false
+                        )
+                    )
                 }
-            } else null
+            } else {
+                null
+            }
         ) {
-            val isScanning = labelScannerState.status == com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.LOADING ||
-                             labelScannerState.status == com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY
+            val isScanning = labelScannerState.status !=
+                    com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.IDLE
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // CASO 1: Ninguno seleccionado (Estado Inicial)
-                if (!showManualLotEntry && !isScanning) {
+            if (!showManualLotEntry && !isScanning) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Button(
                         onClick = onRequestLabelScan,
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CreateGreen
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Escanear", fontWeight = FontWeight.Bold)
+                        Icon(
+                            Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = "Escanear",
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     OutlinedButton(
                         onClick = { showManualLotEntry = true },
                         modifier = Modifier
                             .weight(1f)
-                            .height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, CreateBorder)
                     ) {
-                        Text("Ingresar manual", color = CreateTextPrimary, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Ingresar manual",
+                            color = CreateTextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-                // CASO 2: Modo Escanear Activo
-                else if (isScanning) {
-                    OutlinedButton(
-                        onClick = onConsumeLabelScan,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, CreateRed.copy(alpha = 0.5f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateRed)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Escanear", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-                // CASO 3: Modo Manual o Escaneado (Ahora se maneja con la 'X' en el header)
             }
 
-            // Boton para escanear la etiqueta con camara + Gemini Vision.
-            // Llena automÃ¡ticamente "Numero de lote" y "Vencimiento" si la
-            // foto los muestra legibles. El usuario siempre puede editar.
             LabelScannerRow(
                 state = labelScannerState,
                 onRequestScan = onRequestLabelScan,
                 onApplyResult = { etiqueta ->
-                    // Auto-aplicar resultados al formulario. NO reseteamos
-                    // el ViewModel despues: queremos que la tarjeta READY
-                    // se quede visible como confirmacion + opcion "Tomar
-                    // otra foto". El usuario podra¡ tomar otra foto sin
-                    // necesidad de pulsar "Aplicar" cada vez.
                     var nuevoEstado = state
-                    etiqueta.loteNumero?.let { lote ->
+
+                    etiqueta.loteNumero?.let { loteDetectado ->
                         nuevoEstado = nuevoEstado.copy(
-                            lotNumber = lote,
-                            errors = nuevoEstado.errors - "lotNumber",
-                            lotScanned = true
+                            lotNumber = loteDetectado,
+                            expirationDate = "",
+                            lotScanned = true,
+                            errors = nuevoEstado.errors - setOf(
+                                "lotNumber",
+                                "expirationDate"
+                            )
                         )
                     }
-                    // Solo aplicamos el vencimiento si está vigente. Vencidos
-                    // o inválidos se ignoran para no contaminar el formulario;
-                    // la tarjeta de escaneo ya advierte al usuario.
-                    etiqueta.vencimientoMmAa?.let { venc ->
-                        if (esVencimientoVigenteSimple(venc)) {
-                            nuevoEstado = nuevoEstado.copy(
-                                expirationDate = venc,
-                                errors = nuevoEstado.errors - "expirationDate",
-                                lotScanned = true
-                            )
-                        }
-                    }
+
+                    // No aplicamos vencimiento detectado aquí.
+                    // El vencimiento solo se habilita cuando Firebase confirme "Lote disponible".
+
                     onStateChange(nuevoEstado)
                 },
                 onDismiss = onConsumeLabelScan,
                 showScanButton = false
             )
 
-            // Solo ocultamos los inputs durante LOADING (procesamiento de la
-            // foto). En READY los datos ya se aplicaron automÃ¡ticamente y los
-            // inputs se muestran rellenados para que el usuario pueda
-            // ajustarlos si la IA detecta algo distinto a lo que ve.
-            val escaneoActivo = labelScannerState.status ==
-                com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.LOADING
-            val escaneoListo = labelScannerState.status ==
-                com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY
-
-            // V19.3: Si escaneó con éxito, mostramos un Card de Resumen en lugar de inputs.
-            AnimatedVisibility(
-                visible = escaneoListo,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
+            if (labelScannerState.status == com.app.administradorfarmadon.ActivityInventario.reference.LabelScannerViewModel.Status.READY) {
                 Surface(
                     color = CreateAiFocusSoft.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, CreateAiFocus.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -3855,526 +5870,752 @@ fun InitialLotStep(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Lightbulb,
+                                    Icons.Outlined.Lightbulb,
                                     contentDescription = null,
                                     tint = CreateAiFocus,
                                     modifier = Modifier.size(18.dp)
                                 )
+
                                 Spacer(modifier = Modifier.width(8.dp))
+
                                 Text(
                                     text = "LOTE DETECTADO POR IA",
                                     color = CreateAiFocus,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.sp
+                                    fontWeight = FontWeight.Black
                                 )
                             }
 
-                            // X para cancelar el resultado escaneado
                             IconButton(
                                 onClick = {
-                                    onConsumeLabelScan() // Cancela el estado del scanner
-                                    onStateChange(state.copy(
-                                        lotNumber = "",
-                                        expirationDate = "",
-                                        errors = state.errors - setOf("lotNumber", "expirationDate")
-                                    ))
+                                    onConsumeLabelScan()
+                                    onStateChange(
+                                        state.copy(
+                                            lotNumber = "",
+                                            expirationDate = "",
+                                            lotScanned = false
+                                        )
+                                    )
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Cancelar resultado",
+                                    Icons.Default.Close,
+                                    contentDescription = null,
                                     tint = CreateRed,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Número de Lote", color = CreateTextSecondary, fontSize = 11.sp)
-                                Text(
-                                    text = state.lotNumber.ifBlank { "No detectado" },
-                                    color = CreateTextPrimary,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                                Text("Vencimiento", color = CreateTextSecondary, fontSize = 11.sp)
-                                Text(
-                                    text = state.expirationDate.ifBlank { "No detectada" },
-                                    color = if (expirationStatus?.kind == ExpirationStatusKind.POR_VENCER) CreateOrange else CreateTextPrimary,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    }
+                }
+            }
+
+            if (showManualLotEntry) {
+                if (isLotAvailableForExpiration) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            AppTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp),
+                                label = "LOTE",
+                                value = state.lotNumber,
+                                isSuccess = state.lotNumber.isNotBlank() && !lotExists && lotConflictSeverity == 0,
+                                error = if (lotExists) "Ese lote ya existe" else state.errors["lotNumber"],
+                                helper = if (isCheckingLotRemote) "Verificando." else lotConflictInfo,
+                                onValueChange = {
+                                    onStateChange(state.copy(lotNumber = it.uppercase()))
+                                }
+                            )
                         }
 
-                        if (expirationStatus != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            ExpirationDateField(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp),
+                                label = "VENCIMIENTO",
+                                value = state.expirationDate,
+                                isSuccess = state.expirationDate.isNotBlank() &&
+                                        expirationStatus?.kind != ExpirationStatusKind.VENCIDO,
+                                error = if (expirationStatus?.kind == ExpirationStatusKind.VENCIDO) {
+                                    "Lote vencido"
+                                } else {
+                                    state.errors["expirationDate"]
+                                },
+                                helper = if (expirationStatus?.kind != ExpirationStatusKind.VENCIDO) {
+                                    expirationStatus?.message
+                                } else {
+                                    null
+                                },
+                                helperColor = expirationStatus?.color ?: CreateTextSecondary,
+                                onValueChange = {
+                                    onStateChange(state.copy(expirationDate = it))
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AppTextField(
+                            label = "LOTE",
+                            value = state.lotNumber,
+                            isSuccess = false,
+                            error = if (lotExists) {
+                                "Ese lote ya existe"
+                            } else {
+                                state.errors["lotNumber"]
+                            },
+                            helper = if (isCheckingLotRemote) {
+                                "Verificando..."
+                            } else {
+                                lotConflictInfo
+                            },
+                            onValueChange = { raw ->
+                                val nextLot = raw.uppercase()
+
+                                onStateChange(
+                                    state.copy(
+                                        lotNumber = nextLot,
+                                        expirationDate = "",
+                                        lotScanned = false,
+                                        errors = state.errors - setOf(
+                                            "lotNumber",
+                                            "expirationDate"
+                                        )
+                                    )
+                                )
+                            }
+                        )
+
+                        if (state.lotNumber.isNotBlank() && !isCheckingLotRemote) {
                             Text(
-                                text = "• ${expirationStatus.message}",
-                                color = expirationStatus.color,
+                                text = "El vencimiento se habilitará cuando el lote esté disponible.",
+                                color = CreateTextSecondary,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
+                                lineHeight = 16.sp
                             )
                         }
                     }
                 }
             }
-
-            AnimatedVisibility(
-                visible = !escaneoActivo && !escaneoListo && showManualLotEntry,
-                enter = fadeIn() + slideInVertically { it / 8 },
-                exit = fadeOut() + slideOutVertically { -it / 8 }
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val isLotValidated = state.lotNumber.isNotBlank() && 
-                                !isCheckingLotRemote && 
-                                lotConflictSeverity != 2 &&
-                                state.errors["lotNumber"].isNullOrBlank()
-            val isExpirationValid = state.expirationDate.isNotBlank() &&
-                    expirationStatus?.kind != ExpirationStatusKind.VENCIDO &&
-                    expirationStatus?.kind != ExpirationStatusKind.INVALIDO &&
-                    state.errors["expirationDate"].isNullOrBlank()
-
-            val lotField: @Composable (Modifier) -> Unit = { fieldModifier ->
-                AppTextField(
-                    modifier = fieldModifier.bringIntoViewRequester(lotRequester),
-                    label = "",
-                    value = state.lotNumber,
-                    isSuccess = isLotValidated && !lotExists,
-                    error = when {
-                        lotExists -> "Ese lote ya existe"
-                        else -> state.errors["lotNumber"]
-                    },
-                    helper = when {
-                        isCheckingLotRemote -> "Verificando disponibilidad de lote..."
-                        lotExists -> "Ese lote ya existe"
-                        else -> null
-                    },
-                    helperHighlighted = !isCheckingLotRemote && lotConflictSeverity == 0 && !state.lotNumber.isBlank(),
-                    placeholder = "Nro de lote",
-                    keyboardType = KeyboardType.Ascii,
-                    trailingIcon = if (isCheckingLotRemote) {
-                        { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = CreateGreen) }
-                    } else if (isLotValidated && lotConflictSeverity == 0) {
-                        { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(18.dp)) }
-                    } else null,
-                    onValueChange = {
-                        val sanitized = it.uppercase().replace(" ", "")
-                        onStateChange(
-                            state.copy(
-                                lotNumber = sanitized,
-                                errors = state.errors - "lotNumber"
-                            )
-                        )
-                    }
-                )
-            }
-
-            val expirationField: @Composable (Modifier) -> Unit = { fieldModifier ->
-                ExpirationDateField(
-                    modifier = fieldModifier.bringIntoViewRequester(expirationRequester),
-                    label = "",
-                    value = state.expirationDate,
-                    isSuccess = isExpirationValid,
-                    enabled = isLotValidated, // V19.4: Solo habilitar si el lote es vÃ¡lido
-                    error = when {
-                        expirationStatus?.kind == ExpirationStatusKind.VENCIDO ->
-                            "La fecha ingresada ya vencio."
-                        expirationStatus?.kind == ExpirationStatusKind.INVALIDO ->
-                            expirationStatus.message
-                        else -> state.errors["expirationDate"]
-                    },
-                    helper = expirationStatus?.takeIf {
-                        it.kind != ExpirationStatusKind.INVALIDO &&
-                            it.kind != ExpirationStatusKind.VENCIDO
-                    }?.message,
-                    helperColor = expirationStatus?.color ?: CreateTextSecondary,
-                    onValueChange = {
-                        onStateChange(
-                            state.copy(
-                                expirationDate = formatExpirationDateInput(it),
-                                errors = state.errors - "expirationDate"
-                            )
-                        )
-                    }
-                )
-            }
-
-            // V19.2: Fila horizontal 50/50 para Lote y Vencimiento (Solicitud usuario)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    lotField(Modifier.fillMaxWidth())
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    expirationField(Modifier.fillMaxWidth())
-                }
-            }
-                }  // fin Column dentro de AnimatedVisibility
-            }      // fin AnimatedVisibility (escaneo activo)
         }
 
         AnimatedVisibility(
             visible = isLotInfoReady,
-            enter = fadeIn() + slideInVertically { it / 6 },
-            exit = fadeOut() + slideOutVertically { -it / 10 }
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                // V27.0: SECCIÓN - DATOS DE PAGO Y PROVEEDOR
-                val isPaymentDataValid = state.supplierId.isNotBlank() && 
-                                       (state.purchaseCost.trim().replace(",", ".").toDoubleOrNull()?.let { it > 0.0 } ?: false) &&
-                                       (if (state.paymentCondition == "CREDITO") state.paymentDueDate.isNotBlank() && state.errors["paymentDueDate"] == null else true)
+            enter = fadeIn(),
+            exit = fadeOut()
+        )
+        {
+            CreateSectionCard(
+                title = "Datos de pago",
+                icon = Icons.AutoMirrored.Outlined.Assignment,
+                isSuccess = isPaymentDataValid
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    SupplierSelectionSection(
+                        state = state,
+                        onStateChange = onStateChange
+                    )
 
-                CreateSectionCard(
-                    title = "Datos de pago",
-                    subtitle = "Factura, costo y condición de pago",
-                    icon = Icons.AutoMirrored.Outlined.Assignment,
-                    isSuccess = isPaymentDataValid
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        // 1. PROVEEDOR (Movido al paso 2)
-                        SupplierSelectionSection(
-                            state = state,
-                            onStateChange = onStateChange
-                        )
+                    AnimatedVisibility(
+                        visible = hasStockOriginSelected,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(CreateBorder.copy(alpha = 0.5f))
+                            )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 2. FACTURA Y COSTO
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                AppTextField(
-                                    label = "NRO FACTURA",
-                                    value = state.invoiceNumber,
-                                    placeholder = "Ej: F001-234",
-                                    keyboardType = KeyboardType.Ascii,
-                                    onValueChange = { onStateChange(state.copy(invoiceNumber = it)) }
-                                )
-                            }
-                            
-                            // Botón para foto de factura
-                            Surface(
-                                onClick = { onStateChange(state.copy(isCapturingInvoice = true)) },
-                                color = if (state.invoiceImageBase64 != null) CreateGreenSoft else CreateBackground,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, if (state.invoiceImageBase64 != null) CreateGreen else CreateBorder),
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (state.invoiceImageBase64 != null) Icons.Outlined.CheckCircle else Icons.Default.Receipt,
-                                        contentDescription = "Foto factura",
-                                        tint = if (state.invoiceImageBase64 != null) CreateGreen else CreateTextSecondary,
-                                        modifier = Modifier.size(20.dp)
+                            AppTextField(
+                                label = if (hasRealSupplier) {
+                                    "COSTO TOTAL DEL LOTE (BS)"
+                                } else {
+                                    "COSTO ESTIMADO DEL LOTE (BS)"
+                                },
+                                value = state.purchaseCost,
+                                keyboardType = KeyboardType.Decimal,
+                                onValueChange = {
+                                    onStateChange(
+                                        state.copy(
+                                            purchaseCost = it,
+                                            errors = state.errors - "purchaseCost"
+                                        )
                                     )
                                 }
-                            }
+                            )
 
-                            Box(modifier = Modifier.weight(1f)) {
-                                AppTextField(
-                                    label = "COSTO TOTAL",
-                                    value = state.purchaseCost,
-                                    error = state.errors["purchaseCost"],
-                                    isSuccess = state.purchaseCost.trim().replace(",", ".").toDoubleOrNull()?.let { it > 0.0 } ?: false,
-                                    placeholder = "0.00",
-                                    keyboardType = KeyboardType.Decimal,
-                                    onValueChange = {
-                                        onStateChange(
-                                            state.copy(
-                                                purchaseCost = it,
-                                                errors = state.errors - "purchaseCost"
-                                            )
+                            if (isInitialInventorySource) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = CreateBlueSoft,
+                                    shape = RoundedCornerShape(18.dp),
+                                    border = BorderStroke(1.dp, CreateBlue.copy(alpha = 0.14f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Info,
+                                            contentDescription = null,
+                                            tint = CreateBlue,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+
+                                        Text(
+                                            text = "Este costo se usará como referencia para margen, reportes y valor de inventario. No se guardará factura ni cuenta por pagar.",
+                                            color = CreateTextSecondary,
+                                            fontSize = 12.sp,
+                                            lineHeight = 17.sp
                                         )
                                     }
-                                )
+                                }
                             }
                         }
+                    }
 
-                        // 3. CONDICIÓN DE PAGO
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "CONDICIÓN DE PAGO",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = CreateTextSecondary,
-                                letterSpacing = 1.2.sp
+                    AnimatedVisibility(
+                        visible = hasRealSupplier,
+                        enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                        exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+                    )
+                    {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            AppTextField(
+                                label = "NRO FACTURA",
+                                value = state.invoiceNumber,
+                                onValueChange = {
+                                    onStateChange(
+                                        state.copy(
+                                            invoiceNumber = it,
+                                            errors = state.errors - "invoiceNumber"
+                                        )
+                                    )
+                                }
                             )
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                listOf("CONTADO", "CREDITO").forEach { condition ->
-                                    val isSel = state.paymentCondition == condition
-                                    Surface(
-                                        modifier = Modifier.weight(1f).clickable { onStateChange(state.copy(paymentCondition = condition)) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = if (isSel) CreateGreen.copy(alpha = 0.1f) else CreateSurfaceSoft,
-                                        border = BorderStroke(1.dp, if (isSel) CreateGreen else CreateBorder)
+
+                            val hasInvoice = state.invoiceImageBase64 != null
+
+                            val invoiceHighlightColor by animateColorAsState(
+                                targetValue = if (state.isInvoiceHighlighting) {
+                                    CreateGreen.copy(alpha = 0.15f)
+                                } else if (hasInvoice) {
+                                    CreateGreenSoft
+                                } else {
+                                    CreateBackground
+                                },
+                                animationSpec = tween(500)
+                            )
+
+                            AnimatedVisibility(
+                                visible = hasInvoiceData,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            )
+                            {
+                                if (hasInvoice) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 12.dp)
+                                            .heightIn(min = 56.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = condition,
-                                                color = if (isSel) CreateGreen else CreateTextSecondary,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
+                                        Surface(
+                                            onClick = {
+                                                val isPdf = state.invoiceImageBase64
+                                                    ?.take(10)
+                                                    ?.contains("JVBER") == true
+
+                                                if (isPdf) {
+                                                    ProductUtils.openBase64FileNatively(
+                                                        context = context,
+                                                        base64 = state.invoiceImageBase64!!
+                                                    )
+                                                } else {
+                                                    showInvoicePreview = true
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            color = invoiceHighlightColor,
+                                            shape = RoundedCornerShape(28.dp),
+                                            border = BorderStroke(
+                                                1.dp,
+                                                if (state.isInvoiceHighlighting) {
+                                                    CreateGreen
+                                                } else {
+                                                    CreateGreen.copy(alpha = 0.2f)
+                                                }
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 16.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = CreateGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+
+                                                Spacer(modifier = Modifier.width(10.dp))
+
+                                                Text(
+                                                    text = "Documento cargado",
+                                                    color = CreateGreen,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+
+                                        Surface(
+                                            onClick = {
+                                                onStateChange(
+                                                    state.copy(invoiceImageBase64 = null)
+                                                )
+                                            },
+                                            modifier = Modifier.size(56.dp),
+                                            color = CreateRed.copy(alpha = 0.1f),
+                                            shape = CircleShape,
+                                            border = BorderStroke(
+                                                1.dp,
+                                                CreateRed.copy(alpha = 0.2f)
+                                            )
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Eliminar",
+                                                    tint = CreateRed,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 12.dp)
+                                            .heightIn(min = 60.dp),
+                                        color = CreateGreenUltraSoft,
+                                        shape = RoundedCornerShape(20.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            CreateGreen.copy(alpha = 0.16f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxSize(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clickable {
+                                                        onStateChange(
+                                                            state.copy(isCapturingInvoice = true)
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.PhotoCamera,
+                                                        contentDescription = null,
+                                                        tint = CreateGreen,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+
+                                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                                    Text(
+                                                        text = "Foto",
+                                                        color = CreateGreenDark,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                            }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(1.dp)
+                                                    .height(24.dp)
+                                                    .background(CreateGreen.copy(alpha = 0.10f))
+                                            )
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clickable {
+                                                        filePickerLauncher.launch("*/*")
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.AutoMirrored.Filled.Assignment,
+                                                        contentDescription = null,
+                                                        tint = CreateGreen,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+
+                                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                                    Text(
+                                                        text = "Archivo",
+                                                        color = CreateGreenDark,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Condición de pago solo si ya hay proveedor real, factura y costo
+                            AnimatedVisibility(
+                                visible = hasInvoiceData,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "CONDICIÓN DE PAGO",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = CreateTextSecondary
+                                    )
+
+                                    var showCreditPickerTrigger by remember {
+                                        mutableStateOf(false)
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        listOf("CONTADO", "CREDITO").forEach { condition ->
+                                            val isSel = state.paymentCondition == condition
+
+                                            Surface(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clickable {
+                                                        if (condition == "CONTADO") {
+                                                            onStateChange(
+                                                                state.copy(
+                                                                    paymentCondition = "CONTADO",
+                                                                    paymentDueDate = ""
+                                                                )
+                                                            )
+                                                        } else {
+                                                            // No marcamos CREDITO todavía.
+                                                            // Primero obligamos al usuario a elegir fecha.
+                                                            showCreditPickerTrigger = true
+                                                        }
+                                                    },
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = if (isSel) {
+                                                    CreateGreenUltraSoft
+                                                } else {
+                                                    CreateSurfaceSoft
+                                                },
+                                                border = BorderStroke(
+                                                    width = if (isSel) 1.4.dp else 1.dp,
+                                                    color = if (isSel) {
+                                                        CreateGreen.copy(alpha = 0.45f)
+                                                    } else {
+                                                        CreateBorder
+                                                    }
+                                                )
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 14.dp,
+                                                        vertical = 14.dp
+                                                    ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = condition,
+                                                        color = if (isSel) {
+                                                            CreateGreenDark
+                                                        } else {
+                                                            CreateTextSecondary
+                                                        },
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 13.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (showCreditPickerTrigger) {
+                                        FullDatePickerDialog(
+                                            value = state.paymentDueDate,
+                                            onDismiss = {
+                                                showCreditPickerTrigger = false
+
+                                                // Si cancela sin elegir fecha, no debe quedar marcado como crédito.
+                                                if (state.paymentDueDate.isBlank()) {
+                                                    onStateChange(
+                                                        state.copy(
+                                                            paymentCondition = "CONTADO",
+                                                            paymentDueDate = ""
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            onConfirm = { formatted ->
+                                                onStateChange(
+                                                    state.copy(
+                                                        paymentCondition = "CREDITO",
+                                                        paymentDueDate = formatted
+                                                    )
+                                                )
+                                                showCreditPickerTrigger = false
+                                            }
+                                        )
+                                    }
+
+                                    AnimatedVisibility(
+                                        visible = state.paymentCondition == "CREDITO" &&
+                                                state.paymentDueDate.isNotBlank()
+                                    ) {
+                                        Column {
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            FullDateField(
+                                                label = "VENCIMIENTO DEL PAGO",
+                                                value = state.paymentDueDate,
+                                                isSuccess = state.paymentDueDate.isNotBlank(),
+                                                onValueChange = {
+                                                    onStateChange(
+                                                        state.copy(paymentDueDate = it)
+                                                    )
+                                                }
                                             )
                                         }
                                     }
                                 }
                             }
                         }
-
-                        AnimatedVisibility(visible = state.paymentCondition == "CREDITO") {
-                            FullDateField(
-                                label = "VENCIMIENTO DEL PAGO",
-                                value = state.paymentDueDate,
-                                isSuccess = state.paymentDueDate.isNotBlank() && state.errors["paymentDueDate"] == null,
-                                error = state.errors["paymentDueDate"],
-                                onValueChange = {
-                                    onStateChange(state.copy(
-                                        paymentDueDate = it,
-                                        errors = state.errors - "paymentDueDate"
-                                    ))
-                                }
-                            )
-                        }
-
-                        // 4. COSTO UNITARIO DERIVADO (Informativo)
-                        val costoTotal = state.purchaseCost
-                            .replace("Bs", "", ignoreCase = true)
-                            .trim()
-                            .replace(",", ".")
-                            .toDoubleOrNull()
-                        val recibidoBase = calculateRecibidoBase(state)
-                        if (costoTotal != null && costoTotal > 0.0 && recibidoBase > 0.0) {
-                            val unitario = costoTotal / recibidoBase
-                            val unitLabel = resolveStockUnitLabel(state)
-                            Surface(
-                                color = CreateSurfaceSoft,
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.75f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Info,
-                                        contentDescription = null,
-                                        tint = CreateGreen,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Costo por $unitLabel:",
-                                        color = CreateTextSecondary,
-                                        fontSize = 12.sp
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Bs " + String.format(Locale.US, "%.4f", unitario)
-                                            .trimEnd('0').trimEnd('.'),
-                                        color = CreateTextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
                     }
-                }
 
-                AnimatedVisibility(
-                    visible = isPaymentDataValid,
-                    enter = fadeIn() + slideInVertically { it / 6 },
-                    exit = fadeOut()
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        CreateSectionCard(
-                            title = "Cómo se controla",
-                            subtitle = if (state.stockEntryConfigured) "Resumen del ingreso actual" else "Elige cómo se descontará en inventario",
-                            icon = Icons.Outlined.AllInbox,
-                            isSuccess = state.stockEntryConfigured
-                        ) {
-                            Box(modifier = Modifier.bringIntoViewRequester(entryModeRequester)) {
-                                if (!state.stockEntryConfigured) {
-                                    PremiumStockEntryModeSelector(
-                                        controlType = state.controlType,
-                                        selected = state.stockEntryMode,
-                                        onSelected = { mode ->
-                                            if (state.presentations.isNotEmpty()) {
-                                                onStateChange(state.copy(
-                                                    showStep3ResetDialog = true,
-                                                    pendingStockEntryMode = mode
-                                                ))
-                                            } else {
-                                                onStateChange(
-                                                    state.copy(
-                                                        stockEntryMode = mode,
-                                                        showStockEntryDialog = true,
-                                                        errors = state.errors -
-                                                                setOf(
-                                                                    "stockEntryMode",
-                                                                    "receivedUnits",
-                                                                    "boxesReceived",
-                                                                    "unitsPerBox",
-                                                                    "packagesPerBox",
-                                                                    "unitsPerPackage"
-                                                                )
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    )
-                                } else {
-                                    StockConfiguredCard(
-                                        state = state,
-                                        onEditQuantity = {
-                                            onStateChange(state.copy(showStockEntryDialog = true))
-                                        },
-                                        onChangeType = {
-                                            if (state.presentations.isNotEmpty()) {
-                                                onStateChange(state.copy(
-                                                    showStep3ResetDialog = true,
-                                                    pendingStockEntryMode = null
-                                                ))
-                                            } else {
-                                                onStateChange(
-                                                    state.copy(
-                                                        stockEntryConfigured = false,
-                                                        showStockEntryDialog = false,
-                                                        stockEntryMode = null,
-                                                        receivedUnitsText = "",
-                                                        boxesReceivedText = "",
-                                                        unitsPerBoxText = "",
-                                                        packagesPerBoxText = "",
-                                                        unitsPerPackageText = "",
-                                                        errors = state.errors -
-                                                                setOf(
-                                                                    "receivedUnits",
-                                                                    "boxesReceived",
-                                                                    "unitsPerBox",
-                                                                    "packagesPerBox",
-                                                                    "unitsPerPackage"
-                                                                )
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
 
-                        AnimatedVisibility(
-                            visible = state.stockEntryConfigured,
-                            enter = fadeIn() + slideInVertically { it / 6 },
-                            exit = fadeOut()
-                        ) {
-                            Box(modifier = Modifier.bringIntoViewRequester(minimumStockRequester)) {
-                                MinimumStockInputCard(
-                                    state = state,
-                                    onStateChange = onStateChange
-                                )
-                            }
-                        }
-                    }
+
                 }
             }
         }
-    }
 
-    if (state.showAddSupplierDialog) {
-        AddSupplierDialog(
-            onDismiss = { onStateChange(state.copy(showAddSupplierDialog = false)) },
-            onSave = onSaveSupplier
+
+        // --- SECCIÓN 3: FORMA DE INGRESO (CÓMO SE CONTROLA) ---
+        AnimatedVisibility(
+            visible = isPaymentDataValid,
+            enter = fadeIn(),
+            exit = fadeOut()
         )
-    }
-
-    if (isMagicScrolling) {
-        Dialog(
-            onDismissRequest = {},
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false, usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.White.copy(alpha = 0.96f)
+        {
+            CreateSectionCard(
+                title = "Cómo se controla",
+                subtitle = "Elige cómo se descontará en inventario",
+                icon = Icons.Outlined.AllInbox,
+                isSuccess =
+                    isStockEntryModeCompleted(state, CreateProductStockEntryMode.UNIDAD) ||
+                            isStockEntryModeCompleted(state, CreateProductStockEntryMode.CAJA)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(color = CreateGreen)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Configurando inventario...",
-                        color = CreateTextPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-    }
-
-    if (state.showStockEntryDialog) {
-        StockEntryDialog(
-            state = state,
-            onStateChange = onStateChange,
-            onApply = {
-                // El stock mÃ­nimo se calcula automÃ¡ticamente en la tarjeta
-                // `MinimumStockStepperCard` a partir del porcentaje (default 20%).
-                // Ya no auto-rellenamos aquÃ­; el LaunchedEffect del stepper
-                // lo sincroniza en cuanto se renderiza.
-                onStateChange(
-                    state.copy(
-                        showStockEntryDialog = false,
-                        stockEntryConfigured = true
-                    )
-                )
-            },
-            onDismiss = {
-                onStateChange(
-                    if (state.stockEntryConfigured) {
-                        state.copy(showStockEntryDialog = false)
-                    } else {
-                        state.copy(
-                            showStockEntryDialog = false,
-                            stockEntryMode = null,
-                            receivedUnitsText = "",
-                            boxesReceivedText = "",
-                            unitsPerBoxText = "",
-                            packagesPerBoxText = "",
-                            unitsPerPackageText = "",
-                            errors = state.errors - setOf(
-                                "stockEntryMode",
-                                "receivedUnits",
-                                "boxesReceived",
-                                "unitsPerBox",
-                                "packagesPerBox",
-                                "unitsPerPackage"
+                PremiumStockEntryModeSelector(
+                    controlType = state.controlType,
+                    selected = state.stockEntryMode,
+                    state = state,
+                    onSelected = { mode ->
+                        onStateChange(
+                            state.copy(
+                                stockEntryMode = mode,
+                                showStockEntryDialog = true,
+                                stockEntryConfigured = false
                             )
                         )
                     }
                 )
             }
-        )
+        }
+
+        // --- SECCIÓN 4: ALERTA DE STOCK BAJO ---
+        val stockEntryCompleted =
+            isStockEntryModeCompleted(state, CreateProductStockEntryMode.UNIDAD) ||
+                    isStockEntryModeCompleted(state, CreateProductStockEntryMode.CAJA)
+
+        AnimatedVisibility(
+            visible = isPaymentDataValid && stockEntryCompleted,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            MinimumStockInputCard(
+                state = state,
+                onStateChange = onStateChange
+            )
+        }
+
+    }
+
+    if (showInvoicePreview && state.invoiceImageBase64 != null) {
+        Dialog(
+            onDismissRequest = {
+                showInvoicePreview = false
+            }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Respaldo de Factura",
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    val bitmap = remember(state.invoiceImageBase64) {
+                        state.invoiceImageBase64?.let {
+                            ProductUtils.base64ToBitmap(it)
+                        }
+                    }
+
+                    if (bitmap != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 450.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 180.dp, max = 260.dp)
+                                .background(
+                                    CreateBackground,
+                                    RoundedCornerShape(16.dp)
+                                ),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Assignment,
+                                contentDescription = null,
+                                tint = CreateGreen,
+                                modifier = Modifier.size(64.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = "DOCUMENTO ADJUNTO",
+                                color = CreateGreen,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+
+                            Text(
+                                text = "Formato PDF o Documento",
+                                color = CreateTextSecondary,
+                                fontSize = 12.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    ProductUtils.openBase64FileNatively(
+                                        context = context,
+                                        base64 = state.invoiceImageBase64!!
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CreateGreen.copy(alpha = 0.1f),
+                                    contentColor = CreateGreen
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "VER ARCHIVO COMPLETO",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                onStateChange(
+                                    state.copy(invoiceImageBase64 = null)
+                                )
+                                showInvoicePreview = false
+                            },
+                            modifier = Modifier.weight(1f),
+                            border = BorderStroke(1.dp, CreateRed)
+                        ) {
+                            Text(
+                                text = "ELIMINAR",
+                                color = CreateRed
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                showInvoicePreview = false
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CreateGreen
+                            )
+                        ) {
+                            Text(text = "CERRAR")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -4382,7 +6623,7 @@ fun InitialLotStep(
 /**
  * Tarjeta de stock mínimo basada en porcentaje.
  *
- * Si el inventario se controla en piezas enteras (frascos, blísteres, cajas),
+ * Si el inventario se controla en piezas enteras (frascos, paquetes, cajas),
  * solo permite opciones enteras válidas. Así 5 frascos generan 20%, 40%,
  * 60%, 80% y 100%, nunca 5%.
  */
@@ -4632,13 +6873,84 @@ fun MinimumStockInputCard(
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
-                        text = "$formattedPercent del stock actual",
+                        text = "$formattedPercent del lote recibido",
                         color = CreateTextSecondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
+
+                val isVeryLowMinimum = percentage <= 10.0 && totalReference > 1
+
+                if (isVeryLowMinimum) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        color = CreateOrangeSoft,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            CreateOrange.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = CreateOrange,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Text(
+                                text = "10% es el mínimo permitido. Es un nivel bajo y puede aumentar el riesgo de agotamiento.",
+                                color = CreateTextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                val isHighMinimum = percentage >= 50.0 && totalReference > 1
+
+                if (isHighMinimum) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        color = CreateBlueSoft,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            CreateBlue.copy(alpha = 0.20f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = CreateBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Text(
+                                text = "50% es el máximo permitido. Es una alerta temprana, no un stock crítico.",
+                                color = CreateTextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
             }
 
             Row(
@@ -4714,10 +7026,11 @@ fun MinimumStockInputCard(
             }
 
             Text(
-                text = if (mode == StockControlMode.INDIVISIBLE)
-                    "Solo se permiten cantidades completas."
-                else
-                    "La alerta sigue tramos válidos sobre el total ingresado.",
+                text = if (mode == StockControlMode.INDIVISIBLE) {
+                    "Solo se permiten cantidades completas. Rango permitido: 10% a 50%."
+                } else {
+                    "La alerta sigue tramos válidos. Rango permitido: 10% a 50%."
+                },
                 color = CreateTextSecondary.copy(alpha = 0.8f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -4805,10 +7118,16 @@ private fun descripcionRecibidoCorto(
         }
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText)
             val total = calculateTotalBaseStock(state)
-            
-            if (boxes <= 0.0) "" else
-                "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "blíster", "blísters")} (${formatCreateProductNumber(total)} $unitLabel total)"
+
+            if (boxes <= 0.0 || packagesPerBox <= 0.0) {
+                ""
+            } else {
+                "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "caja", "cajas")} " +
+                        "con ${formatCreateProductNumber(packagesPerBox)} ${plural(packagesPerBox, "paquete", "paquetes")} c/u " +
+                        "(${formatCreateProductNumber(total)} $unitLabel total)"
+            }
         }
         null -> ""
     }
@@ -4992,16 +7311,15 @@ private fun configuredStockModeTitle(state: CreateProductState): String {
             CreateProductControlType.PESO -> "Envases directos"
             else -> "Unidades directas"
         }
+
         CreateProductStockEntryMode.CAJA -> when (state.controlType) {
             CreateProductControlType.LIQUIDO -> "Cajas con frascos"
             CreateProductControlType.PESO -> "Cajas con envases"
             else -> "Cajas con unidades"
         }
-        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (state.controlType) {
-            CreateProductControlType.LIQUIDO -> "Frascos directos"
-            CreateProductControlType.PESO -> "Envases directos"
-            else -> "Blísteres"
-        }
+
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja con paquetes"
+
         null -> "Sin configurar"
     }
 }
@@ -5013,16 +7331,16 @@ private fun configuredStockModeSubtitle(state: CreateProductState): String {
             CreateProductControlType.PESO -> "Se controlará por envase y peso."
             else -> "Se controlará como unidades directas."
         }
+
         CreateProductStockEntryMode.CAJA -> when (state.controlType) {
             CreateProductControlType.LIQUIDO -> "Se calcularán frascos y contenido total."
             CreateProductControlType.PESO -> "Se calcularán envases y peso total."
             else -> "Se calcularán unidades dentro de cada caja."
         }
-        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (state.controlType) {
-            CreateProductControlType.LIQUIDO -> "Se controlará por frasco y contenido."
-            CreateProductControlType.PESO -> "Se controlará por envase y peso."
-            else -> "Se controlará por blíster y unidades."
-        }
+
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES ->
+            "Se calcularán paquetes internos y piezas por paquete."
+
         null -> "Todavía no hay un modo de ingreso seleccionado."
     }
 }
@@ -5034,27 +7352,24 @@ fun StockEntryDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    // 1. DETERMINAR TERMINOLOGÍA SEGÚN EL TIPO DE PRODUCTO (Nivel 2)
+    val configuration = LocalConfiguration.current
+    val dialogMaxHeight = (configuration.screenHeightDp.dp * 0.9f)
+    val TealGradient = androidx.compose.ui.graphics.Brush.linearGradient(
+        colors = listOf(Color(0xFF00695C), Color(0xFF15A05C))
+    )
+
+    // 1. TERMINOLOGÍA ADAPTABLE (Lógica Blindada)
     val itemType = when (state.controlType) {
-        CreateProductControlType.LIQUIDO -> "FRASCO / AMPOLLA"
-        CreateProductControlType.PESO -> "ENVASE / EMPAQUE"
-        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "BLÍSTER" else "PIEZA"
+        CreateProductControlType.LIQUIDO -> "FRASCO"
+        CreateProductControlType.PESO -> "ENVASE"
+        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "PAQUETE" else "PIEZA"
         else -> "UNIDAD"
     }
-
     val pluralItemType = when (state.controlType) {
         CreateProductControlType.LIQUIDO -> "frascos"
         CreateProductControlType.PESO -> "envases"
-        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "blísters" else "piezas"
+        CreateProductControlType.UNIDAD -> if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) "paquetes" else "piezas"
         else -> "unidades"
-    }
-
-    // 2. DETERMINAR UNIDAD MÍNIMA (Nivel 3)
-    val baseUnitName = when (state.controlType) {
-        CreateProductControlType.LIQUIDO -> "MILILITROS (mL)"
-        CreateProductControlType.PESO -> "GRAMOS (g)"
-        CreateProductControlType.UNIDAD -> "CONTENIDO (Pastillas / Cápsulas)"
-        else -> "UNIDADES"
     }
 
     val (unidadBase, unidadGrande) = when (state.controlType) {
@@ -5062,340 +7377,480 @@ fun StockEntryDialog(
         CreateProductControlType.PESO -> "g" to "kg"
         else -> "" to ""
     }
-    val mostrarSelectorUnidad = state.controlType == CreateProductControlType.PESO ||
-            state.controlType == CreateProductControlType.LIQUIDO
+    val mostrarSelectorUnidad = state.controlType == CreateProductControlType.PESO || state.controlType == CreateProductControlType.LIQUIDO
 
     var unitForItem by remember(state.controlType, state.stockEntryUnit) {
         mutableStateOf(state.stockEntryUnit.ifBlank { unidadBase })
     }
-    var itemFieldValue by remember { mutableStateOf(TextFieldValue()) }
 
-    LaunchedEffect(state.unitsPerItemText, unitForItem) {
-        val displayStr = state.unitsPerItemText
-            .takeIf { it.isNotBlank() && parseCreateProductNumber(it) > 0.0 }
-            .orEmpty()
-        if (itemFieldValue.text != displayStr) {
-            itemFieldValue = TextFieldValue(displayStr, selection = TextRange(displayStr.length))
-        }
-    }
-
-    fun onItemValueChange(newValue: TextFieldValue) {
-        val raw = newValue.text
-        if (raw.isBlank()) {
-            itemFieldValue = newValue
-            onStateChange(state.copy(unitsPerItemText = ""))
-            return
-        }
-        val sanitized = sanitizeDecimalInput(raw)
-        val selection = TextRange(sanitized.length)
-        itemFieldValue = if (sanitized == raw) newValue else TextFieldValue(sanitized, selection)
-        val number = sanitized.toDoubleOrNull() ?: run {
-            onStateChange(state.copy(unitsPerItemText = ""))
-            return
-        }
-        onStateChange(
-            state.copy(
-                unitsPerItemText = formatCreateProductNumber(number),
-                stockEntryUnit = unitForItem
-            )
-        )
-    }
-
-    fun changeItemUnit(newUnit: String) {
-        if (unitForItem == newUnit) return
-        unitForItem = newUnit
-        onStateChange(state.copy(stockEntryUnit = newUnit))
-        val currentValue = itemFieldValue.text
-        itemFieldValue = TextFieldValue(currentValue, selection = TextRange(currentValue.length))
-    }
-
+    // FUENTE DE LA VERDAD: Resumen de texto
     val summary = buildInitialStockEntrySummary(state)
-    val configuration = LocalConfiguration.current
-    val dialogMaxHeight = (configuration.screenHeightDp.dp * 0.88f)
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
-                .padding(horizontal = 24.dp)
-                .imePadding(),
-            contentAlignment = Alignment.Center
-        ) {
-            Surface(
-                shape = RoundedCornerShape(32.dp),
-                color = Color.White,
-                shadowElevation = 24.dp,
-                modifier = Modifier.fillMaxWidth().wrapContentHeight()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(PremiumGradient)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = dialogMaxHeight)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp, vertical = 32.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Desglose de Inventario",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 24.sp,
-                                color = CreateTextPrimary,
-                                letterSpacing = (-0.5).sp
-                            )
-                            Text(
-                                text = "Define cómo se organiza lo que recibiste.",
-                                color = CreateTextSecondary,
-                                fontSize = 14.sp
-                            )
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).padding(horizontal = 16.dp).imePadding(), contentAlignment = Alignment.Center) {
+            Surface(shape = RoundedCornerShape(32.dp), color = Color.White, shadowElevation = 24.dp, modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = dialogMaxHeight).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+
+                    // --- CABECERA ---
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Surface(modifier = Modifier.size(56.dp), shape = RoundedCornerShape(18.dp), color = CreateGreen.copy(alpha = 0.1f)) {}
+                                Icon(Icons.Default.Inventory2, null, tint = CreateGreen, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Desglose de inventario", fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                Text("Define cómo se organiza lo que recibiste.", fontSize = 13.sp, color = CreateTextSecondary)
+                            }
                         }
 
-                        // BADGE DE MODO SELECCIONADO
-                        Surface(
-                            color = CreateGreenSoft,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.2f))
-                        ) {
-                            Text(
-                                text = when (state.stockEntryMode) {
-                                    CreateProductStockEntryMode.UNIDAD -> "INGRESO POR ${itemType}S"
-                                    CreateProductStockEntryMode.CAJA -> "INGRESO POR CAJAS"
-                                    CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "INGRESO POR CAJAS Y BLÍSTERS"
-                                    null -> ""
-                                },
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                color = CreateGreen,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.2.sp
-                            )
-                        }
+                    }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                            when (state.stockEntryMode) {
-                                null -> Unit
+                    // --- CAMPOS (Aquí aplicamos la lógica de sanitización) ---
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        when (state.stockEntryMode) {
+                            CreateProductStockEntryMode.UNIDAD -> {
+                                val vendeContenidoInterno =
+                                    state.controlType == CreateProductControlType.UNIDAD &&
+                                            state.stockControlMode == StockControlMode.DIVISIBLE
 
-                                CreateProductStockEntryMode.UNIDAD -> {
-                                    AppTextField(
-                                        label = "CANTIDAD DE ${itemType}S RECIBIDOS",
-                                        value = state.receivedUnitsText,
-                                        error = state.errors["receivedUnits"],
-                                        placeholder = "Ej. 50",
-                                        trailingLabel = pluralItemType,
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(receivedUnitsText = it.filter { c -> c.isDigit() })) }
-                                    )
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(
-                                            text = "¿CUÁNTO TRAE CADA ${itemType}?",
-                                            color = CreateTextSecondary,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 11.sp,
-                                            letterSpacing = 1.sp
+                                PremiumEntryCard(
+                                    "CANTIDAD DE ${pluralItemType.uppercase()}",
+                                    state.receivedUnitsText,
+                                    {
+                                        onStateChange(
+                                            state.copy(receivedUnitsText = it.filter { c -> c.isDigit() })
                                         )
+                                    },
+                                    "Ej. 50",
+                                    pluralItemType,
+                                    Icons.AutoMirrored.Outlined.Assignment
+                                )
+
+                                if (state.controlType == CreateProductControlType.UNIDAD) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(22.dp),
+                                        color = CreateGreenUltraSoft,
+                                        border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.14f))
+                                    ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                AppTextField(
-                                                    label = "",
-                                                    value = itemFieldValue.text,
-                                                    error = state.errors["unitsPerItem"],
-                                                    placeholder = "Ej. 120",
-                                                    keyboardType = KeyboardType.Decimal,
-                                                    onValueChange = { onItemValueChange(TextFieldValue(it)) }
-                                                )
-                                            }
-                                            if (mostrarSelectorUnidad) {
-                                                PremiumUnitSelector(
-                                                    selected = unitForItem,
-                                                    options = listOf(unidadBase, unidadGrande),
-                                                    onSelected = { changeItemUnit(it) }
-                                                )
-                                            } else {
+                                            Column(
+                                                modifier = Modifier.weight(1f),
+                                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                                            ) {
                                                 Text(
-                                                    text = if (state.controlType == CreateProductControlType.UNIDAD) "pastillas" else "",
+                                                    text = "¿Vendes contenido interno?",
                                                     color = CreateTextPrimary,
+                                                    fontWeight = FontWeight.Bold,
                                                     fontSize = 14.sp
                                                 )
+
+                                                Text(
+                                                    text = "Actívalo si venderás cápsulas, tabletas o piezas sueltas.",
+                                                    color = CreateTextSecondary,
+                                                    fontSize = 12.sp,
+                                                    lineHeight = 16.sp
+                                                )
                                             }
+
+                                            Switch(
+                                                checked = vendeContenidoInterno,
+                                                onCheckedChange = { checked ->
+                                                    onStateChange(
+                                                        state.copy(
+                                                            stockControlMode = if (checked) {
+                                                                StockControlMode.DIVISIBLE
+                                                            } else {
+                                                                StockControlMode.INDIVISIBLE
+                                                            },
+                                                            unitsPerItemText = "",
+                                                            stockEntryConfigured = false
+                                                        )
+                                                    )
+                                                },
+                                                colors = SwitchDefaults.colors(
+                                                    checkedThumbColor = Color.White,
+                                                    checkedTrackColor = CreateGreen,
+                                                    uncheckedThumbColor = Color.White,
+                                                    uncheckedTrackColor = CreateBorderStrong
+                                                )
+                                            )
                                         }
                                     }
                                 }
 
-                                CreateProductStockEntryMode.CAJA -> {
-                                    AppTextField(
-                                        label = "CANTIDAD DE CAJAS",
-                                        value = state.boxesReceivedText,
-                                        error = state.errors["boxesReceived"],
-                                        placeholder = "Ej. 10",
-                                        trailingLabel = "cajas",
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) }
-                                    )
-
-                                    AppTextField(
-                                        label = "¿CUÁNTOS ${itemType}S TRAE CADA CAJA?",
-                                        value = state.unitsPerBoxText,
-                                        error = state.errors["unitsPerBox"],
-                                        placeholder = "Ej. 12",
-                                        trailingLabel = pluralItemType,
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(unitsPerBoxText = it.filter { it.isDigit() })) }
-                                    )
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(
-                                            text = "¿CUÁNTO TRAE CADA ${itemType}? ($baseUnitName)",
-                                            color = CreateTextSecondary,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 11.sp,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                AppTextField(
-                                                    label = "",
-                                                    value = itemFieldValue.text,
-                                                    error = state.errors["unitsPerItem"],
-                                                    placeholder = "Ej. 500",
-                                                    keyboardType = KeyboardType.Decimal,
-                                                    onValueChange = { onItemValueChange(TextFieldValue(it)) }
-                                                )
-                                            }
-                                            if (mostrarSelectorUnidad) {
-                                                PremiumUnitSelector(
-                                                    selected = unitForItem,
-                                                    options = listOf(unidadBase, unidadGrande),
-                                                    onSelected = { changeItemUnit(it) }
-                                                )
-                                            }
+                                if (state.controlType != CreateProductControlType.UNIDAD || vendeContenidoInterno) {
+                                    PremiumEntryCard(
+                                        if (state.controlType == CreateProductControlType.UNIDAD) {
+                                            "CONTENIDO POR ${itemType}"
+                                        } else {
+                                            "CONTENIDO POR ${itemType}"
+                                        },
+                                        state.unitsPerItemText,
+                                        {
+                                            onStateChange(
+                                                state.copy(unitsPerItemText = sanitizeDecimalInput(it))
+                                            )
+                                        },
+                                        if (state.controlType == CreateProductControlType.UNIDAD) "Ej. 120" else "Ej. 120",
+                                        if (mostrarSelectorUnidad) unitForItem else "piezas",
+                                        Icons.Outlined.Opacity,
+                                        mostrarSelectorUnidad,
+                                        unitForItem,
+                                        listOf(unidadBase, unidadGrande),
+                                        {
+                                            unitForItem = it
+                                            onStateChange(state.copy(stockEntryUnit = it))
                                         }
-                                    }
-                                }
-
-                                CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                                    AppTextField(
-                                        label = "CANTIDAD DE CAJAS",
-                                        value = state.boxesReceivedText,
-                                        error = state.errors["boxesReceived"],
-                                        placeholder = "Ej. 10",
-                                        trailingLabel = "cajas",
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(boxesReceivedText = it.filter { it.isDigit() })) }
-                                    )
-
-                                    AppTextField(
-                                        label = "¿CUÁNTOS BLÍSTERS TRAE CADA CAJA?",
-                                        value = state.packagesPerBoxText,
-                                        error = state.errors["packagesPerBox"],
-                                        placeholder = "Ej. 5",
-                                        trailingLabel = "blísters",
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(packagesPerBoxText = it.filter { it.isDigit() })) }
-                                    )
-
-                                    AppTextField(
-                                        label = "¿CUÁNTAS PASTILLAS TRAE CADA BLÍSTER?",
-                                        value = state.unitsPerPackageText,
-                                        error = state.errors["unitsPerPackage"],
-                                        placeholder = "Ej. 10",
-                                        trailingLabel = "pastillas",
-                                        keyboardType = KeyboardType.Number,
-                                        onValueChange = { onStateChange(state.copy(unitsPerPackageText = it.filter { it.isDigit() })) }
                                     )
                                 }
                             }
-                        }
 
-                        // TOTALIZADOR EN TIEMPO REAL
-                        if (summary.isNotBlank()) {
-                            Surface(
-                                color = CreateSurfaceSoft,
-                                shape = RoundedCornerShape(20.dp),
-                                border = BorderStroke(1.dp, CreateBorder)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                            CreateProductStockEntryMode.CAJA,
+                            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+                                val tienePaquetesInternos =
+                                    state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES
+
+                                val vendeContenidoInterno =
+                                    state.controlType == CreateProductControlType.UNIDAD &&
+                                            state.stockControlMode == StockControlMode.DIVISIBLE
+
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(22.dp),
+                                    color = CreateGreenUltraSoft,
+                                    border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.14f))
                                 ) {
-                                    Text(
-                                        text = "RESUMEN DEL INGRESO",
-                                        color = CreateTextSecondary,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 11.sp,
-                                        letterSpacing = 1.2.sp
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                                        ) {
+                                            Text(
+                                                text = "¿La caja trae paquetes internos?",
+                                                color = CreateTextPrimary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp
+                                            )
+
+                                            Text(
+                                                text = "Actívalo si la caja trae sobres, tiras o paquetes internos.",
+                                                color = CreateTextSecondary,
+                                                fontSize = 12.sp,
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+
+                                        Switch(
+                                            checked = tienePaquetesInternos,
+                                            onCheckedChange = { checked ->
+                                                if (checked) {
+                                                    onStateChange(
+                                                        state.copy(
+                                                            stockEntryMode = CreateProductStockEntryMode.CAJA_CON_PAQUETES,
+                                                            stockControlMode = StockControlMode.DIVISIBLE,
+                                                            unitsPerBoxText = "",
+                                                            unitsPerItemText = "",
+                                                            packagesPerBoxText = "",
+                                                            unitsPerPackageText = "",
+                                                            stockEntryConfigured = false
+                                                        )
+                                                    )
+                                                } else {
+                                                    onStateChange(
+                                                        state.copy(
+                                                            stockEntryMode = CreateProductStockEntryMode.CAJA,
+                                                            stockControlMode = StockControlMode.INDIVISIBLE,
+                                                            packagesPerBoxText = "",
+                                                            unitsPerPackageText = "",
+                                                            unitsPerBoxText = "",
+                                                            unitsPerItemText = "",
+                                                            stockEntryConfigured = false
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Color.White,
+                                                checkedTrackColor = CreateGreen,
+                                                uncheckedThumbColor = Color.White,
+                                                uncheckedTrackColor = CreateBorderStrong
+                                            )
+                                        )
+                                    }
+                                }
+
+                                PremiumEntryCard(
+                                    "CANTIDAD DE CAJAS",
+                                    state.boxesReceivedText,
+                                    {
+                                        onStateChange(
+                                            state.copy(boxesReceivedText = it.filter { c -> c.isDigit() })
+                                        )
+                                    },
+                                    "Ej. 10",
+                                    "cajas",
+                                    Icons.AutoMirrored.Outlined.Assignment
+                                )
+
+                                if (tienePaquetesInternos) {
+                                    PremiumEntryCard(
+                                        "PAQUETES POR CAJA",
+                                        state.packagesPerBoxText,
+                                        {
+                                            onStateChange(
+                                                state.copy(packagesPerBoxText = it.filter { c -> c.isDigit() })
+                                            )
+                                        },
+                                        "Ej. 5",
+                                        "paquetes",
+                                        Icons.Default.Apps
                                     )
-                                    
-                                    val totalBase = calculateTotalBaseStock(state)
-                                    val unit = when (state.controlType) {
-                                        CreateProductControlType.UNIDAD -> "Unidades"
-                                        CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
-                                        CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
-                                        else -> ""
+
+                                    PremiumEntryCard(
+                                        "PIEZAS POR PAQUETE",
+                                        state.unitsPerPackageText,
+                                        {
+                                            onStateChange(
+                                                state.copy(unitsPerPackageText = it.filter { c -> c.isDigit() })
+                                            )
+                                        },
+                                        "Ej. 10",
+                                        "piezas",
+                                        Icons.Default.CatchingPokemon
+                                    )
+                                } else {
+                                    PremiumEntryCard(
+                                        "PIEZAS POR CAJA",
+                                        state.unitsPerBoxText,
+                                        {
+                                            onStateChange(
+                                                state.copy(unitsPerBoxText = it.filter { c -> c.isDigit() })
+                                            )
+                                        },
+                                        "Ej. 12",
+                                        pluralItemType,
+                                        Icons.Default.Apps
+                                    )
+
+                                    if (state.controlType == CreateProductControlType.UNIDAD) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(22.dp),
+                                            color = CreateGreenUltraSoft,
+                                            border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.14f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "¿Vendes contenido interno?",
+                                                        color = CreateTextPrimary,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp
+                                                    )
+
+                                                    Text(
+                                                        text = "Actívalo si venderás cápsulas, tabletas o piezas sueltas.",
+                                                        color = CreateTextSecondary,
+                                                        fontSize = 12.sp,
+                                                        lineHeight = 16.sp
+                                                    )
+                                                }
+
+                                                Switch(
+                                                    checked = vendeContenidoInterno,
+                                                    onCheckedChange = { checked ->
+                                                        onStateChange(
+                                                            state.copy(
+                                                                stockControlMode = if (checked) {
+                                                                    StockControlMode.DIVISIBLE
+                                                                } else {
+                                                                    StockControlMode.INDIVISIBLE
+                                                                },
+                                                                unitsPerItemText = "",
+                                                                stockEntryConfigured = false
+                                                            )
+                                                        )
+                                                    },
+                                                    colors = SwitchDefaults.colors(
+                                                        checkedThumbColor = Color.White,
+                                                        checkedTrackColor = CreateGreen,
+                                                        uncheckedThumbColor = Color.White,
+                                                        uncheckedTrackColor = CreateBorderStrong
+                                                    )
+                                                )
+                                            }
+                                        }
                                     }
 
-                                    Text(
-                                        text = "${formatCreateProductNumber(totalBase)} $unit",
-                                        color = CreateGreen,
-                                        fontSize = 28.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-
-                                    Text(
-                                        text = summary,
-                                        color = CreateTextPrimary,
-                                        fontSize = 13.sp,
-                                        textAlign = TextAlign.Center,
-                                        lineHeight = 18.sp
-                                    )
+                                    if (state.controlType != CreateProductControlType.UNIDAD || vendeContenidoInterno) {
+                                        PremiumEntryCard(
+                                            when (state.controlType) {
+                                                CreateProductControlType.LIQUIDO -> "CONTENIDO POR FRASCO"
+                                                CreateProductControlType.PESO -> "PESO POR ENVASE"
+                                                else -> "CONTENIDO POR ${itemType}"
+                                            },
+                                            state.unitsPerItemText,
+                                            {
+                                                onStateChange(
+                                                    state.copy(unitsPerItemText = sanitizeDecimalInput(it))
+                                                )
+                                            },
+                                            "Ej. 500",
+                                            if (mostrarSelectorUnidad) unitForItem else "piezas",
+                                            Icons.Outlined.Opacity,
+                                            mostrarSelectorUnidad,
+                                            unitForItem,
+                                            listOf(unidadBase, unidadGrande),
+                                            {
+                                                unitForItem = it
+                                                onStateChange(state.copy(stockEntryUnit = it))
+                                            }
+                                        )
+                                    }
                                 }
                             }
+
+                            else -> {}
+                        }
+                    }
+
+                    // --- RESUMEN MATEMÁTICO (Lógica Blindada) ---
+                    if (summary.isNotBlank()) {
+                        Surface(
+                            color = CreateSurfaceSoft,
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, CreateBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val totalBase = calculateTotalBaseStock(state)
+                                val finalUnit = resolveStockUnitLabel(state)
+
+                                val totalVisual = when (finalUnit) {
+                                    "kg", "L" -> totalBase / 1000.0
+                                    else -> totalBase
+                                }
+
+                                Text(
+                                    text = "TOTAL A INGRESAR",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CreateTextSecondary
+                                )
+
+                                Text(
+                                    text = "${formatCreateProductNumber(totalVisual)} $finalUnit",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CreateGreen
+                                )
+
+                                Text(
+                                    text = summary,
+                                    fontSize = 12.sp,
+                                    color = CreateTextPrimary.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    // --- BOTONES ---
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Cancelar", color = CreateTextSecondary, fontWeight = FontWeight.Bold)
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        Button(
+                            onClick = onApply,
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .heightIn(min = 56.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(TealGradient), // Aplicación correcta del degradado
+                            enabled = summary.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            OutlinedButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.weight(1f).height(60.dp),
-                                shape = RoundedCornerShape(18.dp),
-                                border = BorderStroke(1.5.dp, CreateBorder),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CreateTextSecondary)
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text("CANCELAR", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Confirmar", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
                             }
-                            Button(
-                                onClick = onApply,
-                                modifier = Modifier.weight(1f).height(60.dp),
-                                enabled = summary.isNotBlank(),
-                                shape = RoundedCornerShape(18.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = CreateGreen, contentColor = Color.White),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                            ) {
-                                Text("CONFIRMAR", fontWeight = FontWeight.Black, fontSize = 14.sp)
-                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 2. Componente auxiliar necesario para el diseño
+@Composable
+private fun PremiumEntryCard(
+    label: String, value: String, onValueChange: (String) -> Unit, placeholder: String, unit: String, icon: ImageVector,
+    showUnitSelector: Boolean = false, selectedUnit: String = "", unitOptions: List<String> = emptyList(), onUnitSelected: (String) -> Unit = {}
+) {
+    Surface(color = Color.White, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.8f)), shadowElevation = 2.dp) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = CreateBackground, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = CreateTextSecondary.copy(alpha = 0.6f), modifier = Modifier.size(22.dp)) }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = label, fontSize = 10.sp, fontWeight = FontWeight.Black, color = CreateTextSecondary, letterSpacing = 0.5.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicTextField(
+                        value = value, onValueChange = onValueChange, modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                        decorationBox = { inner ->
+                            if (value.isEmpty()) Text(placeholder, color = CreateTextSecondary.copy(alpha = 0.4f), fontSize = 18.sp)
+                            inner()
+                        }
+                    )
+                    if (showUnitSelector) {
+                        PremiumUnitSelector(selected = selectedUnit, options = unitOptions, onSelected = onUnitSelected)
+                    } else if (unit.isNotBlank()) {
+                        Surface(color = CreateBackground, shape = RoundedCornerShape(8.dp)) {
+                            Text(text = unit, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CreateTextSecondary)
                         }
                     }
                 }
@@ -5444,7 +7899,12 @@ private data class Tuple4<T1, T2, T3, T4>(val a: T1, val b: T2, val c: T3, val d
 @Composable
 fun StockAllocationPanel(state: CreateProductState) {
     val totalStock = calculateTotalBaseStock(state)
-    val assignedStock = state.presentations.sumOf { it.equivalenceText.toDoubleOrNull() ?: 0.0 }
+    val assignedStock = state.presentations.sumOf {
+        it.equivalenceText
+            .trim()
+            .replace(",", ".")
+            .toDoubleOrNull() ?: 0.0
+    }
     val remainingStock = (totalStock - assignedStock).coerceAtLeast(0.0)
     
     // V21.9: Soporte para unidades escaladas en el panel de distribución (kg/L)
@@ -5537,7 +7997,10 @@ fun StockAllocationPanel(state: CreateProductState) {
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                colors = if (isComplete) listOf(CreateGreen.copy(alpha = 0.7f), CreateGreen)
+                                colors = if (isComplete) listOf(
+                                    CreateGreen.copy(alpha = 0.7f),
+                                    CreateGreen
+                                )
                                 else listOf(CreateOrange.copy(alpha = 0.7f), CreateOrange)
                             )
                         )
@@ -5590,7 +8053,10 @@ fun PresentationsPricesStep(
     val firstErrorKey = remember(state.errors) {
         when {
             !state.errors["presentations"].isNullOrBlank() -> "presentations"
-            state.errors.keys.any { it.startsWith("price_") || it.startsWith("equivalence_") } -> "presentations"
+            !state.errors["presentations_total"].isNullOrBlank() -> "presentations"
+            state.errors.keys.any {
+                it.startsWith("price_") || it.startsWith("equivalence_")
+            } -> "presentations"
             !state.errors["mainPresentation"].isNullOrBlank() -> "mainPresentation"
             else -> null
         }
@@ -5609,14 +8075,14 @@ fun PresentationsPricesStep(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // V19.6: Nuevo Panel de Control de Mercancía (Elegante y Tecnológico)
         StockAllocationPanel(state = state)
 
-        // V21.0: Chips de presentaciones sugeridas (Recientes)
         val recentOptions = remember(state.savedPresentations, state.controlType) {
-            state.savedPresentations.filter { 
-                it.controlType == (state.controlType?.name ?: "UNIDAD") 
-            }.take(10)
+            state.savedPresentations
+                .filter {
+                    it.controlType == (state.controlType?.name ?: "UNIDAD")
+                }
+                .take(10)
         }
 
         if (recentOptions.isNotEmpty() && !state.addPresentationExpanded) {
@@ -5628,188 +8094,523 @@ fun PresentationsPricesStep(
                     fontSize = 10.sp,
                     letterSpacing = 1.2.sp
                 )
+
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     recentOptions.forEach { opt ->
-                        Surface(
-                            modifier = Modifier.clickable {
-                                onStateChange(state.copy(
-                                    addPresentationExpanded = true,
-                                    draftPresentationName = opt.name,
-                                    draftPresentationCustomAmount = opt.equivalenceBase,
-                                    draftPresentationCustomUnit = "",
-                                    draftPresentationSalePriceText = ""
-                                ))
-                            },
-                            color = Color.White,
-                            shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, CreateBorder),
-                            shadowElevation = 1.dp
+                        PremiumRecentPresentationChip(
+                            name = opt.name,
+                            equivalence = opt.equivalenceBase,
+                            onClick = {
+                                onStateChange(
+                                    state.copy(
+                                        addPresentationExpanded = true,
+                                        draftPresentationName = opt.name,
+                                        draftPresentationCustomAmount = opt.equivalenceBase,
+                                        draftPresentationCustomUnit = "",
+                                        draftPresentationSalePriceText = ""
+                                    )
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        PremiumStep3SalesHeader(
+            modifier = Modifier.bringIntoViewRequester(presentationsRequester),
+            presentationsCount = state.presentations.size,
+            totalStock = calculateTotalBaseStock(state),
+            assignedStock = state.presentations.sumOf {
+                it.equivalenceText
+                    .trim()
+                    .replace(",", ".")
+                    .toDoubleOrNull() ?: 0.0
+            }
+        )
+
+        if (state.presentations.isEmpty()) {
+            PremiumEmptyPresentationsState(
+                onClick = {
+                    onStateChange(
+                        state.copy(addPresentationExpanded = true)
+                    )
+                }
+            )
+        }
+
+        state.presentations.forEach { presentation ->
+            key(presentation.id) {
+                PresentationPriceCard(
+                    presentation = presentation,
+                    unitLabel = state.controlType?.baseUnitLabel.orEmpty(),
+                    isMain = state.mainPresentationId == presentation.id,
+                    error = state.errors["price_${presentation.id}"]
+                        ?: state.errors["equivalence_${presentation.id}"],
+                    onEquivalenceChange = { value ->
+                        onStateChange(
+                            state.copy(
+                                presentations = state.presentations.map {
+                                    if (it.id == presentation.id) {
+                                        it.copy(
+                                            equivalenceText = value,
+                                            isAiSuggested = false
+                                        )
+                                    } else {
+                                        it
+                                    }
+                                },
+                                errors = state.errors -
+                                        "equivalence_${presentation.id}" -
+                                        "presentations_total"
+                            )
+                        )
+                    },
+                    onPriceChange = { value ->
+                        onStateChange(
+                            state.copy(
+                                presentations = state.presentations.map {
+                                    if (it.id == presentation.id) {
+                                        it.copy(salePriceText = value)
+                                    } else {
+                                        it
+                                    }
+                                },
+                                errors = state.errors -
+                                        "price_${presentation.id}" -
+                                        "presentations" -
+                                        "presentations_total"
+                            )
+                        )
+                    },
+                    onRemove = {
+                        val nextList = state.presentations.filterNot {
+                            it.id == presentation.id
+                        }
+
+                        val nextMain = when {
+                            nextList.isEmpty() -> ""
+                            state.mainPresentationId == presentation.id -> nextList.first().id
+                            else -> state.mainPresentationId
+                        }
+
+                        onStateChange(
+                            state.copy(
+                                presentations = nextList,
+                                mainPresentationId = nextMain,
+                                errors = state.errors -
+                                        "presentations" -
+                                        "mainPresentation" -
+                                        "presentations_total"
+                            )
+                        )
+                    }
+                )
+
+                val profitGuard = calculateProfitGuard(
+                    costoTotal = parseDecimalSafe(state.purchaseCost),
+                    stockTotalBase = calculateTotalBaseStock(state),
+                    precioVenta = parseDecimalSafe(presentation.salePriceText),
+                    equivalenciaBase = parseDecimalSafe(presentation.equivalenceText)
+                )
+
+                if (profitGuard != null) {
+                    Surface(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .offset(y = (-12).dp),
+                        color = profitGuard.color.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(
+                            bottomStart = 12.dp,
+                            bottomEnd = 12.dp
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            profitGuard.color.copy(alpha = 0.2f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(Icons.Default.Add, null, tint = CreateGreen, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(
+                                                profitGuard.color,
+                                                CircleShape
+                                            )
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Text(
+                                        text = "Margen: ${formatCreateProductPercent(profitGuard.margenPercent)}%",
+                                        color = profitGuard.color,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+
                                 Text(
-                                    text = opt.name,
-                                    color = CreateTextPrimary,
-                                    fontSize = 14.sp,
+                                    text = profitGuard.mensaje,
+                                    color = profitGuard.color.copy(alpha = 0.78f),
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
 
-        Text(
-            text = "Formas de venta y precios",
-            color = CreateTextPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 18.sp,
-            modifier = Modifier.bringIntoViewRequester(presentationsRequester)
-        )
+                            val isLoss = profitGuard.ganancia < 0.0
+                            val profitLabel = if (isLoss) "Pérdida" else "Ganancia"
+                            val profitMoney = formatCreateProductMoney(abs(profitGuard.ganancia))
 
-        state.presentations.forEach { presentation ->
-            PresentationPriceCard(
-                presentation = presentation,
-                unitLabel = state.controlType?.baseUnitLabel.orEmpty(),
-                isMain = state.mainPresentationId == presentation.id,
-                error = state.errors["price_${presentation.id}"]
-                    ?: state.errors["equivalence_${presentation.id}"],
-                onEquivalenceChange = { value ->
-                    onStateChange(
-                        state.copy(
-                            presentations = state.presentations.map {
-                                if (it.id == presentation.id) {
-                                    // Si el usuario edita la equivalencia, la
-                                    // presentaciÃ³n deja de "pertenecer" a la IA.
-                                    it.copy(equivalenceText = value, isAiSuggested = false)
-                                } else {
-                                    it
-                                }
-                            },
-                            errors = state.errors - "equivalence_${presentation.id}"
-                        )
-                    )
-                },
-                onPriceChange = { value ->
-                    onStateChange(
-                        state.copy(
-                            presentations = state.presentations.map {
-                                if (it.id == presentation.id) {
-                                    it.copy(salePriceText = value)
-                                } else {
-                                    it
-                                }
-                            },
-                            errors = state.errors - "price_${presentation.id}"
-                        )
-                    )
-                },
-                onRemove = {
-                    val nextList = state.presentations.filterNot { it.id == presentation.id }
-
-                    val nextMain = when {
-                        nextList.isEmpty() -> ""
-                        state.mainPresentationId == presentation.id -> nextList.first().id
-                        else -> state.mainPresentationId
-                    }
-
-                    onStateChange(
-                        state.copy(
-                            presentations = nextList,
-                            mainPresentationId = nextMain,
-                            errors = state.errors - "presentations" - "mainPresentation"
-                        )
-                    )
-                }
-            )
-
-            // V29.0: GUARDÍAN DE MARGEN (PROFIT GUARD) - Feedback en tiempo real
-            val costoTotal = state.purchaseCost.replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true).trim().replace(",", ".").toDoubleOrNull() ?: 0.0
-            val stockTotalBase = calculateTotalBaseStock(state)
-            val precioVenta = presentation.salePriceText.replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true).trim().replace(",", ".").toDoubleOrNull() ?: 0.0
-            val equiv = presentation.equivalenceText.toDoubleOrNull() ?: 1.0
-
-            if (costoTotal > 0 && stockTotalBase > 0 && precioVenta > 0) {
-                val costoUnitarioBase = costoTotal / stockTotalBase
-                val costoEstaPresentacion = costoUnitarioBase * equiv
-                val gananciaAbsoluta = precioVenta - costoEstaPresentacion
-                val margenPorcentaje = (gananciaAbsoluta / precioVenta) * 100
-
-                val (colorMargen, mensajeMargen) = when {
-                    margenPorcentaje < 10 -> CreateRed to "¡Pérdida o margen muy bajo!"
-                    margenPorcentaje < 20 -> CreateOrange to "Margen ajustado"
-                    else -> CreateGreen to "Margen saludable"
-                }
-
-                Surface(
-                    modifier = Modifier.padding(horizontal = 8.dp).offset(y = (-12).dp),
-                    color = colorMargen.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
-                    border = BorderStroke(1.dp, colorMargen.copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(6.dp).background(colorMargen, CircleShape))
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Ganancia: ${String.format(Locale.US, "%.1f", margenPorcentaje)}%",
-                                color = colorMargen,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black
+                                text = "$profitLabel: $profitMoney",
+                                color = profitGuard.color.copy(alpha = 0.86f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Text(
-                            text = mensajeMargen,
-                            color = colorMargen.copy(alpha = 0.7f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
             }
         }
 
-        if (state.errors["presentations"] != null) {
-            Text(
-                text = state.errors["presentations"].orEmpty(),
-                color = Color(0xFFB42318),
-                fontSize = 13.sp
-            )
+        val presentationsError =
+            state.errors["presentations"]
+                ?: state.errors["presentations_total"]
+
+        if (!presentationsError.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = CreateRedSoft,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(
+                    1.dp,
+                    CreateRed.copy(alpha = 0.18f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 12.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = CreateRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    Text(
+                        text = presentationsError,
+                        color = CreateRed,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
         }
 
         if (state.addPresentationExpanded) {
-            // Se maneja vÃ­a Dialog fuera del flujo de la lista para mayor elegancia.
+            // Se maneja vía Dialog fuera del flujo de la lista.
         }
 
-        if (state.presentations.size > 1) {
-            MainPresentationRadioGroup(
-                modifier = Modifier.bringIntoViewRequester(mainPresentationRequester),
-                presentations = state.presentations,
-                selectedId = state.mainPresentationId,
-                error = state.errors["mainPresentation"],
-                onSelected = {
-                    onStateChange(
-                        state.copy(
-                            mainPresentationId = it,
-                            errors = state.errors - "mainPresentation"
+
+    }
+}
+
+
+@Composable
+private fun PremiumEmptyPresentationsState(
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .clickable(onClick = onClick),
+        color = Color.White,
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(
+            1.4.dp,
+            CreateGreen.copy(alpha = 0.22f)
+        ),
+        shadowElevation = 5.dp
+    ) {
+        Box(
+            modifier = Modifier.background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color.White,
+                        CreateGreenUltraSoft,
+                        CreateBlueSoft.copy(alpha = 0.28f)
+                    )
+                )
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(13.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    color = CreateGreenSoft,
+                    shape = CircleShape,
+                    border = BorderStroke(
+                        1.dp,
+                        CreateGreen.copy(alpha = 0.20f)
+                    )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = CreateGreen,
+                            modifier = Modifier.size(34.dp)
                         )
+                    }
+                }
+
+                Text(
+                    text = "Crea tu primera forma de venta",
+                    color = CreateTextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "Ejemplo: unidad, caja, frasco, paquete o cualquier presentación que vendas al cliente.",
+                    color = CreateTextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Surface(
+                    color = CreateGreen,
+                    shape = RoundedCornerShape(16.dp),
+                    shadowElevation = 5.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+
+                        Text(
+                            text = "Agregar presentación",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun PremiumRecentPresentationChip(
+    name: String,
+    equivalence: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick),
+        color = Color.White,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(
+            1.dp,
+            CreateGreen.copy(alpha = 0.16f)
+        ),
+        shadowElevation = 3.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(28.dp),
+                color = CreateGreenSoft,
+                shape = CircleShape
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = CreateGreen,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
-            )
-        }
+            }
 
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = name,
+                    color = CreateTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (equivalence.isNotBlank()) {
+                    Text(
+                        text = "Equiv. $equivalence",
+                        color = CreateTextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumStep3SalesHeader(
+    modifier: Modifier = Modifier,
+    presentationsCount: Int,
+    totalStock: Double,
+    assignedStock: Double
+) {
+    val remaining = (totalStock - assignedStock).coerceAtLeast(0.0)
+    val isComplete = totalStock > 0 && remaining <= 0.0
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(26.dp),
+        shadowElevation = 4.dp,
+        border = BorderStroke(
+            1.dp,
+            if (isComplete) CreateGreen.copy(alpha = 0.35f) else CreateBorder
+        )
+    ) {
+        Box(
+            modifier = Modifier.background(
+                Brush.linearGradient(
+                    colors = if (isComplete) {
+                        listOf(
+                            Color.White,
+                            CreateGreenUltraSoft,
+                            CreateGreenSoft
+                        )
+                    } else {
+                        listOf(
+                            Color.White,
+                            CreateSurfaceSoft,
+                            CreateBlueSoft.copy(alpha = 0.42f)
+                        )
+                    }
+                )
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(54.dp),
+                    color = if (isComplete) CreateGreenSoft else CreateBlueSoft,
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isComplete) CreateGreen.copy(alpha = 0.20f) else CreateBlue.copy(alpha = 0.16f)
+                    )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.AttachMoney,
+                            contentDescription = null,
+                            tint = if (isComplete) CreateGreen else CreateBlue,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = "Formas de venta y precios",
+                        color = CreateTextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Text(
+                        text = when {
+                            presentationsCount == 0 -> "Crea cómo venderás este lote."
+                            isComplete -> "Mercancía totalmente distribuida."
+                            else -> "Define precios, equivalencias y presentación principal."
+                        },
+                        color = CreateTextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Surface(
+                    color = if (isComplete) CreateGreen else CreateSurfaceSoft,
+                    shape = RoundedCornerShape(999.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isComplete) CreateGreen else CreateBorder
+                    )
+                ) {
+                    Text(
+                        text = "$presentationsCount",
+                        color = if (isComplete) Color.White else CreateTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -5972,7 +8773,9 @@ fun ProductSummaryStep(
                 color = CreateAiFocus
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -6006,7 +8809,9 @@ fun ProductSummaryStep(
                 )
                 
                 FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -6028,14 +8833,20 @@ fun ProductSummaryStep(
                 }
                 
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CreateBorder.copy(alpha = 0.5f)))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Instrucciones
                 SummaryItem("Instrucciones de Uso", state.aiUsageInfo.instrucciones)
                 
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CreateBorder.copy(alpha = 0.5f)))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Contraindicaciones
@@ -6089,7 +8900,10 @@ fun ProductSummaryStep(
             SummaryItem("Costo Total", formatBs(state.purchaseCost), highlight = true)
 
             Spacer(modifier = Modifier.height(12.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CreateBorder.copy(alpha = 0.5f)))
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(CreateBorder.copy(alpha = 0.5f)))
             Spacer(modifier = Modifier.height(12.dp))
 
             val minimumUnits = state.minimumStockUnits
@@ -6430,41 +9244,58 @@ fun ProductTypeSelector(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(110.dp)
+                        .heightIn(min = 118.dp)
                         .graphicsLayer {
                             scaleX = pulseScale.value
                             scaleY = pulseScale.value
                         }
                         .clickable { onSelected(controlType) },
-                    color = surfaceColor.value, // --- 2. APLICAMOS EL COLOR ANIMADO ---
-                    shape = RoundedCornerShape(20.dp),
+                    color = surfaceColor.value,
+                    shape = RoundedCornerShape(24.dp),
+                    shadowElevation = if (isSelected) 5.dp else 0.dp,
                     border = BorderStroke(
                         width = if (isSelected) 2.dp else 1.dp,
                         color = if (isSelected) CreateGreen else CreateBorder
                     )
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                    ) {
                         Column(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = when(controlType) {
-                                    CreateProductControlType.UNIDAD -> Icons.Outlined.Inventory2
-                                    CreateProductControlType.PESO -> Icons.Outlined.MonitorWeight
-                                    CreateProductControlType.LIQUIDO -> Icons.Outlined.Opacity
-                                },
-                                contentDescription = null,
-                                tint = if (isSelected) CreateGreen else CreateTextSecondary,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                modifier = Modifier.size(46.dp),
+                                shape = CircleShape,
+                                color = if (isSelected) CreateGreenSoft else CreateSurfaceSoft
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = when (controlType) {
+                                            CreateProductControlType.UNIDAD -> Icons.Outlined.Inventory2
+                                            CreateProductControlType.PESO -> Icons.Outlined.MonitorWeight
+                                            CreateProductControlType.LIQUIDO -> Icons.Outlined.Opacity
+                                        },
+                                        contentDescription = null,
+                                        tint = if (isSelected) CreateGreen else CreateTextSecondary,
+                                        modifier = Modifier.size(25.dp)
+                                    )
+                                }
+                            }
+
                             Text(
                                 text = controlType.label,
                                 color = if (isSelected) CreateGreen else CreateTextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1
                             )
                         }
 
@@ -6485,7 +9316,7 @@ fun ProductTypeSelector(
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(8.dp)
+                                    .padding(10.dp)
                                     .background(CreateAiFocus, CircleShape)
                                     .size(8.dp)
                             )
@@ -6564,16 +9395,25 @@ fun ProductTypeSelector(
 
 @Composable
 fun PremiumStockEntryModeSelector(
+    state: CreateProductState,
     controlType: CreateProductControlType?,
     selected: CreateProductStockEntryMode?,
     onSelected: (CreateProductStockEntryMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val availableModes = remember(controlType) {
-        CreateProductStockEntryMode.entries
-            .filter { isStockEntryModeValidForControlType(it, controlType) }
+        listOf(
+            CreateProductStockEntryMode.UNIDAD,
+            CreateProductStockEntryMode.CAJA
+        ).filter { isStockEntryModeValidForControlType(it, controlType) }
     }
-    val selectedMeta = selected
+
+    val selectedVisualMode = when (selected) {
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> CreateProductStockEntryMode.CAJA
+        else -> selected
+    }
+
+    val selectedMeta = selectedVisualMode
         ?.takeIf { isStockEntryModeValidForControlType(it, controlType) }
         ?.stockModeMeta(controlType)
 
@@ -6591,28 +9431,35 @@ fun PremiumStockEntryModeSelector(
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Forma de ingreso",
-                color = CreateTextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp
-            )
-
-            Text(
-                text = "Elige cómo se registrará este stock.",
-                color = CreateTextSecondary,
-                fontSize = 13.sp
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
             ) {
                 availableModes.forEach { mode ->
+                    val isCompleted = isStockEntryModeCompleted(
+                        state = state,
+                        mode = mode
+                    )
+
+                    val isCurrentMode = when (mode) {
+                        CreateProductStockEntryMode.UNIDAD ->
+                            state.stockEntryMode == CreateProductStockEntryMode.UNIDAD
+
+                        CreateProductStockEntryMode.CAJA ->
+                            state.stockEntryMode == CreateProductStockEntryMode.CAJA ||
+                                    state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES
+
+                        CreateProductStockEntryMode.CAJA_CON_PAQUETES ->
+                            false
+                    }
+
                     PremiumStockModeCard(
                         controlType = controlType,
                         mode = mode,
-                        selected = selected == mode,
+                        selected = isCompleted,
+                        isCurrentMode = isCurrentMode,
                         onClick = { onSelected(mode) },
                         modifier = Modifier.weight(1f)
                     )
@@ -6630,19 +9477,45 @@ fun PremiumStockEntryModeSelector(
 }
 
 @Composable
-private fun PremiumStockModeCard(
+fun PremiumStockModeCard(
     controlType: CreateProductControlType?,
     mode: CreateProductStockEntryMode,
     selected: Boolean,
+    isCurrentMode: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val meta = mode.stockModeMeta(controlType)
     val haptic = LocalHapticFeedback.current
 
+    val borderColor = when {
+        selected -> CreateGreen
+        isCurrentMode -> CreateGreen.copy(alpha = 0.32f)
+        else -> CreateBorder
+    }
+
+    val borderWidth = when {
+        selected -> 2.dp
+        isCurrentMode -> 1.4.dp
+        else -> 1.dp
+    }
+
+    val iconBackground = when {
+        selected -> CreateGreenSoft
+        isCurrentMode -> CreateGreenUltraSoft
+        else -> CreateSurfaceSoft
+    }
+
+    val iconTint = when {
+        selected -> CreateGreen
+        isCurrentMode -> CreateGreen
+        else -> CreateTextSecondary
+    }
+
     Surface(
         modifier = modifier
-            .height(126.dp)
+            .wrapContentHeight()
+            .heightIn(min = 142.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -6651,72 +9524,68 @@ private fun PremiumStockModeCard(
                     onClick()
                 }
             ),
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) CreateGreenSoft.copy(alpha = 0.45f) else Color.White,
-        shadowElevation = if (selected) 3.dp else 0.dp,
-        border = BorderStroke(
-            width = if (selected) 1.5.dp else 1.dp,
-            color = if (selected) CreateGreen else CreateBorder.copy(alpha = 0.9f)
-        )
+        shape = RoundedCornerShape(24.dp),
+        color = CreateSurface,
+        shadowElevation = if (selected) 5.dp else 0.dp,
+        border = BorderStroke(borderWidth, borderColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(horizontal = 14.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (selected) CreateGreen.copy(alpha = 0.12f)
-                        else CreateSurfaceSoft
-                    ),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = CircleShape,
+                color = iconBackground
             ) {
-                Icon(
-                    imageVector = meta.icon,
-                    contentDescription = meta.title,
-                    tint = if (selected) CreateGreen else CreateTextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = meta.icon,
+                        contentDescription = meta.title,
+                        tint = iconTint,
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
             }
 
             Text(
                 text = meta.title,
                 color = CreateTextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
+                fontWeight = FontWeight.Black,
+                fontSize = 16.sp,
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
                 text = meta.shortDescription,
                 color = CreateTextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
                 textAlign = TextAlign.Center,
-                maxLines = 2
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
-            if (selected) {
+            AnimatedVisibility(visible = selected) {
                 Surface(
                     color = CreateGreen,
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
-                        text = "Seleccionado",
+                        text = "Listo",
                         color = Color.White,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                     )
                 }
-            } else {
-                Spacer(modifier = Modifier.height(22.dp))
             }
         }
     }
@@ -6730,32 +9599,33 @@ private fun PremiumStockModeInfoBox(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         color = CreateSurfaceSoft,
-        border = BorderStroke(1.dp, CreateBorder.copy(alpha = 0.6f))
+        border = BorderStroke(1.dp, CreateBorder)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(CreateGreenSoft),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(36.dp),
+                shape = CircleShape,
+                color = CreateBlueSoft
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = CreateGreen,
-                    modifier = Modifier.size(18.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = CreateBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
                 Text(
                     text = title,
                     color = CreateTextPrimary,
@@ -6763,13 +9633,11 @@ private fun PremiumStockModeInfoBox(
                     fontSize = 13.sp
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
-
                 Text(
                     text = description,
                     color = CreateTextSecondary,
                     fontSize = 12.sp,
-                    lineHeight = 15.sp
+                    lineHeight = 16.sp
                 )
             }
         }
@@ -6805,36 +9673,24 @@ private fun CreateProductStockEntryMode.stockModeMeta(controlType: CreateProduct
             infoDescription = when (controlType) {
                 CreateProductControlType.LIQUIDO -> "Registra frascos sueltos y el contenido de cada uno."
                 CreateProductControlType.PESO -> "Registra envases sueltos y el peso de cada uno."
-                else -> "Úsalo cuando vendes unidades sueltas o blísteres individuales."
+                else -> "Úsalo cuando vendes unidades sueltas o piezas individuales"
             },
             icon = Icons.Outlined.Inventory2
         )
 
         CreateProductStockEntryMode.CAJA -> StockModeMeta(
             title = "Cajas",
-            shortDescription = when (controlType) {
-                CreateProductControlType.LIQUIDO -> "Con frascos"
-                CreateProductControlType.PESO -> "Con envases"
-                else -> "Con unidades"
-            },
-            infoTitle = when (controlType) {
-                CreateProductControlType.LIQUIDO -> "Caja con frascos"
-                CreateProductControlType.PESO -> "Caja con envases"
-                else -> "Caja con unidades"
-            },
-            infoDescription = when (controlType) {
-                CreateProductControlType.LIQUIDO -> "Registra cuántas cajas recibiste, cuántos frascos trae cada caja y el contenido por frasco."
-                CreateProductControlType.PESO -> "Registra cuántas cajas recibiste, cuántos envases trae cada caja y el peso por envase."
-                else -> "Registra cajas y cuántas unidades trae cada una."
-            },
-            icon = Icons.Outlined.Inventory
+            shortDescription = "Con unidades",
+            infoTitle = "Ingreso por cajas",
+            infoDescription = "Registra cajas completas. Dentro del diálogo podrás indicar si la caja trae unidades directas o paquetes internos.",
+            icon = Icons.AutoMirrored.Outlined.Assignment
         )
 
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> StockModeMeta(
-            title = "Blísters",
-            shortDescription = "Paquetes internos",
-            infoTitle = "Control por blíster o paquete",
-            infoDescription = "Úsalo cuando la unidad real de salida es el blíster o paquete interno.",
+            title = "Caja +",
+            shortDescription = "Con paquetes",
+            infoTitle = "Caja con paquetes internos",
+            infoDescription = "Úsalo cuando cada caja trae subempaques internos, como sobres, tiras o paquetes.",
             icon = Icons.Outlined.AllInbox
         )
     }
@@ -6852,11 +9708,16 @@ fun CreateSectionCard(
     val hasHeader = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || icon != null || onClear != null
 
     Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(22.dp),
+        color = CreateSurface,
+        shape = RoundedCornerShape(28.dp),
+        shadowElevation = if (isSuccess) 3.dp else 1.dp,
         border = BorderStroke(
-            width = if (isSuccess) 2.dp else 1.dp,
-            color = if (isSuccess) CreateGreen else CreateBorder
+            width = if (isSuccess) 1.2.dp else 1.dp,
+            color = if (isSuccess) {
+                CreateGreen.copy(alpha = 0.22f)
+            } else {
+                CreateBorder
+            }
         )
     ) {
         Column(
@@ -6874,16 +9735,20 @@ fun CreateSectionCard(
                     ) {
                         if (icon != null) {
                             Surface(
-                                color = CreateGreenSoft,
-                                shape = CircleShape,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(48.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSuccess) CreateGreenSoft else CreateSurfaceSoft,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSuccess) CreateGreen.copy(alpha = 0.12f) else CreateBorder
+                                )
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = icon,
                                         contentDescription = null,
-                                        tint = CreateGreen,
-                                        modifier = Modifier.size(20.dp)
+                                        tint = if (isSuccess) CreateGreen else CreateTextSecondary,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
@@ -7004,20 +9869,50 @@ fun PresentationPriceCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
                             text = presentation.name,
                             color = CreateTextPrimary,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
-                            fontSize = 17.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+
                         if (presentation.isAiSuggested) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("✨", fontSize = 14.sp)
+                            Surface(
+                                color = CreateAiFocusSoft,
+                                shape = RoundedCornerShape(999.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    CreateAiFocus.copy(alpha = 0.35f)
+                                )
+                            ) {
+                                Text(
+                                    text = "IA",
+                                    color = CreateTextPrimary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                     }
+
+                    if (presentation.isAiSuggested && !presentation.aiDescription.isNullOrBlank()) {
+                        Text(
+                            text = presentation.aiDescription,
+                            color = CreateTextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
                     if (isMain) {
                         Text(
                             text = "PRINCIPAL",
@@ -7073,7 +9968,9 @@ fun PresentationPriceCard(
                                 letterSpacing = 0.8.sp
                             )
                             Surface(
-                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp),
                                 shape = RoundedCornerShape(28.dp),
                                 color = CreateBackground,
                                 border = BorderStroke(1.dp, CreateBorder)
@@ -7303,7 +10200,6 @@ private fun AiPrescriptionInfoRow(requiresPrescription: Boolean) {
     } else {
         "Este producto no requiere receta"
     }
-    val subtitle = "Te brindamos esta información. Si editas el switch, respetaremos tu decisión."
     val accent = if (requiresPrescription) CreateOrange else CreateGreen
     val background = CreateInfoGraySoft
 
@@ -7337,13 +10233,6 @@ private fun AiPrescriptionInfoRow(requiresPrescription: Boolean) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = subtitle,
-                color = CreateTextSecondary,
-                fontSize = 13.sp,
-                lineHeight = 16.sp
-            )
         }
 
     }
@@ -7352,7 +10241,6 @@ private fun AiPrescriptionInfoRow(requiresPrescription: Boolean) {
 @Composable
 private fun CompactSwitchRow(
     title: String,
-    subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -7386,13 +10274,7 @@ private fun CompactSwitchRow(
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = subtitle,
-                color = CreateTextSecondary,
-                fontSize = 13.sp,
-                lineHeight = 16.sp
-            )
+
         }
         Switch(
             checked = checked,
@@ -7451,6 +10333,9 @@ private fun AppTextField(
         }
 
         Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
             color = Color.White,
             shape = RoundedCornerShape(28.dp),
             border = BorderStroke(
@@ -7471,7 +10356,7 @@ private fun AppTextField(
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .heightIn(min = 56.dp) // Altura mínima adaptable
                     .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                     .bringIntoViewRequester(bringIntoViewRequester)
                     .onFocusChanged { hasFocus = it.isFocused },
@@ -7547,54 +10432,46 @@ private fun AppTextField(
                             errorIndicatorColor = Color.Transparent,
                             cursorColor = CreateGreen
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         container = {}
                     )
                 }
             )
         }
 
+        // Lógica de Error y Helper
         if (!error.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "⚠️", fontSize = 12.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = error,
-                    color = CreateRed,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Text(
+                text = error,
+                color = CreateRed,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 12.dp)
+            )
         } else if (!helper.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
-            if (!helperActionLabel.isNullOrBlank() && onHelperAction != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = helper,
-                        color = if (helperHighlighted) CreateGreen else CreateTextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = if (helperHighlighted) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .clickable(enabled = onHelperAction != null) { onHelperAction?.invoke() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (helperHighlighted) {
+                    Icon(
+                        imageVector = Icons.Outlined.Lightbulb,
+                        contentDescription = null,
+                        tint = CreateAiFocus,
+                        modifier = Modifier.size(14.dp)
                     )
-                    TextButton(
-                        onClick = onHelperAction,
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Text(helperActionLabel, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-                    }
                 }
-            } else {
                 Text(
                     text = helper,
-                    color = if (helperHighlighted) CreateGreen else CreateTextSecondary,
-                    fontWeight = if (helperHighlighted) FontWeight.Bold else FontWeight.Normal,
+                    color = if (helperHighlighted) CreateAiFocus else CreateTextSecondary,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 4.dp)
+                    fontWeight = if (helperHighlighted) FontWeight.Bold else FontWeight.Normal,
+                    textDecoration = if (onHelperAction != null) TextDecoration.Underline else null
                 )
             }
         }
@@ -7795,10 +10672,10 @@ private fun ExpirationDateField(
     modifier: Modifier = Modifier,
     label: String,
     value: String,
-    error: String? = null,
-    helper: String? = null,
-    helperColor: Color = CreateTextSecondary,
-    isSuccess: Boolean = false,
+    isSuccess: Boolean,
+    error: String?,
+    helper: String?,
+    helperColor: Color,
     enabled: Boolean = true,
     onValueChange: (String) -> Unit
 ) {
@@ -7866,9 +10743,12 @@ private fun ExpirationDateField(
                 }
             ),
             shadowElevation = if (enabled && hasFocus) 3.dp else 0.dp,
-            modifier = Modifier.clickable(enabled = enabled) { 
-                showDatePicker = true 
-            }
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .clickable(enabled = enabled) {
+                    showDatePicker = true
+                }
         ) {
             val interactionSource = remember { MutableInteractionSource() }
 
@@ -7877,7 +10757,7 @@ private fun ExpirationDateField(
                 onValueChange = {},
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .heightIn(min = 56.dp)
                     .bringIntoViewRequester(bringIntoViewRequester)
                     .onFocusChanged { focusState ->
                         hasFocus = focusState.isFocused
@@ -7918,7 +10798,7 @@ private fun ExpirationDateField(
                             unfocusedIndicatorColor = Color.Transparent,
                             errorIndicatorColor = Color.Transparent
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                         container = {}
                     )
                 }
@@ -7959,7 +10839,7 @@ private fun ExpirationDateField(
     if (showDatePicker) {
         ExpirationMonthYearDialog(
             value = value,
-            onDismiss = { 
+            onDismiss = {
                 showDatePicker = false
                 focusManager.clearFocus()
             },
@@ -8045,10 +10925,11 @@ fun FullDateField(
                 onValueChange = {},
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .bringIntoViewRequester(bringIntoViewRequester)
                     .onFocusChanged { focusState ->
                         hasFocus = focusState.isFocused
+                        // V30.8: Forzar apertura del selector al ganar foco para evitar bloqueos
                         if (enabled && focusState.isFocused) {
                             showDatePicker = true
                         }
@@ -8086,7 +10967,7 @@ fun FullDateField(
                             unfocusedIndicatorColor = Color.Transparent,
                             errorIndicatorColor = Color.Transparent
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         container = {}
                     )
                 }
@@ -8170,7 +11051,9 @@ private fun FullDatePickerDialog(
             shadowElevation = 16.dp,
             border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.15f))
         ) {
-            Box(modifier = Modifier.fillMaxWidth().background(PremiumGradient)) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .background(PremiumGradient)) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -8291,7 +11174,9 @@ private fun FullDatePickerDialog(
                     ) {
                         OutlinedButton(
                             onClick = onDismiss,
-                            modifier = Modifier.weight(1f).height(54.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Text("Cancelar", fontWeight = FontWeight.Bold)
@@ -8302,7 +11187,9 @@ private fun FullDatePickerDialog(
                                 val m = selectedMonth.toString().padStart(2, '0')
                                 onConfirm("$d/$m/$selectedYear")
                             },
-                            modifier = Modifier.weight(1f).height(54.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
                         ) {
@@ -8450,7 +11337,9 @@ private fun ExpirationMonthYearDialog(
                     ) {
                         OutlinedButton(
                             onClick = onDismiss,
-                            modifier = Modifier.weight(1f).height(54.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
                             shape = RoundedCornerShape(16.dp),
                             border = BorderStroke(1.dp, CreateBorder)
                         ) {
@@ -8462,7 +11351,9 @@ private fun ExpirationMonthYearDialog(
                                 val aa = (selectedYear % 100).toString().padStart(2, '0')
                                 onConfirm("$mm/$aa")
                             },
-                            modifier = Modifier.weight(1f).height(54.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CreateGreen)
                         ) {
@@ -8531,6 +11422,11 @@ private fun CategoryAutocompleteField(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+
+    var manualCategorySession by remember(productName) {
+        mutableStateOf(false)
+    }
+
     // 1. NUEVO: Creamos un requester especÃ­fico para la tarjeta de carga
     val loadingRequester = remember { BringIntoViewRequester() }
 
@@ -8550,13 +11446,7 @@ private fun CategoryAutocompleteField(
         } else null
     }
 
-    // 2. NUEVO: Forzar el scroll hacia la tarjeta cuando el estado cambie a LOADING
-    LaunchedEffect(suggestionState.status) {
-        if (suggestionState.status == CategorySuggestionStatus.LOADING) {
-            delay(150) // Breve pausa para dejar que la animaciÃ³n nazca
-            loadingRequester.bringIntoView()
-        }
-    }
+
 
     Column(
         modifier = modifier,
@@ -8573,9 +11463,9 @@ private fun CategoryAutocompleteField(
             // 1. ESTADO DE CARGA / ANÁLISIS
             AnimatedVisibility(
                 visible = isAnalyzing,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
+                enter = fadeIn(),
+                exit = fadeOut()
+            )  {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -8611,16 +11501,21 @@ private fun CategoryAutocompleteField(
                 }
             }
 
-            // 2. SUGERENCIA IA (NUEVA UX PREMIUM: Sólo se muestra si NO estamos en manual)
-            AnimatedVisibility(
-                visible = isReady && suggestionState.suggestion != null && !isManual && value.isBlank(),
+            // 2. SUGERENCIA IA (TARJETA A ANCHO COMPLETO CON SEPARADOR "O")
+               AnimatedVisibility(
+                    visible = isReady &&
+                            suggestionState.suggestion != null &&
+                            !isManual &&
+                            !manualCategorySession &&
+                            value.isBlank(),
                 enter = fadeIn() + slideInVertically { it / 4 },
                 exit = fadeOut() + shrinkVertically()
             ) {
                 suggestionState.suggestion?.let { suggestion ->
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = "CATEGORÍA SUGERIDA",
@@ -8628,60 +11523,79 @@ private fun CategoryAutocompleteField(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.sp,
-                            modifier = Modifier.padding(start = 4.dp)
+                            modifier = Modifier
+                                .align(Alignment.Start)
+                                .padding(start = 4.dp)
                         )
 
-                        // TARJETA DE SELECCIÓN COMPACTA Y SIN ICONOS
+                        // TARJETA DE SELECCIÓN PROFESIONAL
                         Surface(
                             modifier = Modifier
-                                .wrapContentWidth()
-                                .clickable { onCategorySelectedFromSuggestion(suggestion.categoria) },
+                                .fillMaxWidth()
+                                .clickable {
+                                    manualCategorySession = true
+                                    onCategorySelectedFromSuggestion(suggestion.categoria)
+                                },
                             color = Color.White,
                             shape = RoundedCornerShape(16.dp),
                             shadowElevation = 2.dp,
                             border = BorderStroke(1.5.dp, CreateGreen.copy(alpha = 0.4f))
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = suggestion.categoria,
                                     color = CreateGreen,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Black
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                
+                                Spacer(modifier = Modifier.width(16.dp))
                                 Box(
                                     modifier = Modifier
                                         .background(CreateGreen.copy(alpha = 0.1f), CircleShape)
-                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Text(
                                         text = "ESCOGER",
                                         color = CreateGreen,
-                                        fontSize = 11.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                 }
                             }
                         }
 
-                        // Botón sutil para forzar manual
-                        TextButton(
-                            onClick = onSwitchToManual,
-                            modifier = Modifier.align(Alignment.Start),
-                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        // SECCIÓN DE OPCIÓN MANUAL (CON LA "O" EN EL MEDIO)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(vertical = 4.dp)
                         ) {
-                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp), tint = CreateTextSecondary)
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Escribir manualmente",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CreateTextSecondary
+                                text = "O",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Black, // Color negra bold
+                                fontSize = 14.sp
                             )
+
+                            TextButton(
+                                    onClick = {
+                                        manualCategorySession = true
+                                        onSwitchToManual()
+                                    },
+                                contentPadding = PaddingValues(horizontal = 12.dp)
+                            ) {
+                                Text(
+                                    text = "Escribir manualmente",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CreateTextSecondary,
+                                    textDecoration = TextDecoration.Underline // Un toque extra de estilo para que parezca un link
+                                )
+                            }
                         }
                     }
                 }
@@ -8689,7 +11603,7 @@ private fun CategoryAutocompleteField(
 
             // 3. ENTRADA MANUAL (SÓLO SI SE SOLICITA O SI YA HAY UN VALOR SELECCIONADO/ESCRITO)
             // Se muestra si el usuario lo pide (isManual) o si ya tenemos un valor (value no vacío)
-            val showManualEntry = isManual || value.isNotBlank()
+            val showManualEntry = isManual || value.isNotBlank() || manualCategorySession
             val isCategoryValid = value.isNotBlank() && error == null
 
             AnimatedVisibility(
@@ -8703,12 +11617,17 @@ private fun CategoryAutocompleteField(
                     options = options,
                     error = error,
                     isSuccess = isCategoryValid,
-                    showBackToAi = false, // V28.5: Desactivado para no distraer al usuario tras su decisión
+                    showBackToAi = false,
                     onValueChange = onValueChange,
                     onCategorySelectedFromSuggestion = { selected ->
+                        manualCategorySession = true
+
                         onCategorySelectedFromSuggestion(selected)
                         focusManager.clearFocus(force = true)
                         keyboardController?.hide()
+                    },
+                    onManualInteraction = {
+                        manualCategorySession = true
                     },
                     onBackToAi = onBackToAi,
                     suggestionState = suggestionState,
@@ -8724,7 +11643,7 @@ private fun CategoryAutocompleteField(
             AnimatedVisibility(
                 visible = value.isNotBlank(),
                 enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
+                exit = fadeOut()
             ) {
                 ProductTypeSelector(
                     selected = controlType,
@@ -8748,8 +11667,9 @@ private fun CategoryManualEntry(
     showBackToAi: Boolean,
     onValueChange: (String) -> Unit,
     onCategorySelectedFromSuggestion: (String) -> Unit = onValueChange,
+    onManualInteraction: () -> Unit = {},
     onBackToAi: () -> Unit,
-    suggestionState: CategorySuggestionUiState = CategorySuggestionUiState(),
+    suggestionState: com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState = com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionUiState(),
     label: String = "",
     placeholder: String = "Ej. Analgésicos",
     leadingIcon: ImageVector? = null,
@@ -8765,15 +11685,10 @@ private fun CategoryManualEntry(
     val suggestions = remember(value, hasCategoryFocus, options, suggestionState.asistenciaManualCategorias, suggestionState.suggestion, suppressSuggestions) {
         val normalizedValue = value.trim().stripAccents().lowercase()
 
-        // Incorporar la sugerencia principal de la IA
         val mainAiResult = suggestionState.suggestion?.categoria
         val aiOptions = (listOfNotNull(mainAiResult) + suggestionState.asistenciaManualCategorias)
             .filter { it.isNotBlank() }
             .distinctBy { it.trim().stripAccents().lowercase() }
-
-        // --- MEJORA: Eliminamos la restricciÃ³n de !hasCategoryFocus ---
-        // Ahora, si la IA tiene un resultado (mainAiResult), se muestra SIEMPRE.
-        // Si no hay IA, mantenemos el comportamiento anterior (esperar foco o valor).
 
         val shouldShowAiSuggestion = mainAiResult != null
 
@@ -8794,11 +11709,10 @@ private fun CategoryManualEntry(
 
     val mainAiResult = suggestionState.suggestion?.categoria
 
-
     // Auto-scroll para que el teclado no tape las sugerencias
     LaunchedEffect(suggestions.isNotEmpty(), hasCategoryFocus) {
         if (suggestions.isNotEmpty() && hasCategoryFocus) {
-            delay(400) // Un poquito mÃ¡s de delay para asegurar que el teclado terminÃ³
+            delay(400)
             suggestionsRequester.bringIntoView()
         }
     }
@@ -8811,21 +11725,24 @@ private fun CategoryManualEntry(
             error = error,
             isSuccess = isSuccess,
             placeholder = placeholder,
-            leadingIcon = leadingIcon,
+            // CORRECCIÓN: El icono solo aparece si el campo está vacío
+            leadingIcon = if (value.isEmpty()) leadingIcon else null,
             trailingIcon = trailingIcon ?: if (value.isNotBlank() && error == null) {
                 { Icon(Icons.Outlined.CheckCircle, null, tint = CreateGreen, modifier = Modifier.size(20.dp)) }
             } else null,
-            onValueChange = onValueChange
+            onValueChange = { newValue ->
+                onManualInteraction()
+                onValueChange(newValue)
+            }
         )
 
-        // Sugerencias estilo YouTube integradas (nacen del editext)
+        // Sugerencias integradas
         AnimatedVisibility(
             visible = suggestions.isNotEmpty(),
             enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+            exit = fadeOut()
         ) {
             Column(modifier = Modifier.bringIntoViewRequester(suggestionsRequester)) {
-                // Etiqueta de sugerencia solicitada: solo si no hay foco y el valor estÃ¡ vacÃ­o (modo silencioso)
                 if (!hasCategoryFocus && value.isBlank() && mainAiResult != null && suggestions.contains(mainAiResult)) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -8855,6 +11772,7 @@ private fun CategoryManualEntry(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
+                                        onManualInteraction()
                                         onCategorySelectedFromSuggestion(option)
                                         hasCategoryFocus = false
                                         focusManager.clearFocus(force = true)
@@ -8889,11 +11807,9 @@ private fun CategoryManualEntry(
                         }
                     }
                 }
-                // Espacio extra para que el scroll baje un poco mÃ¡s y no quede pegado al teclado
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
-
 
         if (showBackToAi) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -8902,7 +11818,6 @@ private fun CategoryManualEntry(
             }
         }
     }
-
 }
 
 
@@ -9072,18 +11987,16 @@ private fun defaultEquivalenceForPresentation(
 }
 
 // Fix: sanea la entrada decimal manteniendo solo dígitos y, como máximo,
-// un único punto decimal. Antes los campos de cantidad aceptaban
-// múltiples puntos (ej. "12.3.4"), generando un texto que `toDoubleOrNull`
-// rechazaba y dejando el campo en un estado inválido silencioso.
+// un único punto decimal o coma (normalizada a punto).
 private fun sanitizeDecimalInput(raw: String): String {
     val sb = StringBuilder(raw.length)
-    var dotSeen = false
+    var decimalSeen = false
     for (ch in raw) {
         when {
             ch.isDigit() -> sb.append(ch)
-            ch == '.' && !dotSeen -> {
-                sb.append(ch)
-                dotSeen = true
+            (ch == '.' || ch == ',') && !decimalSeen -> {
+                sb.append('.')
+                decimalSeen = true
             }
         }
     }
@@ -9091,55 +12004,112 @@ private fun sanitizeDecimalInput(raw: String): String {
 }
 
 private fun parseCreateProductNumber(value: String): Double {
-    return value
-        .trim()
-        .replace(",", ".")
-        .toDoubleOrNull()
-        ?: 0.0
+    val clean = value.trim()
+        .replace(" ", "")
+        .replace("\u00A0", "")
+
+    if (clean.isBlank()) return 0.0
+
+    val normalized = when {
+        clean.contains(".") && clean.contains(",") -> {
+            // Formato latino: 1.250,50 -> 1250.50
+            if (clean.lastIndexOf(",") > clean.lastIndexOf(".")) {
+                clean.replace(".", "").replace(",", ".")
+            } else {
+                // Formato inglés: 1,250.50 -> 1250.50
+                clean.replace(",", "")
+            }
+        }
+        clean.contains(",") -> {
+            // 1250,50 -> 1250.50
+            clean.replace(",", ".")
+        }
+        else -> clean
+    }
+
+    return normalized.toDoubleOrNull() ?: 0.0
 }
 
 fun calculateTotalBaseStock(state: CreateProductState): Double {
     val rawAmount = when (state.stockEntryMode) {
         null -> 0.0
+
         CreateProductStockEntryMode.UNIDAD -> {
             val quantity = parseCreateProductNumber(state.receivedUnitsText)
             val content = parseCreateProductNumber(state.unitsPerItemText)
-            if (state.controlType == CreateProductControlType.UNIDAD) {
-                if (content > 0.0) quantity * content else quantity
-            } else if (content > 0.0) {
-                quantity * content
-            } else {
-                0.0
+
+            when (state.controlType) {
+                CreateProductControlType.UNIDAD -> {
+                    if (state.stockControlMode == StockControlMode.DIVISIBLE && content > 0.0) {
+                        quantity * content
+                    } else {
+                        quantity
+                    }
+                }
+
+                CreateProductControlType.LIQUIDO,
+                CreateProductControlType.PESO -> {
+                    if (quantity <= 0.0 || content <= 0.0) {
+                        0.0
+                    } else {
+                        quantity * content
+                    }
+                }
+
+                null -> 0.0
             }
         }
+
         CreateProductStockEntryMode.CAJA -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
             val itemsPerBox = parseCreateProductNumber(state.unitsPerBoxText)
             val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
-            
-            if (state.controlType == CreateProductControlType.UNIDAD) {
-                val totalItems = boxes * itemsPerBox
-                if (unitsPerItem > 0.0) totalItems * unitsPerItem else totalItems
-            } else if (unitsPerItem > 0.0) {
-                // Para Líquido/Peso: Cajas * Envases en cada caja * Contenido de cada envase
-                boxes * itemsPerBox * unitsPerItem
-            } else {
-                0.0
+
+            when (state.controlType) {
+                CreateProductControlType.UNIDAD -> {
+                    if (boxes <= 0.0 || itemsPerBox <= 0.0) {
+                        0.0
+                    } else if (state.stockControlMode == StockControlMode.DIVISIBLE && unitsPerItem > 0.0) {
+                        boxes * itemsPerBox * unitsPerItem
+                    } else {
+                        boxes * itemsPerBox
+                    }
+                }
+
+                CreateProductControlType.LIQUIDO,
+                CreateProductControlType.PESO -> {
+                    if (boxes <= 0.0 || itemsPerBox <= 0.0 || unitsPerItem <= 0.0) {
+                        0.0
+                    } else {
+                        boxes * itemsPerBox * unitsPerItem
+                    }
+                }
+
+                null -> 0.0
             }
         }
+
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
-            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText).takeIf { it > 0 } ?: 1.0
+            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText)
             val unitsPerPackage = parseCreateProductNumber(state.unitsPerPackageText)
-            boxes * packagesPerBox * unitsPerPackage
+
+            if (boxes <= 0.0 || packagesPerBox <= 0.0 || unitsPerPackage <= 0.0) {
+                0.0
+            } else {
+                boxes * packagesPerBox * unitsPerPackage
+            }
         }
     }
 
-    // Normalizar a unidad base (g o mL) si se usaron unidades grandes (kg o L)
-    return if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
-        rawAmount * 1000.0
-    } else {
-        rawAmount
+    return when {
+        state.controlType == CreateProductControlType.PESO &&
+                state.stockEntryUnit == "kg" -> rawAmount * 1000.0
+
+        state.controlType == CreateProductControlType.LIQUIDO &&
+                state.stockEntryUnit == "L" -> rawAmount * 1000.0
+
+        else -> rawAmount
     }
 }
 
@@ -9161,28 +12131,55 @@ fun calculateBaseMinimumStock(state: CreateProductState): Double {
         StockControlMode.INDIVISIBLE -> when (state.controlType) {
             CreateProductControlType.LIQUIDO,
             CreateProductControlType.PESO -> {
-                val basePorContenedor = parseCreateProductNumber(state.unitsPerItemText)
+                val contenidoVisual = parseCreateProductNumber(state.unitsPerItemText)
                     .takeIf { it > 0.0 }
                     ?: 1.0
-                
-                // Si la unidad del contenedor está en kg/L, la basePorContenedor ya viene en gramos/mL (por el diálogo)
-                selectedUnits * basePorContenedor
+
+                val contenidoBase = when {
+                    state.controlType == CreateProductControlType.PESO &&
+                            state.stockEntryUnit == "kg" -> contenidoVisual * 1000.0
+
+                    state.controlType == CreateProductControlType.LIQUIDO &&
+                            state.stockEntryUnit == "L" -> contenidoVisual * 1000.0
+
+                    else -> contenidoVisual
+                }
+
+                selectedUnits * contenidoBase
             }
             CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
                 CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                    val unidadesPorBlister = parseCreateProductNumber(state.unitsPerPackageText)
+                    val unidadesPorPaquete = parseCreateProductNumber(state.unitsPerPackageText)
                         .takeIf { it > 0.0 }
                         ?: 1.0
-                    selectedUnits * unidadesPorBlister
+
+                    selectedUnits * unidadesPorPaquete
                 }
+
                 CreateProductStockEntryMode.CAJA -> {
-                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText).takeIf { it > 0.0 } ?: 1.0
-                    selectedUnits * unitsPerItem
+                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
+                        .takeIf { it > 0.0 }
+                        ?: 1.0
+
+                    if (state.stockControlMode == StockControlMode.DIVISIBLE) {
+                        selectedUnits * unitsPerItem
+                    } else {
+                        selectedUnits
+                    }
                 }
+
                 CreateProductStockEntryMode.UNIDAD -> {
-                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText).takeIf { it > 0.0 } ?: 1.0
-                    selectedUnits * unitsPerItem
+                    val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
+                        .takeIf { it > 0.0 }
+                        ?: 1.0
+
+                    if (state.stockControlMode == StockControlMode.DIVISIBLE) {
+                        selectedUnits * unitsPerItem
+                    } else {
+                        selectedUnits
+                    }
                 }
+
                 else -> selectedUnits
             }
             null -> selectedUnits
@@ -9190,14 +12187,6 @@ fun calculateBaseMinimumStock(state: CreateProductState): Double {
     }.coerceAtLeast(0.0)
 }
 
-fun getPurchasePresentationName(mode: CreateProductStockEntryMode?): String {
-    return when (mode) {
-        CreateProductStockEntryMode.UNIDAD -> "Unidad"
-        CreateProductStockEntryMode.CAJA -> "Caja"
-        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja"
-        null -> "Unidad"
-    }
-}
 
 fun getPurchasePresentationName(
     controlType: CreateProductControlType?,
@@ -9209,15 +12198,15 @@ fun getPurchasePresentationName(
             CreateProductControlType.PESO -> "Empaque"
             else -> "Unidad"
         }
+
         CreateProductStockEntryMode.CAJA -> "Caja"
-        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> when (controlType) {
-            CreateProductControlType.LIQUIDO -> "Frasco"
-            CreateProductControlType.PESO -> "Empaque"
-            else -> "Blister"
-        }
-        null -> getPurchasePresentationName(mode)
+
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> "Caja"
+
+        null -> "Unidad"
     }
 }
+
 
 fun isStockEntryModeValidForControlType(
     mode: CreateProductStockEntryMode?,
@@ -9259,9 +12248,152 @@ fun formatCreateProductNumber(value: Double): String {
     return if (value % 1.0 == 0.0) {
         value.toInt().toString()
     } else {
-        value.toString()
+        String.format(Locale.US, "%.2f", value)
+            .trimEnd('0')
+            .trimEnd('.')
     }
 }
+
+private fun formatCreateProductMoney(value: Double): String {
+    return MonedaHelper.formatear(value)
+}
+
+private fun formatCreateProductPercent(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        String.format(Locale.US, "%.1f", value)
+    }
+}
+
+private fun parseDecimalSafe(value: String): Double {
+    return value
+        .trim()
+        .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+        .replace(",", ".")
+        .replace(Regex("[^0-9.]"), "")
+        .toDoubleOrNull() ?: 0.0
+}
+
+private data class ProfitGuardResult(
+    val costoPresentacion: Double,
+    val ganancia: Double,
+    val margenPercent: Double,
+    val color: Color,
+    val mensaje: String
+)
+
+private fun calculateProfitGuard(
+    costoTotal: Double,
+    stockTotalBase: Double,
+    precioVenta: Double,
+    equivalenciaBase: Double
+): ProfitGuardResult? {
+    if (costoTotal <= 0.0 || stockTotalBase <= 0.0 || precioVenta <= 0.0 || equivalenciaBase <= 0.0) {
+        return null
+    }
+
+    val costoUnitarioBase = costoTotal / stockTotalBase
+    val costoPresentacion = costoUnitarioBase * equivalenciaBase
+    val ganancia = precioVenta - costoPresentacion
+    val margenPercent = (ganancia / precioVenta) * 100.0
+
+    val color = when {
+        ganancia < 0.0 -> CreateRed
+        margenPercent < 10.0 -> CreateOrange
+        margenPercent < 20.0 -> CreateOrange
+        else -> CreateGreen
+    }
+
+    val mensaje = when {
+        ganancia < 0.0 -> "Estás vendiendo con pérdida"
+        margenPercent < 10.0 -> "Margen muy bajo"
+        margenPercent < 20.0 -> "Margen ajustado"
+        else -> "Margen saludable"
+    }
+
+    return ProfitGuardResult(
+        costoPresentacion = costoPresentacion,
+        ganancia = ganancia,
+        margenPercent = margenPercent,
+        color = color,
+        mensaje = mensaje
+    )
+}
+
+
+private fun hasAnyPresentationLoss(
+    state: CreateProductState
+): Boolean {
+    val costoTotal = parseDecimalSafe(state.purchaseCost)
+    val stockTotalBase = calculateTotalBaseStock(state)
+
+    if (costoTotal <= 0.0 || stockTotalBase <= 0.0) return false
+
+    return state.presentations.any { presentation ->
+        val precioVenta = parseDecimalSafe(presentation.salePriceText)
+        val equivalenciaBase = parseDecimalSafe(presentation.equivalenceText)
+
+        val profitGuard = calculateProfitGuard(
+            costoTotal = costoTotal,
+            stockTotalBase = stockTotalBase,
+            precioVenta = precioVenta,
+            equivalenciaBase = equivalenciaBase
+        )
+
+        profitGuard?.ganancia?.let { it < 0.0 } == true
+    }
+}
+
+private fun hasAnyPresentationLowMargin(
+    state: CreateProductState,
+    minMarginPercent: Double = 10.0
+): Boolean {
+    val costoTotal = parseDecimalSafe(state.purchaseCost)
+    val stockTotalBase = calculateTotalBaseStock(state)
+
+    if (costoTotal <= 0.0 || stockTotalBase <= 0.0) return false
+
+    return state.presentations.any { presentation ->
+        val precioVenta = parseDecimalSafe(presentation.salePriceText)
+        val equivalenciaBase = parseDecimalSafe(presentation.equivalenceText)
+
+        val profitGuard = calculateProfitGuard(
+            costoTotal = costoTotal,
+            stockTotalBase = stockTotalBase,
+            precioVenta = precioVenta,
+            equivalenciaBase = equivalenciaBase
+        )
+
+        profitGuard != null &&
+                profitGuard.ganancia >= 0.0 &&
+                profitGuard.margenPercent < minMarginPercent
+    }
+}
+
+private fun normalizePresentationNameForDuplicate(name: String): String {
+    val clean = java.text.Normalizer.normalize(
+        name.trim().lowercase(Locale.getDefault()),
+        java.text.Normalizer.Form.NFD
+    )
+        .replace(Regex("\\p{M}+"), "")
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .trim()
+
+    return if (clean.endsWith("s") && clean.length > 3) {
+        clean.dropLast(1)
+    } else {
+        clean
+    }
+}
+
+private fun parsePresentationDouble(value: String): Double {
+    return value
+        .trim()
+        .replace(",", ".")
+        .toDoubleOrNull() ?: 0.0
+}
+
 
 /**
  * Devuelve el total recibido del lote actual en unidad base
@@ -9409,29 +12541,44 @@ fun calculateTotalPhysicalUnits(state: CreateProductState): Int {
 /**
  * Genera la lista de opciones válidas (en unidades físicas) para el stock mínimo.
  */
-fun calculateValidStockOptions(totalPhysicalUnits: Int, mode: StockControlMode): List<Int> {
+fun calculateValidStockOptions(
+    totalPhysicalUnits: Int,
+    mode: StockControlMode
+): List<Int> {
     if (totalPhysicalUnits <= 0) return emptyList()
+
+    // Si solo hay 1 unidad, no hay otra alerta posible.
     if (totalPhysicalUnits == 1) return listOf(1)
+
+    val minimumAllowed = kotlin.math.ceil(totalPhysicalUnits * 0.10)
+        .toInt()
+        .coerceAtLeast(1)
+
+    val maximumAllowed = kotlin.math.floor(totalPhysicalUnits * 0.50)
+        .toInt()
+        .coerceAtLeast(minimumAllowed)
+        .coerceAtMost(totalPhysicalUnits - 1)
 
     val options = mutableListOf<Int>()
 
     when (mode) {
         StockControlMode.INDIVISIBLE -> {
-            // Paso de 1 en 1 para envases.
-            for (i in 1..totalPhysicalUnits) {
+            for (i in minimumAllowed..maximumAllowed) {
                 options.add(i)
             }
         }
+
         StockControlMode.DIVISIBLE -> {
-            // Paso del 10% redondeado hacia arriba.
-            val step = kotlin.math.ceil(totalPhysicalUnits * 0.10).toInt().coerceAtLeast(1)
-            var current = step
-            while (current < totalPhysicalUnits) {
+            val step = minimumAllowed
+            var current = minimumAllowed
+
+            while (current <= maximumAllowed) {
                 options.add(current)
                 current += step
             }
-            if (options.isEmpty() || options.last() != totalPhysicalUnits) {
-                options.add(totalPhysicalUnits)
+
+            if (options.isEmpty()) {
+                options.add(minimumAllowed)
             }
         }
     }
@@ -9453,7 +12600,8 @@ fun getPhysicalUnitLabel(state: CreateProductState, quantity: Int): String {
                 CreateProductControlType.PESO -> if (isPlural) "envases" else "envase"
                 CreateProductControlType.UNIDAD -> {
                     when (state.stockEntryMode) {
-                        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> if (isPlural) "blísteres" else "blíster"
+                        CreateProductStockEntryMode.CAJA_CON_PAQUETES ->
+                            if (isPlural) "paquetes" else "paquete"
                         CreateProductStockEntryMode.CAJA -> {
                              val unitsPerItem = parseCreateProductNumber(state.unitsPerItemText)
                              if (unitsPerItem > 1.0) {
@@ -9488,21 +12636,83 @@ fun resolveMinimumStockControlMode(state: CreateProductState): StockControlMode 
     return when (state.controlType) {
         CreateProductControlType.LIQUIDO,
         CreateProductControlType.PESO -> StockControlMode.INDIVISIBLE
+
         CreateProductControlType.UNIDAD -> when (state.stockEntryMode) {
-            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> StockControlMode.INDIVISIBLE
-            CreateProductStockEntryMode.CAJA -> {
-                // V22.1: Si la caja contiene items discretos (ej. frascos con tabletas), 
-                // permitimos control por contenedor indivisible.
-                if (parseCreateProductNumber(state.unitsPerItemText) > 1.0) {
-                    StockControlMode.INDIVISIBLE
-                } else {
-                    StockControlMode.DIVISIBLE
-                }
-            }
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> StockControlMode.DIVISIBLE
             CreateProductStockEntryMode.UNIDAD,
-            null -> StockControlMode.DIVISIBLE
+            CreateProductStockEntryMode.CAJA,
+            null -> StockControlMode.INDIVISIBLE
         }
-        null -> StockControlMode.DIVISIBLE
+
+        null -> StockControlMode.INDIVISIBLE
+    }
+}
+
+private fun isStockEntryModeCompleted(
+    state: CreateProductState,
+    mode: CreateProductStockEntryMode
+): Boolean {
+    if (!state.stockEntryConfigured) return false
+
+    return when (mode) {
+        CreateProductStockEntryMode.UNIDAD -> {
+            if (state.stockEntryMode != CreateProductStockEntryMode.UNIDAD) return false
+
+            val quantityOk = state.receivedUnitsText.isNotBlank() &&
+                    (state.receivedUnitsText.toDoubleOrNull() ?: 0.0) > 0.0
+
+            val needsContent =
+                state.controlType == CreateProductControlType.LIQUIDO ||
+                        state.controlType == CreateProductControlType.PESO ||
+                        (
+                                state.controlType == CreateProductControlType.UNIDAD &&
+                                        state.stockControlMode == StockControlMode.DIVISIBLE
+                                )
+
+            val contentOk = state.unitsPerItemText.isNotBlank() &&
+                    (parseCreateProductNumber(state.unitsPerItemText)) > 0.0
+
+            quantityOk && (!needsContent || contentOk)
+        }
+
+        CreateProductStockEntryMode.CAJA -> {
+            val isCajaMode =
+                state.stockEntryMode == CreateProductStockEntryMode.CAJA ||
+                        state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES
+
+            if (!isCajaMode) return false
+
+            val boxesOk = state.boxesReceivedText.isNotBlank() &&
+                    (state.boxesReceivedText.toDoubleOrNull() ?: 0.0) > 0.0
+
+            if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) {
+                val packagesOk = state.packagesPerBoxText.isNotBlank() &&
+                        (state.packagesPerBoxText.toDoubleOrNull() ?: 0.0) > 0.0
+
+                val unitsPerPackageOk = state.unitsPerPackageText.isNotBlank() &&
+                        (state.unitsPerPackageText.toDoubleOrNull() ?: 0.0) > 0.0
+
+                boxesOk && packagesOk && unitsPerPackageOk
+            } else {
+                val unitsPerBoxOk = state.unitsPerBoxText.isNotBlank() &&
+                        (state.unitsPerBoxText.toDoubleOrNull() ?: 0.0) > 0.0
+
+                val needsContent =
+                    state.controlType == CreateProductControlType.LIQUIDO ||
+                            state.controlType == CreateProductControlType.PESO ||
+                            (
+                                    state.controlType == CreateProductControlType.UNIDAD &&
+                                            state.stockControlMode == StockControlMode.DIVISIBLE
+                                    )
+
+                val contentOk = state.unitsPerItemText.isNotBlank() &&
+                        parseCreateProductNumber(state.unitsPerItemText) > 0.0
+
+                boxesOk && unitsPerBoxOk && (!needsContent || contentOk)
+            }
+        }
+
+        CreateProductStockEntryMode.CAJA_CON_PAQUETES -> false
     }
 }
 
@@ -9519,16 +12729,19 @@ fun resolveMinimumStockLabel(
             CreateProductControlType.LIQUIDO -> state.stockEntryUnit.ifBlank { "mL" }
             else -> if (singular) "unidad" else "unidades"
         }
+
         StockControlMode.INDIVISIBLE -> when (state.controlType) {
             CreateProductControlType.LIQUIDO -> if (singular) "frasco" else "frascos"
             CreateProductControlType.PESO -> if (singular) "envase" else "envases"
+
             CreateProductControlType.UNIDAD -> {
                 if (state.stockEntryMode == CreateProductStockEntryMode.CAJA_CON_PAQUETES) {
-                    if (singular) "blíster" else "blísteres"
+                    if (singular) "paquete" else "paquetes"
                 } else {
                     if (singular) "unidad" else "unidades"
                 }
             }
+
             null -> if (singular) "unidad" else "unidades"
         }
     }
@@ -9598,21 +12811,67 @@ fun buildInitialStockEntrySummary(state: CreateProductState): String {
 
         CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
             val boxes = parseCreateProductNumber(state.boxesReceivedText)
+            val packagesPerBox = parseCreateProductNumber(state.packagesPerBoxText)
             val unitsPerPackage = parseCreateProductNumber(state.unitsPerPackageText)
-            val total = boxes * unitsPerPackage
+            val total = calculateTotalBaseStock(state)
 
-            if (boxes <= 0.0 || unitsPerPackage <= 0.0) return ""
-
-            "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "blíster", "blísters")} con ${formatCreateProductNumber(unitsPerPackage)} $unit cada uno. Total: ${formatCreateProductNumber(total)} $unit."
+            if (boxes <= 0.0 || packagesPerBox <= 0.0 || unitsPerPackage <= 0.0) {
+                ""
+            } else {
+                "Recibiste ${formatCreateProductNumber(boxes)} ${plural(boxes, "caja", "cajas")} " +
+                        "con ${formatCreateProductNumber(packagesPerBox)} ${plural(packagesPerBox, "paquete", "paquetes")} cada una. " +
+                        "Cada paquete trae ${formatCreateProductNumber(unitsPerPackage)} $unit. " +
+                        "Total: ${formatCreateProductNumber(total)} $unit."
+            }
+        }
         }
     }
-}
+
 
 fun buildStockAvailableSummary(state: CreateProductState): String {
     val total = calculateInitialStockValue(state)
     val totalText = formatCreateProductNumber(total)
     val unit = resolveStockUnitLabel(state)
     return "$totalText $unit"
+}
+
+fun buildAiDefaultSalePresentationIfNeeded(
+    state: CreateProductState
+): CreateProductPresentation? {
+    if (state.presentations.isNotEmpty()) return null
+    if (!state.stockEntryConfigured) return null
+
+    // Candado principal: solo si el producto fue aplicado desde IA.
+    if (!state.barcodeAiApplied) return null
+    if (!state.defaultSalePresentationFromAi) return null
+    if (state.defaultSalePresentationName.isBlank()) return null
+    if (state.defaultSalePresentationConfidence < 80) return null
+
+    val totalBase = calculateTotalBaseStock(state)
+    if (totalBase <= 0.0) return null
+
+    val physicalUnits = calculateTotalPhysicalUnits(state).toDouble()
+    if (physicalUnits <= 0.0) return null
+
+    val equivalenceBase = when (state.controlType) {
+        CreateProductControlType.UNIDAD -> 1.0
+        CreateProductControlType.PESO,
+        CreateProductControlType.LIQUIDO -> totalBase / physicalUnits
+        null -> return null
+    }
+
+    if (equivalenceBase <= 0.0) return null
+
+    return CreateProductPresentation(
+        id = "ai_default_${java.util.UUID.randomUUID().toString().take(8)}",
+        name = state.defaultSalePresentationName.trim(),
+        equivalenceText = formatCreateProductNumber(equivalenceBase),
+        salePriceText = "",
+        isAiSuggested = true,
+        aiDescription = state.defaultSalePresentationReason.ifBlank {
+            "Presentación comercial sugerida por IA."
+        }
+    )
 }
 
 private fun resolveStockUnitLabel(state: CreateProductState): String {
@@ -9919,21 +13178,17 @@ private fun BarcodeSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             if (!isConfirmed) {
+                // CABECERA: Título dinámico y botón para salir del modo manual
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.QrCodeScanner,
-                            contentDescription = null,
-                            tint = CreateGreen,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                       
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Código de barras opcional",
+                            text = if (isManualMode) "Escribir código" else "Código de barras opcional",
                             style = MaterialTheme.typography.titleSmall,
                             color = CreateTextPrimary,
                             fontWeight = FontWeight.Bold
@@ -9942,19 +13197,31 @@ private fun BarcodeSection(
 
                     if (isChecking) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CreateGreen)
+                    } else if (isManualMode) {
+                        // NUEVO: Botón para regresar al selector original (Escanear/Manual)
+                        IconButton(
+                            onClick = onClear,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Regresar",
+                                tint = CreateRed.copy(alpha = 0.6f)
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 if (isManualMode) {
                     AppTextField(
-                        label = "INGRESA EL CÓDIGO",
+                        label = "",
                         value = barcode,
                         error = error,
                         placeholder = "Ej. 193968381356",
                         keyboardType = KeyboardType.Number,
-                        leadingIcon = Icons.Outlined.QrCodeScanner,
+                        leadingIcon = null, // Ya se muestra en la cabecera
                         trailingIcon = {
                             if (barcode.isNotBlank()) {
                                 IconButton(onClick = onConfirmManual) {
@@ -9975,7 +13242,7 @@ private fun BarcodeSection(
                             onClick = onStartScan,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp),
+                                .height(48.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, CreateGreen.copy(alpha = 0.35f))
                         ) {
@@ -9985,7 +13252,7 @@ private fun BarcodeSection(
                                 tint = CreateGreen,
                                 modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text("Escanear", color = CreateGreen, fontWeight = FontWeight.Bold)
                         }
 
@@ -9993,7 +13260,7 @@ private fun BarcodeSection(
                             onClick = onManualMode,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .height(48.dp)
                         ) {
                             Text(
                                 text = "Escribir código",
@@ -10005,6 +13272,7 @@ private fun BarcodeSection(
                     }
                 }
             } else {
+                // ESTADO CONFIRMADO: Vista resumen del código registrado
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -10081,9 +13349,59 @@ private fun BarcodeSection(
                     text = error,
                     color = CreateRed,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
             }
+        }
+    }
+}
+@Composable
+fun FluidBackground(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "fluid")
+
+    val phase1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(8000, easing = LinearEasing), RepeatMode.Restart), label = "p1"
+    )
+    val phase2 by infiniteTransition.animateFloat(
+        initialValue = 360f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Restart), label = "p2"
+    )
+
+    val colors = listOf(
+        Color(0xFFD32F2F), // Rojo
+        Color(0xFF1976D2), // Azul
+        Color(0xFF388E3C), // Verde
+        Color(0xFF7B1FA2), // Morado
+        Color(0xFFD32F2F)  // Ciclo
+    )
+
+    Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+
+            drawRect(
+                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = colors,
+                    start = Offset(canvasWidth * kotlin.math.cos(Math.toRadians(phase1.toDouble())).toFloat(), 0f),
+                    end = Offset(canvasWidth * kotlin.math.sin(Math.toRadians(phase1.toDouble())).toFloat(), canvasHeight)
+                ),
+                alpha = 0.6f
+            )
+
+            drawRect(
+                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                    colors = colors.reversed(),
+                    center = Offset(
+                        canvasWidth / 2 + (canvasWidth / 3 * kotlin.math.cos(Math.toRadians(phase2.toDouble()))).toFloat(),
+                        canvasHeight / 2 + (canvasHeight / 3 * kotlin.math.sin(Math.toRadians(phase2.toDouble()))).toFloat()
+                    ),
+                    radius = canvasWidth * 1.5f
+                ),
+                alpha = 0.4f
+            )
         }
     }
 }

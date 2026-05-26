@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import com.app.administradorfarmadon.ActivityInventario.ui.buildAiDefaultSalePresentationIfNeeded
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -49,12 +50,14 @@ import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductScreen
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductState
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductStep
 import com.app.administradorfarmadon.ActivityInventario.ui.calculateTotalBaseStock
+import com.app.administradorfarmadon.ActivityInventario.ui.calculateTotalPhysicalUnits
 import com.app.administradorfarmadon.ActivityInventario.ui.calculateBaseMinimumStock
 import com.app.administradorfarmadon.ActivityInventario.ui.getPhysicalUnitLabel
 import com.app.administradorfarmadon.ActivityInventario.ui.resolveMinimumStockControlMode
 import com.app.administradorfarmadon.ActivityInventario.ui.StockControlMode
 import com.app.administradorfarmadon.ActivityInventario.ui.CreateProductStockEntryMode
 import com.app.administradorfarmadon.ActivityInventario.ui.ProductCreatedSummary
+import com.app.administradorfarmadon.ActivityInventario.ui.FluidBackground
 import com.app.administradorfarmadon.ActivityInventario.ui.formatCreateProductNumber
 import com.app.administradorfarmadon.ActivityInventario.ui.SmartProductHint
 import com.app.administradorfarmadon.ActivityInventario.reference.CategorySuggestionViewModel
@@ -97,6 +100,7 @@ import com.google.android.material.card.MaterialCardView
 
 import com.app.administradorfarmadon.ActivityInventario.logicainventario.CrearProductoViewModel
 import com.app.administradorfarmadon.ActivityInventario.logicainventario.CrearProductoViewModel.SaveResult
+import com.app.administradorfarmadon.ActivityInventario.ui.LiveOcrScannerOverlay
 
 class CrearProducto : AppCompatActivity() {
 
@@ -123,6 +127,8 @@ class CrearProducto : AppCompatActivity() {
     private var isCheckingBarcodeRemote by mutableStateOf(false)
     private var currentLotRequestId = 0 // Contador para proteger spinner de respuestas viejas
     private var currentBarcodeRequestId = 0
+
+    private var pendingBarcodeImageBase64: String? = null
     private var lotValidatedFor by mutableStateOf<String?>(null)
     private var lotConflictInfo by mutableStateOf<String?>(null)
     private var lotConflictColor by mutableStateOf(0)
@@ -165,6 +171,7 @@ class CrearProducto : AppCompatActivity() {
         private const val PATH_PRODUCTOS = "Productos"
         private const val PATH_MARGENES = "ConfiguracionMargenes"
         private const val PATH_CODIGOS = "CodigosProductos"
+        private const val INITIAL_INVENTORY_SOURCE_NAME = "Inventario inicial / Sin proveedor"
     }
 
 
@@ -195,25 +202,39 @@ class CrearProducto : AppCompatActivity() {
             val savedPresentations by com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.presentaciones.collectAsState()
 
             // V18.0: Sincronizar estado de identificación de barcode
-            LaunchedEffect(
-                categorySuggestionState.estaIdentificandoBarcode,
-                categorySuggestionState.barcodeAiResult,
-                categorySuggestionState.barcodeMismatchDetected,
-                categorySuggestionState.barcodeMismatchOriginalName,
-                categorySuggestionState.infoUsoProducto,
-                categorySuggestionState.estaCargandoInfoUso,
-                savedPresentations
-            ) {
-                createProductUiState = createProductUiState.copy(
-                    isIdentifyingBarcode = categorySuggestionState.estaIdentificandoBarcode,
-                    barcodeAiResult = categorySuggestionState.barcodeAiResult,
-                    barcodeMismatchDetected = categorySuggestionState.barcodeMismatchDetected,
-                    barcodeMismatchOriginalName = categorySuggestionState.barcodeMismatchOriginalName,
-                    aiUsageInfo = categorySuggestionState.infoUsoProducto,
-                    isFetchingUsageInfo = categorySuggestionState.estaCargandoInfoUso,
-                    savedPresentations = savedPresentations
+                LaunchedEffect(
+                    categorySuggestionState.estaIdentificandoBarcode,
+                    categorySuggestionState.barcodeAiResult,
+                    categorySuggestionState.barcodeMismatchDetected,
+                    categorySuggestionState.barcodeMismatchOriginalName,
+                    categorySuggestionState.infoUsoProducto,
+                    categorySuggestionState.estaCargandoInfoUso,
+                    savedPresentations
                 )
-            }
+                {
+                    val incomingResult = categorySuggestionState.barcodeAiResult
+                    val currentBarcode = createProductUiState.barcode.trim()
+                    val incomingCode = incomingResult?.codigo?.trim().orEmpty()
+
+                    val resultBelongsToCurrentBarcode =
+                        incomingResult == null ||
+                                incomingCode.isBlank() ||
+                                incomingCode == currentBarcode
+
+                    if (!resultBelongsToCurrentBarcode) {
+                        return@LaunchedEffect
+                    }
+
+                    createProductUiState = createProductUiState.copy(
+                        isIdentifyingBarcode = categorySuggestionState.estaIdentificandoBarcode,
+                        barcodeAiResult = incomingResult,
+                        barcodeMismatchDetected = categorySuggestionState.barcodeMismatchDetected,
+                        barcodeMismatchOriginalName = categorySuggestionState.barcodeMismatchOriginalName,
+                        aiUsageInfo = categorySuggestionState.infoUsoProducto,
+                        isFetchingUsageInfo = categorySuggestionState.estaCargandoInfoUso,
+                        savedPresentations = savedPresentations
+                    )
+                }
 
             // V16.10: Observamos la sugerencia de tipo para aplicación AUTOMÁTICA si la confianza es ALTA
             // V17.82: Restaurada la auto-selección silenciosa para un flujo sin fricciones.
@@ -276,7 +297,8 @@ class CrearProducto : AppCompatActivity() {
                             val base64 = ProductUtils.bitmapToBase64(bitmap)
                             actualizarCreateProductState(createProductUiState.copy(
                                 invoiceImageBase64 = base64,
-                                isCapturingInvoice = false
+                                isCapturingInvoice = false,
+                                isInvoiceHighlighting = true // <--- ACTIVAR FLASH AL VOLVER
                             ))
                         }
                     }
@@ -320,6 +342,61 @@ class CrearProducto : AppCompatActivity() {
 
             MaterialTheme {
                 val saveStatus by crearProductoViewModel.saveStatus.collectAsState()
+                val suppliers by crearProductoViewModel.suppliers.collectAsState()
+                val categories by crearProductoViewModel.categories.collectAsState()
+                val marginRules by crearProductoViewModel.marginRules.collectAsState()
+                val isSavingSupplier by crearProductoViewModel.isSavingSupplier.collectAsState()
+                val supplierSaveSuccess by crearProductoViewModel.supplierSaveSuccess.collectAsState()
+
+                LaunchedEffect(suppliers) {
+                    createProductUiState = createProductUiState.copy(suppliers = suppliers)
+                }
+
+                LaunchedEffect(categories) {
+                    createProductCategoryOptions.clear()
+                    createProductCategoryOptions.addAll(categories)
+                }
+
+                LaunchedEffect(marginRules) {
+                    createProductUiState = createProductUiState.copy(marginRules = marginRules)
+                }
+
+                // Dentro de setContent -> MaterialTheme en CrearProducto.kt
+
+                LaunchedEffect(isSavingSupplier, supplierSaveSuccess, createProductUiState.isSupplierHighlighting) {
+                    // 1. Sincronización inteligente de estados de carga
+                    if (createProductUiState.isSavingSupplier != isSavingSupplier ||
+                        createProductUiState.supplierSaveSuccess != supplierSaveSuccess) {
+                        createProductUiState = createProductUiState.copy(
+                            isSavingSupplier = isSavingSupplier,
+                            supplierSaveSuccess = supplierSaveSuccess
+                        )
+                    }
+
+                    // 2. Lógica de Autoselección al tener éxito
+                    if (supplierSaveSuccess && !createProductUiState.isSupplierHighlighting) {
+                        val listaActual = crearProductoViewModel.suppliers.value
+                        listaActual.lastOrNull()?.let { ultimo ->
+                            createProductUiState = createProductUiState.copy(
+                                supplierId = ultimo.id,
+                                supplierName = ultimo.nombre,
+                                showAddSupplierDialog = false,
+                                isSupplierHighlighting = true // Dispara el flash verde
+                            )
+                        }
+                    }
+
+                    // 3. Temporizador de limpieza del flash (3 segundos)
+                    if (createProductUiState.isSupplierHighlighting) {
+                        delay(3000)
+                        createProductUiState = createProductUiState.copy(isSupplierHighlighting = false)
+                    }
+
+                    if (createProductUiState.isInvoiceHighlighting) {
+                        delay(3000)
+                        createProductUiState = createProductUiState.copy(isInvoiceHighlighting = false)
+                    }
+                }
 
                 LaunchedEffect(saveStatus) {
                     when (val status = saveStatus) {
@@ -434,7 +511,13 @@ class CrearProducto : AppCompatActivity() {
                             }
                         },
                         onIdentificarBarcode = { barcode: String, image: String? ->
-                            categorySuggestionViewModel.identificarBarcode(barcode, image, createProductCategoryOptions.toList())
+                            val imageForAi = image ?: pendingBarcodeImageBase64
+
+                            categorySuggestionViewModel.identificarBarcode(
+                                barcode,
+                                imageForAi,
+                                createProductCategoryOptions.toList()
+                            )
                         },
                         onCheckBarcodeIntegrity = { barcode: String, nombre: String ->
                             categorySuggestionViewModel.verificarIntegridadBarcode(barcode, nombre)
@@ -442,7 +525,12 @@ class CrearProducto : AppCompatActivity() {
                         onClearBarcodeIntegrityConflict = {
                             categorySuggestionViewModel.limpiarConflictoBarcode()
                         },
-                        onSaveSupplier = { nombre, idFiscal -> guardarNuevoProveedor(nombre, idFiscal) },
+                        onSaveSupplier = { nombre, idFiscal ->
+                            crearProductoViewModel.guardarProveedor(nombre, idFiscal) { mensajeError ->
+                                // Si hay duplicado, mostramos un Toast rápido
+                                Toast.makeText(this@CrearProducto, mensajeError, Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         showNoBarcodeConfirmDialog = showNoBarcodeConfirmDialog,
                         onDismissNoBarcodeConfirm = {
                             showNoBarcodeConfirmDialog = false
@@ -464,8 +552,6 @@ class CrearProducto : AppCompatActivity() {
                         @OptIn(androidx.camera.core.ExperimentalGetImage::class)
                         com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay(
                             onBarcodeDetected = { result ->
-
-                                // V18.2: Usamos el resultado con imagen
                                 actualizarCreateProductState(
                                     createProductUiState.copy(
                                         barcode = result.code,
@@ -475,15 +561,39 @@ class CrearProducto : AppCompatActivity() {
                                     imageBase64 = result.imageBase64
                                 )
                             },
+                            onImageFallbackDetected = { imageBase64 ->
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(
+                                        barcode = "",
+                                        productoSinCodigoBarra = true,
+                                        isBarcodeScanning = false,
+                                        isBarcodeManualMode = false,
+                                        scannedImageBase64 = imageBase64,
+                                        barcodeAiResult = null,
+                                        barcodeAiApplied = false,
+                                        barcodeAiError = null,
+                                        forceManualProductEntry = false,
+                                        isIdentifyingBarcode = true,
+                                        errors = createProductUiState.errors - "barcode"
+                                    )
+                                )
+
+                                categorySuggestionViewModel.identificarProductoPorImagen(
+                                    imageBase64 = imageBase64,
+                                    categoriasExistentes = createProductCategoryOptions.toList()
+                                )
+                            },
                             onDismiss = {
-                                actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = false))
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(isBarcodeScanning = false)
+                                )
                             }
                         )
                     }
 
                     if (createProductUiState.isLabelScanning) {
                         @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-                        com.app.administradorfarmadon.ActivityInventario.ui.LiveOcrScannerOverlay(
+                        LiveOcrScannerOverlay(
                             onResultDetected = { lote, venc ->
                                 feedbackController.ventaExitosa(null)
                                 actualizarCreateProductState(
@@ -528,71 +638,6 @@ class CrearProducto : AppCompatActivity() {
 
             // Solo lo esencial para el Paso 1 (Ligero)
             PresentacionesTiendaConfigManager.precargar()
-            obtenerCategoriasDeProductos()
-            obtenerProveedores()
-        }
-    }
-
-    private fun obtenerProveedores() {
-        FirebaseDatabase.getInstance()
-            .getReference(DbPaths.INVENTARIO_PROVEEDORES)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val lista = mutableListOf<com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Proveedor>()
-                snapshot.children.forEach { child ->
-                    child.getValue(com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Proveedor::class.java)?.let {
-                        lista.add(it)
-                    }
-                }
-                actualizarCreateProductState(createProductUiState.copy(suppliers = lista))
-            }
-    }
-
-    private fun guardarNuevoProveedor(nombre: String, idFiscal: String) {
-        val db = FirebaseDatabase.getInstance()
-        val ref = db.getReference(DbPaths.INVENTARIO_PROVEEDORES)
-        val id = ref.push().key ?: UUID.randomUUID().toString()
-        
-        // V22.1: Guardar solo campos no vacíos para evitar nodos vacíos en Firebase
-        val datosProveedor = mutableMapOf<String, Any>()
-        datosProveedor["id"] = id
-        datosProveedor["nombre"] = nombre
-        if (idFiscal.isNotBlank()) datosProveedor["idFiscal"] = idFiscal
-
-        val nuevo = com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Proveedor(
-            id = id,
-            nombre = nombre,
-            idFiscal = idFiscal
-        )
-        
-        // Usar copia directa para evitar ráfagas de validación en actualizarCreateProductState
-        createProductUiState = createProductUiState.copy(
-            isSavingSupplier = true,
-            supplierSaveSuccess = false
-        )
-        
-        ref.child(id).setValue(datosProveedor).addOnSuccessListener {
-            createProductUiState = createProductUiState.copy(
-                supplierSaveSuccess = true,
-                suppliers = createProductUiState.suppliers + nuevo,
-                supplierId = id,
-                supplierName = nombre,
-                showAddSupplierDialog = false
-            )
-
-            // Esperar 5 segundos antes de ocultar el loading
-            lifecycleScope.launch {
-                delay(5000)
-                createProductUiState = createProductUiState.copy(
-                    isSavingSupplier = false,
-                    supplierSaveSuccess = false
-                )
-            }
-        }.addOnFailureListener {
-            createProductUiState = createProductUiState.copy(
-                isSavingSupplier = false
-            )
-            Toast.makeText(this, "Error al guardar proveedor", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -636,16 +681,16 @@ class CrearProducto : AppCompatActivity() {
         setContentView(root)
     }
 
-    private fun asegurarReglasMargenCargadas() {
-        if (marginRulesLoadStarted) return
-        marginRulesLoadStarted = true
-        obtenerReglasDeMargen()
-    }
-
     private fun asegurarPresentacionesGuardadasCargadas() {
         if (savedPresentationsLoadStarted) return
         savedPresentationsLoadStarted = true
         com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.precargar()
+    }
+
+    private fun asegurarReglasMargenCargadas() {
+        if (marginRulesLoadStarted) return
+        marginRulesLoadStarted = true
+        crearProductoViewModel.obtenerReglasDeMargen()
     }
 
     private fun cargarPresentacionesGuardadas() {
@@ -770,7 +815,7 @@ class CrearProducto : AppCompatActivity() {
                 isIdentifyingBarcode = false,
                 barcodeAiApplied = false,
                 barcodeAiError = null,
-                scannedImageBase64 = imageBase64,
+                scannedImageBase64 = null,
                 productoSinCodigoBarra = if (barcodeActual.isNotBlank()) false else createProductUiState.productoSinCodigoBarra
             )
             programarValidacionBarcodeCompose(createProductUiState.barcode, imageBase64)
@@ -834,6 +879,7 @@ class CrearProducto : AppCompatActivity() {
                 controlType = null,
                 requiresPrescription = false,
                 active = true,
+                isAnalyzingKeywords = false,
                 errors = createProductUiState.errors - "category" - "controlType"
             ),
             tipoAnterior = createProductUiState.controlType
@@ -872,7 +918,20 @@ class CrearProducto : AppCompatActivity() {
             return
         }
 
-        actualizarCreateProductState(createProductUiState.copy(isAnalyzingKeywords = true))
+        if (
+            createProductUiState.category.isNotBlank() ||
+            createProductUiState.duplicateProductFound != null ||
+            !createProductUiState.errors["name"].isNullOrBlank()
+        ) {
+            actualizarCreateProductState(
+                createProductUiState.copy(isAnalyzingKeywords = false)
+            )
+            return
+        }
+
+        actualizarCreateProductState(
+            createProductUiState.copy(isAnalyzingKeywords = true)
+        )
 
         categorySuggestionViewModel.buscarSugerenciaIA(
             nombre = currentName,
@@ -881,8 +940,19 @@ class CrearProducto : AppCompatActivity() {
             monedaSimbolo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
             inmediato = inmediato,
             onStateChange = { loading ->
-                if (normalizeProductName(createProductUiState.name) == normalized) {
-                    actualizarCreateProductState(createProductUiState.copy(isAnalyzingKeywords = loading))
+                if (
+                    normalizeProductName(createProductUiState.name) == normalized &&
+                    createProductUiState.category.isBlank() &&
+                    createProductUiState.duplicateProductFound == null &&
+                    createProductUiState.errors["name"].isNullOrBlank()
+                ) {
+                    actualizarCreateProductState(
+                        createProductUiState.copy(isAnalyzingKeywords = loading)
+                    )
+                } else if (!loading) {
+                    actualizarCreateProductState(
+                        createProductUiState.copy(isAnalyzingKeywords = false)
+                    )
                 }
             }
         )
@@ -937,84 +1007,103 @@ class CrearProducto : AppCompatActivity() {
         return sanitizarNombreArchivo(normalizedName)
     }
 
-    private fun programarValidacionBarcodeCompose(barcode: String, imageBase64: String? = null) {
+    private fun programarValidacionBarcodeCompose(
+        barcode: String,
+        imageBase64: String? = null
+    ) {
         createProductBarcodeValidationJob?.cancel()
 
         val value = barcode.trim()
         val requestId = ++currentBarcodeRequestId
+        val cameFromCamera = imageBase64 != null
 
-        // V3.30: Limpiar duplicado previo inmediatamente al cambiar el código
+        pendingBarcodeImageBase64 = imageBase64
+
         createProductUiState = createProductUiState.copy(
             errors = createProductUiState.errors - "barcode",
-            duplicateProductFound = if (createProductUiState.duplicateProductFound?.codigo == value)
-                                      createProductUiState.duplicateProductFound else null,
-            scannedImageBase64 = imageBase64
+            duplicateProductFound = if (createProductUiState.duplicateProductFound?.codigo == value) {
+                createProductUiState.duplicateProductFound
+            } else {
+                null
+            },
+            scannedImageBase64 = null
         )
-        isCheckingBarcodeRemote = true
 
         if (value.isBlank()) {
             isCheckingBarcodeRemote = false
+            pendingBarcodeImageBase64 = null
             categorySuggestionViewModel.identificarBarcode("", null, emptyList())
             return
         }
 
+        isCheckingBarcodeRemote = true
+
         createProductBarcodeValidationJob = lifecycleScope.launch {
-            // V18.3: Optimización de debounce. Sin retraso si viene de la cámara (imageBase64 != null),
-            // y 300ms (igual que validación de nombre) si se escribe a mano o con lector de código físico.
-            val delayMs = if (imageBase64 != null) 0L else 300L
+            val delayMs = if (cameFromCamera) 0L else 300L
             delay(delayMs)
 
             if (createProductUiState.barcode.trim() != value) {
-                isCheckingBarcodeRemote = false
+                if (requestId == currentBarcodeRequestId) {
+                    isCheckingBarcodeRemote = false
+                }
                 return@launch
             }
 
-            FirebaseDatabase.getInstance()
-                .getReference(PATH_INVENTARIO)
-                .child(PATH_CODIGOS)
-                .child(value)
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    if (requestId == currentBarcodeRequestId) {
-                        isCheckingBarcodeRemote = false
-                        if (snapshot.exists()) {
-                            val productInfo = snapshot.value as? Map<*, *>
-                            val productId = productInfo?.get("productoId") as? String
-                            if (productId != null) {
-                                buscarProductoPorIdYMostrarDuplicado(productId)
-                            }
-                        } else if (aiInventoryEnabled && !createProductUiState.forceManualProductEntry && !createProductUiState.barcodeAiApplied) {
-                            // V18.2: Si no existe, invocar identificación IA (Vision si hay imagen)
-                            categorySuggestionViewModel.identificarBarcode(value, imageBase64, createProductCategoryOptions.toList())
-                        }
-                    }
+            crearProductoViewModel.verificarCodigoBarras(value) { snapshot ->
+                if (requestId != currentBarcodeRequestId) {
+                    return@verificarCodigoBarras
                 }
-                .addOnFailureListener {
-                    if (requestId == currentBarcodeRequestId) {
-                        isCheckingBarcodeRemote = false
-                        actualizarCreateProductState(createProductUiState.copy(
-                            errors = createProductUiState.errors + ("barcode" to "No se pudo validar el código. Revisa tu conexión.")
-                        ))
-                    }
+
+                isCheckingBarcodeRemote = false
+
+                if (snapshot == null) {
+                    actualizarCreateProductState(
+                        createProductUiState.copy(
+                            errors = createProductUiState.errors + (
+                                    "barcode" to "No se pudo validar el código. Revisa tu conexión."
+                                    )
+                        )
+                    )
+                    return@verificarCodigoBarras
                 }
+
+                if (snapshot.exists()) {
+                    val productInfo = snapshot.value as? Map<*, *>
+                    val productId = productInfo?.get("productoId") as? String
+
+                    if (productId != null) {
+                        buscarProductoPorIdYMostrarDuplicado(productId)
+                    }
+
+                    return@verificarCodigoBarras
+                }
+
+                if (
+                    aiInventoryEnabled &&
+                    !createProductUiState.forceManualProductEntry &&
+                    !createProductUiState.barcodeAiApplied
+                ) {
+                    val imageForAi = pendingBarcodeImageBase64
+
+                    categorySuggestionViewModel.identificarBarcode(
+                        value,
+                        imageForAi,
+                        createProductCategoryOptions.toList()
+                    )
+                }
+            }
         }
     }
 
     private fun buscarProductoPorIdYMostrarDuplicado(productId: String) {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .child(productId)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val productoExistente = snapshot.toMoldeProductos()
-                if (productoExistente != null) {
-                    actualizarCreateProductState(createProductUiState.copy(
-                        duplicateProductFound = productoExistente,
-                        errors = createProductUiState.errors + ("barcode" to "Este código ya pertenece a otro producto.")
-                    ))
-                }
+        crearProductoViewModel.buscarProductoPorId(productId) { productoExistente ->
+            if (productoExistente != null) {
+                actualizarCreateProductState(createProductUiState.copy(
+                    duplicateProductFound = productoExistente,
+                    errors = createProductUiState.errors + ("barcode" to "Este código ya pertenece a otro producto.")
+                ))
             }
+        }
     }
 
     private fun programarValidacionNombreCompose(name: String) {
@@ -1185,7 +1274,11 @@ class CrearProducto : AppCompatActivity() {
     private fun validarLoteRemotoCompose(numeroLote: String) {
         createProductLotValidationJob?.cancel()
 
-        val loteLimpio = numeroLote.trim().uppercase()
+        val loteLimpio = numeroLote.trim().uppercase(Locale.getDefault())
+
+        // Invalidamos cualquier respuesta anterior
+        val requestId = ++currentLotRequestId
+
         if (loteLimpio.isBlank()) {
             lotConflictInfo = null
             lotConflictColor = 0
@@ -1195,109 +1288,122 @@ class CrearProducto : AppCompatActivity() {
             return
         }
 
+        // No validar lotes demasiado cortos mientras el usuario recién escribe.
+        if (loteLimpio.length < 3) {
+            lotConflictInfo = null
+            lotConflictColor = 0
+            lotConflictSeverity = 0
+            lotValidatedFor = null
+            isCheckingLotRemote = false
+            return
+        }
+
         createProductLotValidationJob = lifecycleScope.launch {
-            delay(600)
-            if (createProductUiState.lotNumber.trim().uppercase() != loteLimpio) {
+            // Más tiempo para que el usuario termine de escribir
+            delay(900L)
+
+            val loteActual = createProductUiState.lotNumber
+                .trim()
+                .uppercase(Locale.getDefault())
+
+            if (loteActual != loteLimpio || requestId != currentLotRequestId) {
                 return@launch
             }
+
             isCheckingLotRemote = true
-            val requestId = ++currentLotRequestId // V17.49: Capturamos ID de esta petición
             lotConflictInfo = null
 
-            // V17.49: Usamos la función compartida y segura (Base64)
             val keyLote = ProductUtils.encodeLotKey(loteLimpio)
 
-            FirebaseDatabase.getInstance()
-                .getReference(DbPaths.INVENTARIO_LOTES_POR_NUMERO)
-                .child(keyLote)
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    // V17.49: El spinner solo se apaga si esta es la petición más reciente
-                    if (requestId == currentLotRequestId) {
-                        isCheckingLotRemote = false
-                    }
+            crearProductoViewModel.verificarLoteRemoto(keyLote) { snapshot ->
+                if (requestId != currentLotRequestId) {
+                    return@verificarLoteRemoto
+                }
 
-                    // V17.48: Protección contra lógica de negocio vieja
-                    if (loteLimpio != createProductUiState.lotNumber.trim().uppercase()) {
-                        return@addOnSuccessListener
-                    }
+                val loteActualCallback = createProductUiState.lotNumber
+                    .trim()
+                    .uppercase(Locale.getDefault())
 
-                    lotValidatedFor = loteLimpio
+                if (loteActualCallback != loteLimpio) {
+                    return@verificarLoteRemoto
+                }
 
-                    if (snapshot.exists()) {
-                        val loteIndexado = snapshot.getValue(LoteIndexado::class.java)
-                        if (loteIndexado != null) {
-                            val esMismoProducto = normalizeProductName(loteIndexado.productoNombre) == normalizeProductName(createProductUiState.name)
+                isCheckingLotRemote = false
 
-                            if (esMismoProducto) {
-                                lotConflictInfo = "Lote detectado: se sumará al stock existente"
-                                lotConflictColor = android.graphics.Color.parseColor("#F59E0B")
-                                lotConflictSeverity = 1
-                                
-                                // V21.10: También buscamos el producto para el diálogo informativo
-                                if (loteIndexado.productoId.isNotBlank()) {
-                                    FirebaseDatabase.getInstance()
-                                        .getReference(DbPaths.INVENTARIO_PRODUCTOS)
-                                        .child(loteIndexado.productoId)
-                                        .get()
-                                        .addOnSuccessListener { prodSnap ->
-                                            val prod = prodSnap.toMoldeProductos()
-                                            if (prod != null) {
-                                                actualizarCreateProductState(
-                                                    createProductUiState.copy(
-                                                        lotConflictProduct = prod,
-                                                        showLotConflictDialog = true
-                                                    )
-                                                )
-                                            }
-                                        }
+                if (snapshot == null) {
+                    lotValidatedFor = null
+                    lotConflictInfo = "Error de conexión: No se pudo validar el lote"
+                    lotConflictColor = android.graphics.Color.GRAY
+                    lotConflictSeverity = 2
+                    return@verificarLoteRemoto
+                }
+
+                lotValidatedFor = loteLimpio
+
+                if (snapshot.exists()) {
+                    val loteIndexado = snapshot.getValue(LoteIndexado::class.java)
+
+                    if (loteIndexado != null) {
+                        val esMismoProducto =
+                            normalizeProductName(loteIndexado.productoNombre) ==
+                                    normalizeProductName(createProductUiState.name)
+
+                        if (esMismoProducto) {
+                            lotConflictInfo = "Lote detectado: se sumará al stock existente"
+                            lotConflictColor = android.graphics.Color.parseColor("#F59E0B")
+                            lotConflictSeverity = 1
+
+                            if (loteIndexado.productoId.isNotBlank()) {
+                                crearProductoViewModel.buscarProductoPorId(loteIndexado.productoId) { prod ->
+                                    if (
+                                        prod != null &&
+                                        requestId == currentLotRequestId &&
+                                        createProductUiState.lotNumber.trim()
+                                            .uppercase(Locale.getDefault()) == loteLimpio
+                                    ) {
+                                        actualizarCreateProductState(
+                                            createProductUiState.copy(
+                                                lotConflictProduct = prod,
+                                                showLotConflictDialog = true
+                                            )
+                                        )
+                                    }
                                 }
-                            } else {
-                                lotConflictInfo = "¡Cuidado! Lote asignado a: ${loteIndexado.productoNombre}"
-                                lotConflictColor = android.graphics.Color.parseColor("#EF4444")
-                                lotConflictSeverity = 2
-                                
-                                // V21.10: Buscar el objeto producto completo para el diálogo de conflicto
-                                if (loteIndexado.productoId.isNotBlank()) {
-                                    FirebaseDatabase.getInstance()
-                                        .getReference(DbPaths.INVENTARIO_PRODUCTOS)
-                                        .child(loteIndexado.productoId)
-                                        .get()
-                                        .addOnSuccessListener { prodSnap ->
-                                            val prod = prodSnap.toMoldeProductos()
-                                            if (prod != null) {
-                                                actualizarCreateProductState(
-                                                    createProductUiState.copy(
-                                                        lotConflictProduct = prod,
-                                                        showLotConflictDialog = true
-                                                    )
-                                                )
-                                            }
-                                        }
+                            }
+                        } else {
+                            lotConflictInfo = "¡Cuidado! Lote asignado a: ${loteIndexado.productoNombre}"
+                            lotConflictColor = android.graphics.Color.parseColor("#EF4444")
+                            lotConflictSeverity = 2
+
+                            if (loteIndexado.productoId.isNotBlank()) {
+                                crearProductoViewModel.buscarProductoPorId(loteIndexado.productoId) { prod ->
+                                    if (
+                                        prod != null &&
+                                        requestId == currentLotRequestId &&
+                                        createProductUiState.lotNumber.trim()
+                                            .uppercase(Locale.getDefault()) == loteLimpio
+                                    ) {
+                                        actualizarCreateProductState(
+                                            createProductUiState.copy(
+                                                lotConflictProduct = prod,
+                                                showLotConflictDialog = true
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
                     } else {
-                        lotConflictInfo = "Lote disponible"
-                        lotConflictColor = android.graphics.Color.parseColor("#0E8F63")
-                        lotConflictSeverity = 0
-                        actualizarCreateProductState(
-                            createProductUiState.copy(
-                                lotConflictProduct = null,
-                                showLotConflictDialog = false
-                            )
-                        )
-                    }
-                }
-                .addOnFailureListener {
-                    if (requestId == currentLotRequestId) {
-                        isCheckingLotRemote = false
-                        lotValidatedFor = null
-                        lotConflictInfo = "Error de conexión: No se pudo validar el lote"
+                        lotConflictInfo = "Lote existente, pero no se pudo leer el detalle"
                         lotConflictColor = android.graphics.Color.GRAY
                         lotConflictSeverity = 2
                     }
+                } else {
+                    lotConflictInfo = "Lote disponible"
+                    lotConflictColor = android.graphics.Color.parseColor("#16A163")
+                    lotConflictSeverity = 0
                 }
+            }
         }
     }
 
@@ -1328,11 +1434,20 @@ class CrearProducto : AppCompatActivity() {
             val relevantKeys = when (estadoActual.currentStep) {
                 CreateProductStep.PRODUCTO -> setOf("name", "category", "controlType", "barcode")
                 CreateProductStep.LOTE_INICIAL -> setOf(
-                    "lotNumber", "expirationDate", "stockEntryMode",
-                    "receivedUnits", "boxesReceived", "unitsPerBox",
-                    "unitsPerPackage", "minimumStock", "purchaseCost"
+                    "lotNumber",
+                    "expirationDate",
+                    "supplier",
+                    "purchaseCost",
+                    "paymentDueDate",
+                    "stockEntryMode",
+                    "receivedUnits",
+                    "boxesReceived",
+                    "unitsPerBox",
+                    "packagesPerBox",
+                    "unitsPerPackage",
+                    "minimumStock"
                 )
-                CreateProductStep.PRESENTACIONES -> setOf("presentations", "mainPresentation", "presentations_total")
+                CreateProductStep.PRESENTACIONES -> setOf("presentations", "presentations_total")
                 CreateProductStep.RESUMEN -> emptySet()
             }
 
@@ -1353,7 +1468,33 @@ class CrearProducto : AppCompatActivity() {
             CreateProductStep.RESUMEN -> CreateProductStep.RESUMEN
         }
 
-        createProductUiState = estadoActual.copy(
+        val estadoConPresentacionIa =
+            if (
+                aiInventoryEnabled &&
+                siguientePaso == CreateProductStep.PRESENTACIONES &&
+                estadoActual.barcodeAiApplied &&
+                estadoActual.defaultSalePresentationFromAi &&
+                !estadoActual.forceManualProductEntry
+            ) {
+                val autoPresentation = buildAiDefaultSalePresentationIfNeeded(estadoActual)
+
+                if (autoPresentation != null) {
+                    estadoActual.copy(
+                        presentations = listOf(autoPresentation),
+                        mainPresentationId = autoPresentation.id,
+                        errors = estadoActual.errors -
+                            "presentations" -
+                            "mainPresentation" -
+                            "presentations_total"
+                    )
+                } else {
+                    estadoActual
+                }
+            } else {
+                estadoActual
+            }
+
+        createProductUiState = estadoConPresentacionIa.copy(
             currentStep = siguientePaso
         )
 
@@ -1394,6 +1535,7 @@ class CrearProducto : AppCompatActivity() {
         lotConflictSeverity = 0
         currentLotRequestId++ // Invalida cualquier respuesta de red pendiente
         currentBarcodeRequestId++
+        pendingBarcodeImageBase64 = null
         createProductUiState = createProductUiState.copy(lotScanned = false)
 
         // Reinicia también el ciclo de sugerencias IA: limpia el set de
@@ -1524,6 +1666,15 @@ class CrearProducto : AppCompatActivity() {
         if (estaVencido(estado.expirationDate)) return false
         if (!esVencimientoDentroDeRango(estado.expirationDate)) return false
 
+        val isInitialInventorySource =
+            estado.supplierId.isBlank() &&
+                    estado.supplierName == INITIAL_INVENTORY_SOURCE_NAME
+
+        val hasRealSupplier = estado.supplierId.isNotBlank()
+        val hasStockOriginSelected = hasRealSupplier || isInitialInventorySource
+
+        if (!hasStockOriginSelected) return false
+
         val modo = estado.stockEntryMode ?: return false
         if (!isStockEntryModeValidForControlType(estado.controlType, modo)) return false
         if (!estado.stockEntryConfigured) return false
@@ -1548,7 +1699,11 @@ class CrearProducto : AppCompatActivity() {
         if (costo == null || costo <= 0.0) return false
 
         // V27.0: Validación de Condición de Pago
-        if (estado.paymentCondition == "CREDITO" && !esFechaCompletaValida(estado.paymentDueDate)) return false
+        if (estado.paymentCondition == "CREDITO") {
+            if (!hasRealSupplier) return false
+            if (!esFechaCompletaValida(estado.paymentDueDate)) return false
+            if (estaFechaPasada(estado.paymentDueDate)) return false
+        }
 
         return true
     }
@@ -1583,7 +1738,7 @@ class CrearProducto : AppCompatActivity() {
         // V17.65: Regla de oro - La suma de presentaciones no puede superar el stock recibido
         if (totalAsignado > recibidoBase) return false
 
-        if (estado.presentations.size > 1 && estado.mainPresentationId.isBlank()) return false
+
         return true
     }
 
@@ -1627,6 +1782,20 @@ class CrearProducto : AppCompatActivity() {
             }
 
             CreateProductStep.LOTE_INICIAL -> {
+
+                val isInitialInventorySource =
+                    estado.supplierId.isBlank() &&
+                            estado.supplierName == INITIAL_INVENTORY_SOURCE_NAME
+
+                val hasRealSupplier = estado.supplierId.isNotBlank()
+                val hasStockOriginSelected = hasRealSupplier || isInitialInventorySource
+
+                if (!hasStockOriginSelected) {
+                    errors["supplier"] = "Selecciona un proveedor o inventario inicial"
+                } else {
+                    errors.remove("supplier")
+                }
+
                 if (estado.lotNumber.trim().isBlank()) {
                     errors["lotNumber"] = "Ingresa el numero de lote"
                 } else if (lotConflictSeverity == 2) {
@@ -1664,6 +1833,8 @@ class CrearProducto : AppCompatActivity() {
                     CreateProductStockEntryMode.UNIDAD -> {
                         val quantity = parseComposeNumber(estado.receivedUnitsText)
                         val content = parseComposeNumber(estado.unitsPerItemText)
+                        val requiereContenido = estado.controlType != CreateProductControlType.UNIDAD ||
+                                estado.stockControlMode == StockControlMode.DIVISIBLE
 
                         if (quantity <= 0.0) {
                             errors["receivedUnits"] = "Ingresa la cantidad recibida"
@@ -1671,19 +1842,20 @@ class CrearProducto : AppCompatActivity() {
                             errors.remove("receivedUnits")
                         }
 
-                        if (estado.controlType != CreateProductControlType.UNIDAD) {
+                        if (requiereContenido) {
                             if (content <= 0.0) {
                                 errors["unitsPerItem"] = when (estado.controlType) {
                                     CreateProductControlType.LIQUIDO -> "Ingresa el contenido por frasco"
                                     CreateProductControlType.PESO -> "Ingresa el peso por envase"
-                                    else -> "Ingresa el contenido"
+                                    else -> "Ingresa cuántas piezas trae cada unidad"
                                 }
                             } else {
                                 errors.remove("unitsPerItem")
                             }
+                        } else {
+                            errors.remove("unitsPerItem")
                         }
 
-                        if (estado.controlType == CreateProductControlType.UNIDAD) errors.remove("unitsPerItem")
                         errors.remove("boxesReceived")
                         errors.remove("unitsPerBox")
                         errors.remove("packagesPerBox")
@@ -1694,25 +1866,27 @@ class CrearProducto : AppCompatActivity() {
                         val boxes = parseComposeNumber(estado.boxesReceivedText)
                         val unitsPerBox = parseComposeNumber(estado.unitsPerBoxText)
                         val content = parseComposeNumber(estado.unitsPerItemText)
+                        val requiereContenido = estado.controlType != CreateProductControlType.UNIDAD ||
+                                estado.stockControlMode == StockControlMode.DIVISIBLE
 
                         if (boxes <= 0.0) {
-                            errors["boxesReceived"] = "Ingresa cuantas cajas recibiste"
+                            errors["boxesReceived"] = "Ingresa cuántas cajas recibiste"
                         } else {
                             errors.remove("boxesReceived")
                         }
 
                         if (unitsPerBox <= 0.0) {
-                            errors["unitsPerBox"] = "Ingresa cuanto trae cada caja"
+                            errors["unitsPerBox"] = "Ingresa cuántas piezas trae cada caja"
                         } else {
                             errors.remove("unitsPerBox")
                         }
 
-                        if (estado.controlType != CreateProductControlType.UNIDAD) {
+                        if (requiereContenido) {
                             if (content <= 0.0) {
                                 errors["unitsPerItem"] = when (estado.controlType) {
                                     CreateProductControlType.LIQUIDO -> "Ingresa el contenido por frasco"
                                     CreateProductControlType.PESO -> "Ingresa el peso por envase"
-                                    else -> "Ingresa el contenido"
+                                    else -> "Ingresa cuántas piezas trae cada unidad"
                                 }
                             } else {
                                 errors.remove("unitsPerItem")
@@ -1727,24 +1901,30 @@ class CrearProducto : AppCompatActivity() {
                     }
 
                     CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
-                        val blisters = parseComposeNumber(estado.boxesReceivedText)
+                        val boxes = parseComposeNumber(estado.boxesReceivedText)
+                        val packagesPerBox = parseComposeNumber(estado.packagesPerBoxText)
                         val unitsPerPackage = parseComposeNumber(estado.unitsPerPackageText)
 
-                        if (blisters <= 0.0) {
-                            errors["boxesReceived"] = "Ingresa cuántos blísteres recibiste"
+                        if (boxes <= 0.0) {
+                            errors["boxesReceived"] = "Ingresa cuántas cajas recibiste"
                         } else {
                             errors.remove("boxesReceived")
                         }
 
+                        if (packagesPerBox <= 0.0) {
+                            errors["packagesPerBox"] = "Ingresa cuántos paquetes trae cada caja"
+                        } else {
+                            errors.remove("packagesPerBox")
+                        }
+
                         if (unitsPerPackage <= 0.0) {
-                            errors["unitsPerPackage"] = "Ingresa cuántas unidades trae cada blíster"
+                            errors["unitsPerPackage"] = "Ingresa cuántas piezas trae cada paquete"
                         } else {
                             errors.remove("unitsPerPackage")
                         }
 
                         errors.remove("receivedUnits")
                         errors.remove("unitsPerBox")
-                        errors.remove("packagesPerBox")
                     }
                 }
 
@@ -1788,7 +1968,9 @@ class CrearProducto : AppCompatActivity() {
 
                 // V27.0: Validación de Pago a Crédito
                 if (estado.paymentCondition == "CREDITO") {
-                    if (!esFechaCompletaValida(estado.paymentDueDate)) {
+                    if (!hasRealSupplier) {
+                        errors["paymentDueDate"] = "El crédito requiere un proveedor"
+                    } else if (!esFechaCompletaValida(estado.paymentDueDate)) {
                         errors["paymentDueDate"] = "Selecciona una fecha válida (DD/MM/AAAA)"
                     } else if (estaFechaPasada(estado.paymentDueDate)) {
                         errors["paymentDueDate"] = "La fecha de pago ya pasó"
@@ -1846,11 +2028,7 @@ class CrearProducto : AppCompatActivity() {
                     errors.remove("presentations_total")
                 }
 
-                if (estado.presentations.size > 1 && estado.mainPresentationId.isBlank()) {
-                    errors["mainPresentation"] = "Selecciona la presentacion principal"
-                } else {
-                    errors.remove("mainPresentation")
-                }
+
             }
 
             CreateProductStep.RESUMEN -> {
@@ -1871,19 +2049,21 @@ class CrearProducto : AppCompatActivity() {
                     entry.key in setOf(
                         "lotNumber",
                         "expirationDate",
+                        "supplier",
+                        "purchaseCost",
+                        "paymentDueDate",
                         "stockEntryMode",
                         "receivedUnits",
                         "boxesReceived",
                         "unitsPerBox",
                         "packagesPerBox",
                         "unitsPerPackage",
-                        "minimumStock",
-                        "purchaseCost"
+                        "minimumStock"
                     )
 
                 CreateProductStep.PRESENTACIONES ->
                     entry.key == "presentations" ||
-                            entry.key == "mainPresentation" ||
+                            entry.key == "presentations_total" ||
                             entry.key.startsWith("price_") ||
                             entry.key.startsWith("equivalence_")
 
@@ -2020,92 +2200,53 @@ class CrearProducto : AppCompatActivity() {
             return
         }
 
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_NOMBRES)
-            .child(key)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                if (snapshot.exists()) {
-                    if (!createProductExistingNormalizedNames.contains(normalized)) {
-                        createProductExistingNormalizedNames.add(normalized)
-                    }
+        crearProductoViewModel.verificarNombreDuplicado(key) { snapshot ->
+            if (snapshot != null && snapshot.exists()) {
+                if (!createProductExistingNormalizedNames.contains(normalized)) {
+                    createProductExistingNormalizedNames.add(normalized)
+                }
 
-                    val indice = snapshot.child("indice").getValue(String::class.java).orEmpty()
-                    if (indice.isNotBlank()) {
-                        FirebaseDatabase.getInstance()
-                            .getReference(PATH_INVENTARIO)
-                            .child(PATH_PRODUCTOS)
-                            .child(indice)
-                            .get()
-                            .addOnSuccessListener { productSnapshot ->
-                                val prod = productSnapshot.toMoldeProductos()
-                                if (prod != null) {
-                                    onExiste(prod)
-                                } else {
-                                    createProductLoading = false
-                                    if (alEscribir) {
-                                        if (normalizeProductName(createProductUiState.name) == normalized) {
-                                            onContinuar()
-                                        }
-                                        Toast.makeText(
-                                            this,
-                                            "No se pudo verificar este nombre. Prueba otro o continúa.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    } else {
-                                        mostrarErrorGuardado(
-                                            "Error de integridad: El nombre existe pero los datos del producto no. Por favor, contacte a soporte."
-                                        )
-                                    }
-                                }
-                            }
-                            .addOnFailureListener { e ->
-                                createProductLoading = false
-                                if (alEscribir) {
-                                    if (normalizeProductName(createProductUiState.name) == normalized) {
-                                        onContinuar()
-                                    }
-                                    Toast.makeText(
-                                        this,
-                                        "No se pudo verificar si el nombre ya existe. Puedes continuar o reintentar.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } else {
-                                    if (normalizeProductName(createProductUiState.name) == normalized) {
-                                        actualizarCreateProductState(createProductUiState.copy(
-                                            isAnalyzingKeywords = false,
-                                            isValidatingNameRemote = false
-                                        ))
-                                    }
-                                    mostrarErrorGuardado(
-                                        "No se pudo verificar el producto debido a un error de red: ${e.message}. Intente de nuevo."
-                                    )
-                                }
-                            }
-                    } else {
-                        createProductLoading = false
-                        if (alEscribir) {
-                            if (normalizeProductName(createProductUiState.name) == normalized) {
-                                onContinuar()
-                            }
-                            Toast.makeText(
-                                this,
-                                "No se pudo verificar este nombre. Prueba otro o continúa.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                val indice = snapshot.child("indice").getValue(String::class.java).orEmpty()
+                if (indice.isNotBlank()) {
+                    crearProductoViewModel.buscarProductoPorId(indice) { prod ->
+                        if (prod != null) {
+                            onExiste(prod)
                         } else {
-                            mostrarErrorGuardado(
-                                "Error de integridad: Se encontró el nombre pero el índice está corrupto. Guardado bloqueado por seguridad."
-                            )
+                            createProductLoading = false
+                            if (alEscribir) {
+                                if (normalizeProductName(createProductUiState.name) == normalized) {
+                                    onContinuar()
+                                }
+                                Toast.makeText(
+                                    this,
+                                    "No se pudo verificar este nombre. Prueba otro o continúa.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                mostrarErrorGuardado(
+                                    "Error de integridad: El nombre existe pero los datos del producto no. Por favor, contacte a soporte."
+                                )
+                            }
                         }
                     }
                 } else {
-                    // No existe, procedemos normal
-                    onContinuar()
+                    createProductLoading = false
+                    if (alEscribir) {
+                        if (normalizeProductName(createProductUiState.name) == normalized) {
+                            onContinuar()
+                        }
+                        Toast.makeText(
+                            this,
+                            "No se pudo verificar este nombre. Prueba otro o continúa.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        mostrarErrorGuardado(
+                            "Error de integridad: Se encontró el nombre pero el índice está corrupto. Guardado bloqueado por seguridad."
+                        )
+                    }
                 }
-            }
-            .addOnFailureListener { _ ->
+            } else if (snapshot == null) {
                 createProductLoading = false
                 if (alEscribir) {
                     if (normalizeProductName(createProductUiState.name) == normalized) {
@@ -2121,36 +2262,27 @@ class CrearProducto : AppCompatActivity() {
                         "No se puede validar la existencia del producto (Error de red). Guardado cancelado para evitar duplicados."
                     )
                 }
+            } else {
+                // No existe, procedemos normal
+                onContinuar()
             }
+        }
     }
 
     private fun verificarProductoComposeAntesDeGuardar(producto: MoldeProductos) {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_PRODUCTOS)
-            .child(producto.indice)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                if (snapshot.exists()) {
-                    createProductLoading = false
-                    val conflictProd = snapshot.toMoldeProductos()
-                    if (conflictProd != null) {
-                        actualizarCreateProductState(
-                            createProductUiState.copy(
-                                lotConflictProduct = conflictProd,
-                                showLotConflictDialog = true
-                            )
-                        )
-                    } else {
-                        mostrarErrorGuardado("Conflicto de ID: Ya existe un registro con este código pero no se puede leer. Por favor, intenta con un nombre ligeramente diferente.")
-                    }
-                } else {
-                    guardarProductoFinalCompose(producto)
-                }
+        crearProductoViewModel.buscarProductoPorId(producto.indice) { conflictProd ->
+            if (conflictProd != null) {
+                createProductLoading = false
+                actualizarCreateProductState(
+                    createProductUiState.copy(
+                        lotConflictProduct = conflictProd,
+                        showLotConflictDialog = true
+                    )
+                )
+            } else {
+                guardarProductoFinalCompose(producto)
             }
-            .addOnFailureListener { e ->
-                mostrarErrorGuardado(e.message)
-            }
+        }
     }
 
     private fun guardarProductoFinalCompose(producto: MoldeProductos) {
@@ -2334,17 +2466,19 @@ class CrearProducto : AppCompatActivity() {
         val nombreProducto = normalizarTextoVisible(state.name)
         val categoriaProducto = normalizarTextoVisible(state.category)
 
-        // V21.0: Sincronización Profesional de Unidades Visuales
-        // El stockDisponibleBase siempre está en unidad mínima (g, mL, Unidad)
+        // El stockDisponibleBase siempre se guarda en unidad mínima:
+        // UNIDAD -> Unidad
+        // PESO -> g
+        // LIQUIDO -> mL
         val stockDisponibleBase = calculateTotalBaseStock(state)
         val stockMinimoBase = calculateBaseMinimumStock(state)
-        
-        // Normalización Crítica: Siempre guardar en unidad mínima (g, mL, Unidad)
+
         val unidadBase = when (controlType) {
             CreateProductControlType.UNIDAD -> "Unidad"
             CreateProductControlType.PESO -> "g"
             CreateProductControlType.LIQUIDO -> "mL"
         }
+
         val unidadVisualInventario = when (controlType) {
             CreateProductControlType.UNIDAD -> "Unidad"
             CreateProductControlType.PESO -> state.stockEntryUnit.ifBlank { "g" }
@@ -2352,7 +2486,11 @@ class CrearProducto : AppCompatActivity() {
         }
 
         val effectiveMode = resolveMinimumStockControlMode(state)
-        val unidadStockMinimo = resolverUnidadStockMinimoProfesional(state, controlType, effectiveMode)
+        val unidadStockMinimo = resolverUnidadStockMinimoProfesional(
+            state = state,
+            controlType = controlType,
+            effectiveMode = effectiveMode
+        )
 
         val presentaciones = state.presentations.map { presentation ->
             PresentacionProducto(
@@ -2365,7 +2503,11 @@ class CrearProducto : AppCompatActivity() {
                     ?.coerceAtLeast(1)
                     ?: 1,
                 precioventa = presentation.salePriceText
-                    .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+                    .replace(
+                        com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                        "",
+                        ignoreCase = true
+                    )
                     .trim()
                     .replace(",", ".")
                     .toDoubleOrNull()
@@ -2373,38 +2515,85 @@ class CrearProducto : AppCompatActivity() {
             )
         }.toMutableList()
 
+        /*
+         * Equivalencia de la presentación de compra.
+         *
+         * Ejemplos:
+         * - UNIDAD:
+         *   1 frasco de 120 mL -> 120
+         *
+         * - CAJA:
+         *   1 caja con 12 frascos de 500 mL -> 12 * 500 = 6000 mL
+         *
+         * - CAJA_CON_PAQUETES:
+         *   1 caja con 5 blísteres de 10 pastillas -> 5 * 10 = 50 unidades
+         */
         val unidadesPorPresentacionCompraRaw = when (state.stockEntryMode) {
             null -> 1.0
+
             CreateProductStockEntryMode.UNIDAD -> {
                 if (controlType == CreateProductControlType.UNIDAD) {
-                    val content = parseComposeNumber(state.unitsPerItemText)
-                    if (content > 0.0) content else 1.0
-                }
-                else parseComposeNumber(state.unitsPerItemText)
-            }
-            CreateProductStockEntryMode.CAJA -> {
-                if (controlType == CreateProductControlType.UNIDAD) {
-                    val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
-                        .takeIf { it > 0.0 }
-                        ?: 1.0
-                    parseComposeNumber(state.unitsPerBoxText) * contenidoPorItem
+                    if (state.stockControlMode == StockControlMode.DIVISIBLE) {
+                        val content = parseComposeNumber(state.unitsPerItemText)
+                        if (content > 0.0) content else 1.0
+                    } else {
+                        1.0
+                    }
                 } else {
-                    // V17.61: La caja equivale al volumen total contenido en ella
-                    parseComposeNumber(state.unitsPerBoxText) * parseComposeNumber(state.unitsPerItemText)
+                    parseComposeNumber(state.unitsPerItemText)
                 }
             }
-            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
+
+            CreateProductStockEntryMode.CAJA -> {
+                val unidadesPorCaja = parseComposeNumber(state.unitsPerBoxText)
+
+                if (controlType == CreateProductControlType.UNIDAD) {
+                    if (state.stockControlMode == StockControlMode.DIVISIBLE) {
+                        val contenidoPorItem = parseComposeNumber(state.unitsPerItemText)
+                            .takeIf { it > 0.0 }
+                            ?: 1.0
+
+                        unidadesPorCaja * contenidoPorItem
+                    } else {
+                        unidadesPorCaja
+                    }
+                } else {
+                    val contenidoPorUnidad = parseComposeNumber(state.unitsPerItemText)
+                    unidadesPorCaja * contenidoPorUnidad
+                }
+            }
+
+            CreateProductStockEntryMode.CAJA_CON_PAQUETES -> {
+                val packagesPerBox = parseComposeNumber(state.packagesPerBoxText)
+                val unitsPerPackage = parseComposeNumber(state.unitsPerPackageText)
+
+                packagesPerBox * unitsPerPackage
+            }
         }
 
-        val unidadesPorPresentacionCompra = (if (state.stockEntryUnit == "kg" || state.stockEntryUnit == "L") {
-            unidadesPorPresentacionCompraRaw * 1000.0
-        } else {
-            unidadesPorPresentacionCompraRaw
-        }).toInt().coerceAtLeast(1)
+        val unidadesPorPresentacionCompraBase = when {
+            controlType == CreateProductControlType.PESO &&
+                    state.stockEntryUnit == "kg" -> {
+                unidadesPorPresentacionCompraRaw * 1000.0
+            }
+
+            controlType == CreateProductControlType.LIQUIDO &&
+                    state.stockEntryUnit == "L" -> {
+                unidadesPorPresentacionCompraRaw * 1000.0
+            }
+
+            else -> unidadesPorPresentacionCompraRaw
+        }
+
+        val unidadesPorPresentacionCompra = unidadesPorPresentacionCompraBase
+            .toInt()
+            .coerceAtLeast(1)
 
         val mainPresentation = when {
             presentaciones.isEmpty() -> ""
+
             presentaciones.size == 1 -> presentaciones.first().nombre
+
             else -> {
                 val mainFromState = state.presentations.firstOrNull {
                     it.id == state.mainPresentationId
@@ -2417,7 +2606,11 @@ class CrearProducto : AppCompatActivity() {
         }
 
         val precioCompra = state.purchaseCost
-            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+            .replace(
+                com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                "",
+                ignoreCase = true
+            )
             .trim()
             .replace(",", ".")
 
@@ -2425,13 +2618,52 @@ class CrearProducto : AppCompatActivity() {
             .trim()
             .replace("/", "_")
 
-        val indiceBase =
-            "${nombreProducto}_${categoriaProducto}_$vencimientoLimpio"
-
+        val indiceBase = "${nombreProducto}_${categoriaProducto}_$vencimientoLimpio"
         val indiceSanitizado = sanitizarNombreArchivo(indiceBase)
 
         val numeroLote = state.lotNumber.trim().uppercase(Locale.getDefault())
         val claveLote = ProductUtils.encodeLotKey(numeroLote)
+
+
+        val isInitialInventorySource =
+            state.supplierId.isBlank() &&
+                    state.supplierName == INITIAL_INVENTORY_SOURCE_NAME
+
+        val proveedorIdGuardar = if (isInitialInventorySource) {
+            ""
+        } else {
+            state.supplierId
+        }
+
+        val proveedorNombreGuardar = if (isInitialInventorySource) {
+            INITIAL_INVENTORY_SOURCE_NAME
+        } else {
+            state.supplierName
+        }
+
+        val facturaGuardar = if (isInitialInventorySource) {
+            ""
+        } else {
+            state.invoiceNumber
+        }
+
+        val condicionPagoGuardar = if (isInitialInventorySource) {
+            "CONTADO"
+        } else {
+            state.paymentCondition
+        }
+
+        val fechaPagoGuardar = if (isInitialInventorySource) {
+            ""
+        } else {
+            state.paymentDueDate
+        }
+
+        val estadoPagoGuardar = if (condicionPagoGuardar == "CREDITO") {
+            "PENDIENTE"
+        } else {
+            "PAGADO"
+        }
 
         val primerLote = LoteProducto(
             numero = numeroLote,
@@ -2442,10 +2674,10 @@ class CrearProducto : AppCompatActivity() {
             costoCompraUnitario = calcularCostoUnitario(precioCompra, stockDisponibleBase),
             costoUltimoIngreso = precioCompra.toDoubleOrNull() ?: 0.0,
             costoUltimoIngresoUnitario = calcularCostoUnitario(precioCompra, stockDisponibleBase),
-            nroFactura = state.invoiceNumber,
-            condicionPago = state.paymentCondition,
-            fechaVencimientoPago = state.paymentDueDate,
-            estadoPago = if (state.paymentCondition == "CREDITO") "PENDIENTE" else "PAGADO"
+            nroFactura = facturaGuardar,
+            condicionPago = condicionPagoGuardar,
+            fechaVencimientoPago = fechaPagoGuardar,
+            estadoPago = estadoPagoGuardar
         )
 
         val codigoBarra = state.barcode.trim()
@@ -2463,7 +2695,7 @@ class CrearProducto : AppCompatActivity() {
             stockMinimoContenedores = if (effectiveMode == StockControlMode.INDIVISIBLE) {
                 state.minimumStockUnits
             } else {
-                stockMinimoBase.toInt() // Valor en unidad mínima para alertas rápidas
+                stockMinimoBase.toInt()
             },
             unidadStockMinimo = unidadStockMinimo,
             unidadbase = unidadBase,
@@ -2476,16 +2708,18 @@ class CrearProducto : AppCompatActivity() {
             tienePresentaciones = presentaciones.isNotEmpty(),
             presentaciones = presentaciones,
             ubicacion = state.location,
-            proveedorId = state.supplierId,
-            proveedorNombre = state.supplierName,
+            proveedorId = proveedorIdGuardar,
+            proveedorNombre = proveedorNombreGuardar,
             unidadesPorPresentacionCompra = unidadesPorPresentacionCompra,
             basePorUnidad = calcularBasePorUnidadProfesional(state, controlType),
             imagenUrl = "",
             lotes = mapOf(claveLote to primerLote),
-            // V20.0: Poblado de información de referencia IA para Step 4 y ficha técnica
+
+            // Información IA para resumen / ficha técnica
             referenceUseCases = state.aiUsageInfo?.usos ?: emptyList(),
             referenceHowToUse = state.aiUsageInfo?.instrucciones.orEmpty(),
-            referenceWarnings = listOfNotNull(state.aiUsageInfo?.contraindicaciones).filter { it.isNotBlank() }
+            referenceWarnings = listOfNotNull(state.aiUsageInfo?.contraindicaciones)
+                .filter { it.isNotBlank() }
         )
     }
 
@@ -2803,39 +3037,11 @@ class CrearProducto : AppCompatActivity() {
 
 
     private fun obtenerCategoriasDeProductos() {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_CATEGORIAS)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                listaCategoria.clear()
-
-                snapshot.children.forEach { data ->
-                    val categoria = data.getValue(CategoriaProductos::class.java)
-                    if (categoria != null) {
-                        listaCategoria.add(categoria)
-                    }
-                }
-
-                actualizarCategoriasComposeDesdeLista()
-            }
+        crearProductoViewModel.obtenerCategorias()
     }
 
     private fun obtenerReglasDeMargen() {
-        FirebaseDatabase.getInstance()
-            .getReference(PATH_INVENTARIO)
-            .child(PATH_MARGENES)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val reglas = mutableListOf<com.app.administradorfarmadon.ActivityInventario.ui.CategoryMarginRule>()
-                snapshot.children.forEach { data ->
-                    val regla = data.getValue(com.app.administradorfarmadon.ActivityInventario.ui.CategoryMarginRule::class.java)
-                    if (regla != null) {
-                        reglas.add(regla)
-                    }
-                }
-                actualizarCreateProductState(createProductUiState.copy(marginRules = reglas))
-            }
+        crearProductoViewModel.obtenerReglasDeMargen()
     }
 
 
@@ -2901,25 +3107,7 @@ class CrearProducto : AppCompatActivity() {
 
     @androidx.compose.runtime.Composable
     private fun RealisticFluidSuccessAnimation(onFinished: () -> Unit) {
-        val infiniteTransition = rememberInfiniteTransition(label = "fluid")
-
-        // Animaciones de fase para el movimiento de "agua"
-        val phase1 by infiniteTransition.animateFloat(
-            initialValue = 0f, targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(8000, easing = LinearEasing), RepeatMode.Restart), label = "p1"
-        )
-        val phase2 by infiniteTransition.animateFloat(
-            initialValue = 360f, targetValue = 0f,
-            animationSpec = infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Restart), label = "p2"
-        )
-
-        val colors = listOf(
-            ComposeColor(0xFFD32F2F), // Rojo
-            ComposeColor(0xFF1976D2), // Azul
-            ComposeColor(0xFF388E3C), // Verde
-            ComposeColor(0xFF7B1FA2), // Morado
-            ComposeColor(0xFFD32F2F)  // Ciclo
-        )
+        val infiniteTransition = rememberInfiniteTransition(label = "success_icon")
 
         LaunchedEffect(Unit) {
             // Sonido sintético premium de 5 segundos
@@ -2928,35 +3116,8 @@ class CrearProducto : AppCompatActivity() {
             onFinished()
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(ComposeColor.Black)) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val canvasWidth = size.width
-                val canvasHeight = size.height
-
-                // Capa 1: Movimiento horizontal
-                drawRect(
-                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = colors,
-                        start = Offset(canvasWidth * kotlin.math.cos(Math.toRadians(phase1.toDouble())).toFloat(), 0f),
-                        end = Offset(canvasWidth * kotlin.math.sin(Math.toRadians(phase1.toDouble())).toFloat(), canvasHeight)
-                    ),
-                    alpha = 0.6f
-                )
-
-                // Capa 2: Movimiento diagonal (Interferencia tipo agua)
-                drawRect(
-                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                        colors = colors.reversed(),
-                        center = Offset(
-                            canvasWidth / 2 + (canvasWidth / 3 * kotlin.math.cos(Math.toRadians(phase2.toDouble()))).toFloat(),
-                            canvasHeight / 2 + (canvasHeight / 3 * kotlin.math.sin(Math.toRadians(phase2.toDouble()))).toFloat()
-                        ),
-                        radius = canvasWidth * 1.5f
-                    ),
-                    blendMode = androidx.compose.ui.graphics.BlendMode.Screen,
-                    alpha = 0.5f
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize()) {
+            FluidBackground()
 
             // Ícono central con sutil pulso
             val scale by infiniteTransition.animateFloat(

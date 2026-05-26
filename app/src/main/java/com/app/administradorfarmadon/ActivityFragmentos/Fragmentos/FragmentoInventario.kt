@@ -115,7 +115,7 @@ fun InventarioScreen(viewModel: BuscadorEscanerViewModel) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = showTitle,
+                        visible = showTitle && state.productosFiltrados.isNotEmpty(),
                         enter = expandVertically() + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {
@@ -192,67 +192,74 @@ fun InventarioScreen(viewModel: BuscadorEscanerViewModel) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Fila de Filtros y Categorías
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Fila de Filtros y Categorías (Se oculta si no hay productos)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = state.productosFiltrados.isNotEmpty(),
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
                     ) {
-                        // Toggle Búsqueda Inteligente (Premium Magic Chip)
-                        MagicSymptomChip(
-                            selected = state.busquedaInteligenteActiva,
-                            onClick = { viewModel.toggleBusquedaInteligente() }
-                        )
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Toggle Búsqueda Inteligente (Premium Magic Chip)
+                                MagicSymptomChip(
+                                    selected = state.busquedaInteligenteActiva,
+                                    onClick = { viewModel.toggleBusquedaInteligente() }
+                                )
 
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = !state.busquedaInteligenteActiva,
-                            enter = fadeIn() + expandHorizontally(),
-                            exit = fadeOut() + shrinkHorizontally()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(modifier = Modifier.width(12.dp))
-                                
-                                // Divisor Visual Sutil
-                                Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE5EAF0)))
-                                
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                // Chips de Categorías (Scroll Horizontal)
-                                LazyRow(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    contentPadding = PaddingValues(end = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = !state.busquedaInteligenteActiva,
+                                    enter = fadeIn() + expandHorizontally(),
+                                    exit = fadeOut() + shrinkHorizontally()
                                 ) {
-                                    items(state.categorias) { cat ->
-                                        val isSelected = state.categoriaSeleccionada == cat
-                                        FilterChip(
-                                            selected = isSelected,
-                                            onClick = { viewModel.seleccionarCategoria(cat) },
-                                            label = { 
-                                                Text(
-                                                    cat,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                                ) 
-                                            },
-                                            shape = RoundedCornerShape(20.dp),
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = Color(0xFFE8F5EE),
-                                                selectedLabelColor = Color(0xFF15A05C),
-                                                containerColor = Color.Transparent,
-                                                labelColor = Color(0xFF6B7280)
-                                            ),
-                                            border = FilterChipDefaults.filterChipBorder(
-                                                borderColor = Color(0xFFE5EAF0),
-                                                selectedBorderColor = Color(0xFF15A05C).copy(alpha = 0.5f),
-                                                borderWidth = 1.dp,
-                                                selectedBorderWidth = 1.5.dp,
-                                                enabled = true,
-                                                selected = isSelected
-                                            )
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        
+                                        // Divisor Visual Sutil
+                                        Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE5EAF0)))
+                                        
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        // Chips de Categorías (Scroll Horizontal)
+                                        LazyRow(
+                                            modifier = Modifier.weight(1f),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            contentPadding = PaddingValues(end = 16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            items(state.categorias) { cat ->
+                                                val isSelected = state.categoriaSeleccionada == cat
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { viewModel.seleccionarCategoria(cat) },
+                                                    label = { 
+                                                        Text(
+                                                            cat,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                        ) 
+                                                    },
+                                                    shape = RoundedCornerShape(20.dp),
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFFE8F5EE),
+                                                        selectedLabelColor = Color(0xFF15A05C),
+                                                        containerColor = Color.Transparent,
+                                                        labelColor = Color(0xFF6B7280)
+                                                    ),
+                                                    border = FilterChipDefaults.filterChipBorder(
+                                                        borderColor = Color(0xFFE5EAF0),
+                                                        selectedBorderColor = Color(0xFF15A05C).copy(alpha = 0.5f),
+                                                        borderWidth = 1.dp,
+                                                        selectedBorderWidth = 1.5.dp,
+                                                        enabled = true,
+                                                        selected = isSelected
+                                                    )
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -301,7 +308,7 @@ fun InventarioScreen(viewModel: BuscadorEscanerViewModel) {
 
                     // V22.1: El carrusel de alertas se separó de nuevo para mayor claridad visual
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = !state.busquedaInteligenteActiva,
+                        visible = !state.busquedaInteligenteActiva && state.productosFiltrados.isNotEmpty(),
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
@@ -411,9 +418,12 @@ fun InventarioScreen(viewModel: BuscadorEscanerViewModel) {
                     }
 
                     // BOTÓN FLOTANTE PREMIUM (Efecto Agua/3D)
-                    // Se oculta automáticamente durante el scroll o búsqueda por síntomas
+                    // Se oculta automáticamente durante el scroll o cualquier tipo de búsqueda
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = !listState.isScrollInProgress && !state.busquedaInteligenteActiva,
+                        visible = !listState.isScrollInProgress && 
+                                 !state.busquedaInteligenteActiva && 
+                                 state.busquedaQuery.isEmpty() && 
+                                 state.terminosSeleccionados.isEmpty(),
                         enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)) + fadeIn(),
                         exit = scaleOut() + fadeOut(),
                         modifier = Modifier
@@ -766,53 +776,41 @@ fun EmptyInventoryState(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Tipografía tipo Uber (Clean, Heavy, Modern)
-        Text(
-            text = if (query.isEmpty()) "No hay productos aquí" else "Sin resultados",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            color = Color(0xFF111827),
-            textAlign = TextAlign.Center,
-            letterSpacing = (-0.5).sp
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = if (query.isEmpty()) 
-                "Esta categoría aún está vacía. Comienza agregando tu primer producto." 
-                else "No encontramos nada que coincida con \"$query\". Prueba con otros términos.",
-            fontSize = 16.sp,
-            color = Color(0xFF6B7280),
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Botones de acción
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = query.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            if (query.isNotEmpty()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Tipografía tipo Uber (Clean, Heavy, Modern)
+                Text(
+                    text = "Sin resultados",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF111827),
+                    textAlign = TextAlign.Center,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "No encontramos nada que coincida con \"$query\". Prueba con otros términos.",
+                    fontSize = 16.sp,
+                    color = Color(0xFF6B7280),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Botón de acción Limpiar
                 OutlinedButton(
                     onClick = onClear,
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, Color(0xFFE5EAF0))
                 ) {
                     Text("Limpiar", color = Color(0xFF4B5563), fontWeight = FontWeight.Bold)
-                }
-            }
-
-            if (!isIntelligent) {
-                Button(
-                    onClick = onCreate,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15A05C)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nuevo Producto", fontWeight = FontWeight.Bold)
                 }
             }
         }

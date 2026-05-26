@@ -1,24 +1,41 @@
 package com.app.administradorfarmadon.ActivityInventario
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.net.Uri
 import android.util.Base64
+import androidx.core.content.FileProvider
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteProducto
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MoldeProductos
 import com.app.administradorfarmadon.ClasesDatabase.MonedaHelper
 import com.app.administradorfarmadon.ClasesDatabase.PresentacionHelper
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import java.util.regex.Pattern
 
 /**
  * Objeto de utilidad para centralizar la lógica de negocio, validaciones y 
  * procesamiento de datos relacionados con los productos del inventario.
  */
 object ProductUtils {
+
+
+    data class LoteOcrResult(
+        val lote: String?,
+        val vencimiento: String?,
+        val confianzaLote: Int,
+        val confianzaVencimiento: Int,
+        val textoOcr: String
+    )
 
     private const val UMBRAL_SUGERENCIA_CATEGORIA = 0.58
     enum class MotivoIndisponibilidadVenta {
@@ -44,42 +61,74 @@ object ProductUtils {
     )
 
     /**
-     * Intenta normalizar formatos MM/AA, MM/YYYY, DD/MM/AA, DD/MM/YYYY a MM/AA.
-     * Si no puede normalizarlo, devuelve una cadena vacía para indicar fallo de formato.
+     * V30.6: Intenta normalizar formatos complejos (DD/MM/AA, MM/AA, etc.) a MM/AA.
+     * Corregido para priorizar el Mes y el Año cuando hay 3 segmentos (Día/Mes/Año).
      */
     fun normalizarVencimiento(vencimiento: String): String {
-        val raw = vencimiento.trim().replace("_", "/")
+        val raw = vencimiento
+            .trim()
+            .uppercase(Locale.ROOT)
+            .replace(Regex("^[A-Z.\\s]+[:#.-]?"), "")
+            .replace(Regex("[^A-Z0-9]"), "/")
         if (raw.isBlank()) return ""
-        
-        val clean = raw.replace("/", "").replace("-", "").filter { it.isDigit() }
-        if (clean.length < 4) return ""
-        
-        return when (clean.length) {
-            4 -> { // MMAA (0126) -> 01/26
-                val mm = clean.substring(0, 2)
-                val aa = clean.substring(2, 4)
-                if (mm.toInt() in 1..12) "$mm/$aa" else ""
+
+        // 1. Dividir por segmentos (separados por /, -, ., espacio)
+        val parts = raw.split("/").filter { it.isNotBlank() }
+
+        return when (parts.size) {
+            3 -> {
+                // Caso: 12/01/25 o 12/01/2025 (Día/Mes/Año)
+                // En farmacia, el formato estándar es Día/Mes/Año. Tomamos la parte 2 y 3.
+                val mes = parts[1].filter { it.isDigit() }.padStart(2, '0')
+                val anio = parts[2].filter { it.isDigit() }.takeLast(2)
+
+                if (mes.toIntOrNull() in 1..12) "$mes/$anio" else ""
             }
-            6 -> { // DDMMYY -> MM/YY o MMYYYY -> MM/YY
-                val last4 = clean.substring(2, 6).toIntOrNull() ?: 0
-                if (last4 > 2020) { // MMYYYY
-                    val mm = clean.substring(0, 2)
-                    val yy = clean.substring(4, 6)
-                    if (mm.toInt() in 1..12) "$mm/$yy" else ""
-                } else { // DDMMYY
-                    val mm = clean.substring(2, 4)
-                    val yy = clean.substring(4, 6)
-                    if (mm.toInt() in 1..12) "$mm/$yy" else ""
+            2 -> {
+                // Caso: 01/25 o ENE/2025
+                val mesPart = parts[0].filter { it.isDigit() }
+                val anioPart = parts[1].filter { it.isDigit() }
+
+                if (mesPart.isNotEmpty() && anioPart.length >= 2) {
+                    val mm = mesPart.padStart(2, '0')
+                    val aa = anioPart.takeLast(2)
+                    if (mm.toIntOrNull() in 1..12) "$mm/$aa" else ""
+                } else ""
+            }
+            else -> {
+                // Caer en la lógica de puros dígitos si no hay separadores claros (ej: 012025)
+                val clean = raw.filter { it.isDigit() }
+                when (clean.length) {
+                    4 -> { // MMAA
+                        val mm = clean.substring(0, 2)
+                        val aa = clean.substring(2, 4)
+                        if (mm.toIntOrNull() in 1..12) "$mm/$aa" else ""
+                    }
+                    6 -> { // DDMMYY o MMYYYY
+                        // Intentamos detectar si termina en un año probable (24, 25, 26, 27...)
+                        val last2 = clean.takeLast(2).toIntOrNull() ?: 0
+                        if (last2 in 24..40) { // DD/MM/YY
+                            val mm = clean.substring(2, 4)
+                            val aa = clean.substring(4, 6)
+                            if (mm.toIntOrNull() in 1..12) "$mm/$aa" else ""
+                        } else { // MM/YYYY
+                            val mm = clean.substring(0, 2)
+                            val aa = clean.takeLast(2)
+                            if (mm.toIntOrNull() in 1..12) "$mm/$aa" else ""
+                        }
+                    }
+                    8 -> { // DDMMYYYY
+                        val mm = clean.substring(2, 4)
+                        val aa = clean.takeLast(2)
+                        if (mm.toIntOrNull() in 1..12) "$mm/$aa" else ""
+                    }
+                    else -> ""
                 }
             }
-            8 -> { // DDMMYYYY
-                val mm = clean.substring(2, 4)
-                val yy = clean.substring(6, 8)
-                if (mm.toInt() in 1..12) "$mm/$yy" else ""
-            }
-            else -> ""
         }
     }
+
+
 
     /**
      * V17.49: Codifica un número de lote de forma reversible y segura para Firebase Keys.
@@ -798,4 +847,359 @@ object ProductUtils {
         scaled.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
+
+    fun base64ToBitmap(base64: String?): Bitmap? {
+        if (base64 == null) return null
+        return try {
+            val decodedString = Base64.decode(base64, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * V30.8: Abre un archivo Base64 usando el visor nativo del dispositivo.
+     * Crea un archivo temporal seguro y lanza un Intent con el MIME type adecuado.
+     */
+    fun openBase64FileNatively(context: Context, base64: String, fileName: String = "factura_respaldo") {
+        try {
+            val decodedBytes = Base64.decode(base64, Base64.DEFAULT)
+            
+            // Determinar extensión y MIME type
+            // Truco: ML Kit/Cámara siempre guardan JPEG, el selector de archivos puede traer PDF
+            val isPdf = base64.take(10).contains("JVBER") // Header típico de PDF en Base64
+            val extension = if (isPdf) ".pdf" else ".jpg"
+            val mimeType = if (isPdf) "application/pdf" else "image/jpeg"
+
+            // Crear archivo temporal en el cache de la app
+            val tempFile = File(context.cacheDir, "$fileName$extension")
+            FileOutputStream(tempFile).use { it.write(decodedBytes) }
+
+            // Generar URI segura vía FileProvider
+            val contentUri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider", // V30.8: Corregido para coincidir con AndroidManifest.xml
+                tempFile
+            )
+
+            // Lanzar Intent de visualización
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            
+            context.startActivity(Intent.createChooser(intent, "Abrir con..."))
+        } catch (e: Exception) {
+            android.util.Log.e("ProductUtils", "Error abriendo archivo nativo", e)
+        }
+    }
+
+    private fun fixCommonOcrLotErrors(input: String): String {
+        return input
+            .replace("O", "0")
+            .replace("Q", "0")
+            .replace("I", "1")
+            .replace("L", "1")
+            .replace("Z", "2")
+            .replace("S", "5")
+            .replace("B", "8")
+            .replace("G", "6")
+    }
+
+    /**
+     * V30.0: Lógica de extracción de Lote y Vencimiento movida desde LiveOcrScannerOverlay
+     * para permitir uso compartido con reconocimiento local (ML Kit).
+     */
+    fun extractLoteAndVenc(text: String): Pair<String?, String?> {
+        val lines = text.lines()
+            .map { normalizeOcrLine(it) }
+            .filter { it.isNotBlank() }
+
+        var lote: String? = null
+        var venc: String? = null
+
+        val lotPrefixes = listOf(
+            "LOTE",
+            "LOT",
+            "LT",
+            "L:",
+            "L.",
+            "BATCH",
+            "B/",
+            "BN",
+            "SERIE",
+            "SER"
+        )
+
+        val expPrefixes = listOf(
+            "EXP",
+            "VENC",
+            "VENCE",
+            "VTO",
+            "CAD",
+            "FV",
+            "F.V",
+            "F.V.",
+            "FC",
+            "F.C",
+            "PV",
+            "P.V",
+            "P.V.",
+            "BB",
+            "BBD",
+            "BEST BY"
+        )
+
+        fun cleanLotCandidate(raw: String): String? {
+            val tokens = raw
+                .replace(Regex("[^A-Z0-9]+"), " ")
+                .trim()
+                .split(Regex("\\s+"))
+                .filter { it.isNotBlank() }
+                .filterNot { it in lotPrefixes }
+                .filterNot { it in expPrefixes }
+                .filterNot { normalizarVencimiento(it).isNotBlank() }
+
+            if (tokens.isEmpty()) return null
+
+            val candidate = fixCommonOcrLotErrors(
+                tokens
+                    .take(2)
+                    .joinToString("")
+                    .replace(Regex("[^A-Z0-9]"), "")
+            )
+
+            return candidate.takeIf { isValidLotCandidate(it) }
+        }
+
+        val lotPrefixRegex = lotPrefixes
+            .sortedByDescending { it.length }
+            .joinToString("|") { Pattern.quote(it) }
+
+        val expPrefixRegex = expPrefixes
+            .sortedByDescending { it.length }
+            .joinToString("|") { Pattern.quote(it) }
+
+        val lotPattern = Pattern.compile(
+            "(?:^|\\b)(?:$lotPrefixRegex)\\s*[:#.-]?\\s*([A-Z0-9][A-Z0-9\\s\\-]{2,30})"
+        )
+
+        val datePattern =
+            "(\\d{1,2}[/\\-\\s]\\d{1,2}[/\\-\\s]\\d{2,4}|" +
+                    "\\d{1,2}[/\\-\\s]\\d{2,4}|" +
+                    "\\d{6,8}|" +
+                    "\\d{4}[/\\-\\s]\\d{2})"
+
+        val expPattern = Pattern.compile(
+            "(?:^|\\b)(?:$expPrefixRegex)\\s*[:#.-]?\\s*$datePattern"
+        )
+
+        for (line in lines) {
+            if (lote == null) {
+                val matcher = lotPattern.matcher(line)
+                if (matcher.find()) {
+                    lote = cleanLotCandidate(matcher.group(1).orEmpty())
+                }
+            }
+
+            if (venc == null) {
+                val matcher = expPattern.matcher(line)
+                if (matcher.find()) {
+                    val normalized = normalizarVencimiento(matcher.group(1).orEmpty())
+                    if (normalized.isNotBlank()) {
+                        venc = normalized
+                    }
+                }
+            }
+        }
+
+        // Fallback: si no encontró lote con prefijo,
+        // busca una línea que parezca lote y evita fabricación/vencimiento.
+        if (lote == null) {
+            for (line in lines) {
+                val isExpirationLine = expPrefixes.any { prefix ->
+                    line.startsWith(prefix) ||
+                            line.contains("$prefix:") ||
+                            line.contains("$prefix ") ||
+                            line.contains("$prefix.")
+                }
+
+                val isManufactureLine =
+                    line.startsWith("FP") ||
+                            line.startsWith("FAB") ||
+                            line.startsWith("MFG") ||
+                            line.startsWith("MFD") ||
+                            line.startsWith("ELAB") ||
+                            line.contains("FABRIC")
+
+                if (!isExpirationLine && !isManufactureLine) {
+                    val candidate = cleanLotCandidate(line)
+                    if (!candidate.isNullOrBlank()) {
+                        lote = candidate
+                        break
+                    }
+                }
+            }
+        }
+
+        // Fallback: buscar fecha aunque no venga con prefijo EXP/VENC/PV.
+        if (venc == null) {
+            val looseDatePattern = Pattern.compile(
+                "(\\d{1,2}[/\\-\\.\\s]\\d{1,2}[/\\-\\.\\s]\\d{2,4}|" +
+                        "\\d{1,2}[/\\-\\.\\s]\\d{2,4})"
+            )
+
+            for (line in lines) {
+                val isLotLine = lotPrefixes.any { prefix ->
+                    line.startsWith(prefix) ||
+                            line.contains("$prefix:") ||
+                            line.contains("$prefix ") ||
+                            line.contains("$prefix.")
+                }
+
+                val isManufactureLine =
+                    line.startsWith("FP") ||
+                            line.startsWith("FAB") ||
+                            line.startsWith("MFG") ||
+                            line.startsWith("MFD") ||
+                            line.startsWith("ELAB") ||
+                            line.contains("FABRIC")
+
+                if (!isLotLine && !isManufactureLine) {
+                    val matcher = looseDatePattern.matcher(line)
+
+                    if (matcher.find()) {
+                        val normalized = normalizarVencimiento(matcher.group(1).orEmpty())
+
+                        if (normalized.isNotBlank()) {
+                            venc = normalized
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        return Pair(lote, venc)
+    }
+
+    private fun normalizeOcrLine(line: String): String {
+        return line.uppercase(Locale.ROOT)
+            .replace("L T", "LT")
+            .replace("L0T", "LOT")
+            .replace("L0TE", "LOTE")
+            .replace("IOTE", "LOTE")
+            .replace("VENC.", "VENC")
+            .replace("EXP.", "EXP")
+            .replace("F V", "FV")
+            .replace("P V", "PV")
+            .replace(":", ":")
+            .trim()
+    }
+
+    private fun isValidLotCandidate(candidate: String): Boolean {
+        val clean = candidate
+            .replace(Regex("[^A-Z0-9]"), "")
+            .trim()
+
+        if (clean.length < 4) return false
+        if (clean.length > 30) return false
+
+        // Debe tener al menos un número.
+        if (!clean.any { it.isDigit() }) return false
+
+        // No debe ser una fecha pura.
+        if (normalizarVencimiento(clean).isNotBlank()) return false
+
+        return true
+    }
+
+    private fun isValidMonthDate(date: String?): Boolean {
+        if (date == null) return false
+        val digits = date.filter { it.isDigit() }
+        if (digits.length < 4) return false
+
+        val parts = date.split(Regex("[/\\-\\s]+")).filter { it.isNotBlank() }
+
+        return when {
+            parts.size >= 3 -> {
+                val d0 = parts[0].toIntOrNull() ?: 0
+                val d1 = parts[1].toIntOrNull() ?: 0
+                (d0 in 1..12) || (d1 in 1..12)
+            }
+            parts.size == 2 -> {
+                val monthPart = if (parts[0].length == 4) parts[1] else parts[0]
+                val month = monthPart.toIntOrNull() ?: 0
+                month in 1..12
+            }
+            else -> {
+                val month = digits.take(2).toIntOrNull() ?: 0
+                month in 1..12
+            }
+        }
+    }
+
+    private fun normalizeDetectedDate(raw: String?): String? {
+        if (raw == null) return null
+
+        val clean = raw.uppercase()
+            .replace(Regex("[/\\-\\s]+"), "/")
+            .trim('/')
+
+        val parts = clean.split("/").filter { it.isNotBlank() }
+
+        if (parts.size >= 3) {
+            val d0 = parts[0].toIntOrNull() ?: 0
+            val d1 = parts[1].toIntOrNull() ?: 0
+            val year = parts.last().takeLast(2)
+
+            return when {
+                d1 in 1..12 -> parts[1].padStart(2, '0') + "/" + year
+                d0 in 1..12 -> parts[0].padStart(2, '0') + "/" + year
+                else -> null
+            }
+        }
+
+        if (!isValidMonthDate(clean)) return null
+        val digits = clean.filter { it.isDigit() }
+        return when {
+            clean.matches(Regex("\\d{4}/\\d{2}")) -> clean.takeLast(2) + "/" + clean.substring(2, 4)
+            clean.matches(Regex("\\d{2}/\\d{4}")) -> clean.take(2) + "/" + clean.takeLast(2)
+            clean.matches(Regex("\\d{2}/\\d{2}")) -> clean
+            digits.length == 4 -> {
+                val m = digits.take(2).toIntOrNull() ?: 0
+                if (m in 1..12) digits.take(2) + "/" + digits.takeLast(2) else null
+            }
+            else -> null
+        }
+    }
+
+
+    fun extractLoteAndVencSmart(text: String): LoteOcrResult {
+        val (lote, vencimiento) = extractLoteAndVenc(text)
+
+        val confianzaLote = when {
+            lote.isNullOrBlank() -> 0
+            lote.length >= 6 && lote.any { it.isDigit() } -> 90
+            lote.length >= 4 && lote.any { it.isDigit() } -> 75
+            else -> 45
+        }
+
+        val confianzaVencimiento = when {
+            vencimiento.isNullOrBlank() -> 0
+            vencimiento.matches(Regex("\\d{2}/\\d{2}")) -> 90
+            else -> 55
+        }
+
+        return LoteOcrResult(
+            lote = lote,
+            vencimiento = vencimiento,
+            confianzaLote = confianzaLote,
+            confianzaVencimiento = confianzaVencimiento,
+            textoOcr = text
+        )
+    }
+
 }

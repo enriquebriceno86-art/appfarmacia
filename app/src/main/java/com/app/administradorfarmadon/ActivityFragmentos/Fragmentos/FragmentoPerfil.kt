@@ -240,7 +240,7 @@ fun ProfileScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .heightIn(min = 56.dp)
                         .clickable { onLogout() },
                     shape = RoundedCornerShape(18.dp),
                     color = Color(0xFFFEF2F2),
