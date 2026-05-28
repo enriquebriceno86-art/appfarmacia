@@ -15,5 +15,12 @@ data class LoteProducto(
     val nroFactura: String = "",
     val condicionPago: String = "CONTADO", // CONTADO o CREDITO
     val fechaVencimientoPago: String = "",
-    val estadoPago: String = "PAGADO"     // PAGADO o PENDIENTE
+    val estadoPago: String = "PAGADO",     // PAGADO o PENDIENTE
+
+    // V31.9: Auditoría de Conciliación de Almacén
+    val reconciliationSource: String = "",
+    val reconciliationExpectedTotal: Double = 0.0,
+    val reconciliationEnteredTotal: Double = 0.0,
+    val reconciliationHasMismatch: Boolean = false,
+    val reconciliationReason: String? = null
 )

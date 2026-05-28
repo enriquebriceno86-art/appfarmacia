@@ -12,6 +12,7 @@ import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.app.administradorfarmadon.ActivityInventario.ProductUtils
+
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockFisicoBase
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockMinimoBase
 import kotlinx.coroutines.flow.asStateFlow
@@ -245,10 +246,10 @@ class BuscadorEscanerViewModel : ViewModel() {
             if (alerta != FiltroAlerta.NINGUNO) {
                 val filtrados = when (alerta) {
                     FiltroAlerta.VENCIDOS -> sourceList.filter { ProductUtils.obtenerEstadoVencimiento(it) == "VENCIDO" }
-                    FiltroAlerta.STOCK_BAJO -> sourceList.filter { 
+                    FiltroAlerta.STOCK_BAJO -> sourceList.filter {
                         val current = it.stockFisicoBase()
                         val min = it.stockMinimoBase()
-                        current < min && min > 0 
+                        current < min && min > 0
                     }
                     FiltroAlerta.POR_VENCER -> sourceList.filter { ProductUtils.obtenerEstadoVencimiento(it) == "POR_VENCER" }
                     FiltroAlerta.SIN_CODIGO -> sourceList.filter { !it.tieneCodigoBarra && it.codigo.isBlank() }

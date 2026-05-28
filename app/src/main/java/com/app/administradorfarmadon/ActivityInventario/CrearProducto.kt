@@ -3,10 +3,13 @@ package com.app.administradorfarmadon.ActivityInventario
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import com.app.administradorfarmadon.ActivityInventario.ui.buildAiDefaultSalePresentationIfNeeded
 import android.os.Bundle
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
@@ -39,7 +42,6 @@ import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.Presenta
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.SugerenciaPresentacion
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.toMoldeProductos
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.LoteIndexado
-import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockFisicoBase
 import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockMinimoBase
 import com.app.administradorfarmadon.ClasesDatabase.DbPaths
 import com.app.administradorfarmadon.ActivityInventario.reference.normalizeProductName
@@ -94,6 +96,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.app.administradorfarmadon.ActivityInventario.ClasesProductos.stockFisicoBase
 import androidx.compose.ui.graphics.Color as ComposeColor
 import com.google.android.material.card.MaterialCardView
 
@@ -108,6 +115,7 @@ class CrearProducto : AppCompatActivity() {
 
     // Feature de sugerencia de categoría por IA (Gemini).
     private val categorySuggestionViewModel: CategorySuggestionViewModel by viewModels()
+
     // Feature de escaneo OCR de etiquetas (cámara + Gemini Vision).
     private val labelScannerViewModel: LabelScannerViewModel by viewModels()
     private var createProductUiState by mutableStateOf(CreateProductState())
@@ -120,7 +128,8 @@ class CrearProducto : AppCompatActivity() {
     private var createProductCategoryValidationJob: Job? = null
     private var createProductNameValidationJob: Job? = null
     private var createProductBarcodeValidationJob: Job? = null
-    private var createProductLotValidationJob: Job? = null // V17.45: Job para validación remota de lote
+    private var createProductLotValidationJob: Job? =
+        null // V17.45: Job para validación remota de lote
 
     // V17.49: Estados para validación remota de lote (Blindado)
     private var isCheckingLotRemote by mutableStateOf(false)
@@ -159,11 +168,6 @@ class CrearProducto : AppCompatActivity() {
     private var isErrorAnimVisible by mutableStateOf(false)
 
 
-
-
-
-
-
     companion object {
         private const val PATH_INVENTARIO = "Inventario"
         private const val PATH_CATEGORIAS = "CategoriasInventario"
@@ -197,11 +201,11 @@ class CrearProducto : AppCompatActivity() {
 
         window.decorView.post {
             setContent {
-            val categorySuggestionState by categorySuggestionViewModel.state.collectAsState()
-            val labelScannerState by labelScannerViewModel.state.collectAsState()
-            val savedPresentations by com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.presentaciones.collectAsState()
+                val categorySuggestionState by categorySuggestionViewModel.state.collectAsState()
+                val labelScannerState by labelScannerViewModel.state.collectAsState()
+                val savedPresentations by com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.presentaciones.collectAsState()
 
-            // V18.0: Sincronizar estado de identificación de barcode
+                // V18.0: Sincronizar estado de identificación de barcode
                 LaunchedEffect(
                     categorySuggestionState.estaIdentificandoBarcode,
                     categorySuggestionState.barcodeAiResult,
@@ -230,414 +234,533 @@ class CrearProducto : AppCompatActivity() {
                         barcodeAiResult = incomingResult,
                         barcodeMismatchDetected = categorySuggestionState.barcodeMismatchDetected,
                         barcodeMismatchOriginalName = categorySuggestionState.barcodeMismatchOriginalName,
+                        barcodeAiApplied = createProductUiState.barcodeAiApplied && categorySuggestionState.barcodeAiAppliedState,
                         aiUsageInfo = categorySuggestionState.infoUsoProducto,
                         isFetchingUsageInfo = categorySuggestionState.estaCargandoInfoUso,
                         savedPresentations = savedPresentations
                     )
                 }
 
-            // V16.10: Observamos la sugerencia de tipo para aplicación AUTOMÁTICA si la confianza es ALTA
-            // V17.82: Restaurada la auto-selección silenciosa para un flujo sin fricciones.
-            // V28.8: Sincronización robusta - Depende también de la categoría actual para evitar el "timeout" visual.
-            val currentCategory = createProductUiState.category
-            LaunchedEffect(categorySuggestionState.sugerenciaTipoManual, currentCategory) {
-                val suggestion = categorySuggestionState.sugerenciaTipoManual
-                if (suggestion != null &&
-                    suggestion.confianza == com.app.administradorfarmadon.ActivityInventario.reference.ConfianzaIA.ALTA &&
-                    createProductUiState.controlType == null &&
-                    !createProductUiState.typeSelectedManually &&
-                    currentCategory.isNotBlank()) {
+                // V16.10: Observamos la sugerencia de tipo para aplicación AUTOMÁTICA si la confianza es ALTA
+                // V17.82: Restaurada la auto-selección silenciosa para un flujo sin fricciones.
+                // V28.8: Sincronización robusta - Depende también de la categoría actual para evitar el "timeout" visual.
+                val currentCategory = createProductUiState.category
+                LaunchedEffect(categorySuggestionState.sugerenciaTipoManual, currentCategory) {
+                    val suggestion = categorySuggestionState.sugerenciaTipoManual
+                    if (suggestion != null &&
+                        suggestion.confianza == com.app.administradorfarmadon.ActivityInventario.reference.ConfianzaIA.ALTA &&
+                        createProductUiState.controlType == null &&
+                        !createProductUiState.typeSelectedManually &&
+                        currentCategory.isNotBlank()
+                    ) {
 
-                    delay(300) // Delay visual premium antes de la aplicación
+                        delay(300) // Delay visual premium antes de la aplicación
 
-                    // Verificación de contexto (P1 Fix)
-                    val nombreActual = normalizeProductName(createProductUiState.name)
-                    val catActual = normalizeProductName(currentCategory)
-                    val nombreSugerido = normalizeProductName(suggestion.productName)
-                    val catSugerida = normalizeProductName(suggestion.category)
+                        // Verificación de contexto (P1 Fix)
+                        val nombreActual = normalizeProductName(createProductUiState.name)
+                        val catActual = normalizeProductName(currentCategory)
+                        val nombreSugerido = normalizeProductName(suggestion.productName)
+                        val catSugerida = normalizeProductName(suggestion.category)
 
-                    if (nombreActual == nombreSugerido && catActual == catSugerida) {
-                        val mappedType = when (suggestion.tipo) {
-                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD -> CreateProductControlType.UNIDAD
-                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO -> CreateProductControlType.PESO
-                            com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO -> CreateProductControlType.LIQUIDO
-                            else -> null
+                        if (nombreActual == nombreSugerido && catActual == catSugerida) {
+                            val mappedType = when (suggestion.tipo) {
+                                com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.UNIDAD -> CreateProductControlType.UNIDAD
+                                com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.PESO -> CreateProductControlType.PESO
+                                com.app.administradorfarmadon.ActivityInventario.reference.TipoControlDetectado.LIQUIDO -> CreateProductControlType.LIQUIDO
+                                else -> null
+                            }
+
+                            if (mappedType != null) {
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(
+                                        controlType = mappedType,
+                                        requiresPrescription = if (
+                                            createProductUiState.categorySelectedFromAi &&
+                                            suggestion.requiereReceta != null
+                                        ) {
+                                            suggestion.requiereReceta
+                                        } else {
+                                            createProductUiState.requiresPrescription
+                                        },
+                                        errors = createProductUiState.errors - "controlType"
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+                var pendingCameraAction by remember { mutableStateOf<String?>(null) }
+                var showCameraPermissionDialog by remember { mutableStateOf(false) }
+                // Launcher de la cámara que captura un Bitmap (preview).
+                // El bitmap se le pasa al ViewModel para procesarlo con Gemini.
+                val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+                ) { bitmap ->
+                    if (bitmap != null) {
+                        when (pendingCameraAction) {
+                            "PHOTO" -> labelScannerViewModel.procesar(bitmap)
+                            "INVOICE" -> {
+                                val base64 = ProductUtils.bitmapToBase64(bitmap)
+                                actualizarCreateProductState(
+                                    createProductUiState.copy(
+                                        invoiceImageBase64 = base64,
+                                        isCapturingInvoice = false,
+                                        isInvoiceHighlighting = true // <--- ACTIVAR FLASH AL VOLVER
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        actualizarCreateProductState(createProductUiState.copy(isCapturingInvoice = false))
+                    }
+                    pendingCameraAction = null
+                }
+
+                // Launcher del permiso CAMERA. Si el usuario aprueba, abrimos la
+                // acción pendiente; si rechaza, no hacemos nada (el botón sigue disponible
+                // por si el usuario re-intenta).
+                val permissionLauncher =
+                    androidx.activity.compose.rememberLauncherForActivityResult(
+                        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                    ) { granted ->
+                        if (granted) {
+                            when (pendingCameraAction) {
+                                "BARCODE" -> actualizarCreateProductState(
+                                    createProductUiState.copy(isBarcodeScanning = true)
+                                )
+
+                                "LABEL" -> actualizarCreateProductState(
+                                    createProductUiState.copy(isLabelScanning = true)
+                                )
+
+                                "PHOTO" -> cameraLauncher.launch(null)
+
+                                "INVOICE" -> cameraLauncher.launch(null)
+                            }
+                        } else {
+                            showCameraPermissionDialog = true
                         }
 
-                        if (mappedType != null) {
-                            actualizarCreateProductState(
-                                createProductUiState.copy(
-                                    controlType = mappedType,
-                                    requiresPrescription = if (
-                                        createProductUiState.categorySelectedFromAi &&
-                                        suggestion.requiereReceta != null
-                                    ) {
-                                        suggestion.requiereReceta
-                                    } else {
-                                        createProductUiState.requiresPrescription
-                                    },
-                                    errors = createProductUiState.errors - "controlType"
-                                )
+                        pendingCameraAction = null
+                    }
+
+                LaunchedEffect(createProductUiState.isCapturingInvoice) {
+                    if (createProductUiState.isCapturingInvoice && createProductUiState.invoiceImageBase64 == null) {
+                        val granted = androidx.core.content.ContextCompat
+                            .checkSelfPermission(
+                                this@CrearProducto,
+                                android.Manifest.permission.CAMERA
+                            ) ==
+                                android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (granted) {
+                            pendingCameraAction = "INVOICE"
+                            cameraLauncher.launch(null)
+                        } else {
+                            pendingCameraAction = "INVOICE"
+                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        }
+                    }
+                }
+
+                MaterialTheme {
+                    val saveStatus by crearProductoViewModel.saveStatus.collectAsState()
+                    val suppliers by crearProductoViewModel.suppliers.collectAsState()
+                    val categories by crearProductoViewModel.categories.collectAsState()
+                    val marginRules by crearProductoViewModel.marginRules.collectAsState()
+                    val isSavingSupplier by crearProductoViewModel.isSavingSupplier.collectAsState()
+                    val supplierSaveSuccess by crearProductoViewModel.supplierSaveSuccess.collectAsState()
+
+                    LaunchedEffect(suppliers) {
+                        createProductUiState = createProductUiState.copy(suppliers = suppliers)
+                    }
+
+                    LaunchedEffect(categories) {
+                        createProductCategoryOptions.clear()
+                        createProductCategoryOptions.addAll(categories)
+                    }
+
+                    LaunchedEffect(marginRules) {
+                        createProductUiState = createProductUiState.copy(marginRules = marginRules)
+                    }
+
+                    // Dentro de setContent -> MaterialTheme en CrearProducto.kt
+
+                    LaunchedEffect(
+                        isSavingSupplier,
+                        supplierSaveSuccess,
+                        createProductUiState.isSupplierHighlighting
+                    ) {
+                        // 1. Sincronización inteligente de estados de carga
+                        if (createProductUiState.isSavingSupplier != isSavingSupplier ||
+                            createProductUiState.supplierSaveSuccess != supplierSaveSuccess
+                        ) {
+                            createProductUiState = createProductUiState.copy(
+                                isSavingSupplier = isSavingSupplier,
+                                supplierSaveSuccess = supplierSaveSuccess
                             )
                         }
-                    }
-                }
-            }
-            var pendingCameraAction by remember { mutableStateOf<String?>(null) }
 
-            // Launcher de la cámara que captura un Bitmap (preview).
-            // El bitmap se le pasa al ViewModel para procesarlo con Gemini.
-            val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
-            ) { bitmap ->
-                if (bitmap != null) {
-                    when (pendingCameraAction) {
-                        "PHOTO" -> labelScannerViewModel.procesar(bitmap)
-                        "INVOICE" -> {
-                            val base64 = ProductUtils.bitmapToBase64(bitmap)
-                            actualizarCreateProductState(createProductUiState.copy(
-                                invoiceImageBase64 = base64,
-                                isCapturingInvoice = false,
-                                isInvoiceHighlighting = true // <--- ACTIVAR FLASH AL VOLVER
-                            ))
+                        // 2. Lógica de Autoselección al tener éxito
+                        if (supplierSaveSuccess && !createProductUiState.isSupplierHighlighting) {
+                            val listaActual = crearProductoViewModel.suppliers.value
+                            listaActual.lastOrNull()?.let { ultimo ->
+                                // V3.2: Solo auto-seleccionamos si el proveedor actual es distinto o está vacío
+                                // Esto evita bucles si el ViewModel tarda en resetear supplierSaveSuccess
+                                if (createProductUiState.supplierId != ultimo.id) {
+                                    createProductUiState = createProductUiState.copy(
+                                        supplierId = ultimo.id,
+                                        supplierName = ultimo.nombre,
+                                        showAddSupplierDialog = false,
+                                        isSupplierHighlighting = true // Dispara el flash verde
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. Temporizador de limpieza del flash (3 segundos)
+                        if (createProductUiState.isSupplierHighlighting) {
+                            delay(3000)
+                            createProductUiState =
+                                createProductUiState.copy(isSupplierHighlighting = false)
+                        }
+
+                        if (createProductUiState.isInvoiceHighlighting) {
+                            delay(3000)
+                            createProductUiState =
+                                createProductUiState.copy(isInvoiceHighlighting = false)
                         }
                     }
-                } else {
-                    actualizarCreateProductState(createProductUiState.copy(isCapturingInvoice = false))
-                }
-                pendingCameraAction = null
-            }
 
-            // Launcher del permiso CAMERA. Si el usuario aprueba, abrimos la
-            // acción pendiente; si rechaza, no hacemos nada (el botón sigue disponible
-            // por si el usuario re-intenta).
-            val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) {
-                    when (pendingCameraAction) {
-                        "BARCODE" -> actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = true))
-                        "LABEL" -> actualizarCreateProductState(createProductUiState.copy(isLabelScanning = true))
-                        "PHOTO" -> cameraLauncher.launch(null)
-                        "INVOICE" -> cameraLauncher.launch(null)
-                    }
-                }
-                pendingCameraAction = null
-            }
+                    LaunchedEffect(saveStatus) {
+                        when (val status = saveStatus) {
+                            is SaveResult.Success -> {
+                                createProductLoading = false
+                                triggerSuccessAnimation()
+                                val prod = ultimoProductoCreadoCompose
+                                if (prod != null) {
+                                    createProductSuccessSummary = ProductCreatedSummary(
+                                        indice = prod.indice,
+                                        name = prod.nombre,
+                                        category = prod.categoria,
+                                        mainPrice = MonedaHelper.formatear(
+                                            prod.presentaciones.firstOrNull()?.precioventa ?: 0.0
+                                        ),
+                                        stockAvailable = com.app.administradorfarmadon.ActivityInventario.ui.buildStockAvailableSummary(
+                                            createProductUiState
+                                        ),
+                                        lotNumber = createProductUiState.lotNumber,
+                                        expirationDate = createProductUiState.expirationDate
+                                    )
+                                }
+                                crearProductoViewModel.resetStatus()
+                            }
 
-            LaunchedEffect(createProductUiState.isCapturingInvoice) {
-                if (createProductUiState.isCapturingInvoice && createProductUiState.invoiceImageBase64 == null) {
-                    val granted = androidx.core.content.ContextCompat
-                        .checkSelfPermission(this@CrearProducto, android.Manifest.permission.CAMERA) ==
-                        android.content.pm.PackageManager.PERMISSION_GRANTED
-                    if (granted) {
-                        pendingCameraAction = "INVOICE"
-                        cameraLauncher.launch(null)
-                    } else {
-                        pendingCameraAction = "INVOICE"
-                        permissionLauncher.launch(android.Manifest.permission.CAMERA)
-                    }
-                }
-            }
-
-            MaterialTheme {
-                val saveStatus by crearProductoViewModel.saveStatus.collectAsState()
-                val suppliers by crearProductoViewModel.suppliers.collectAsState()
-                val categories by crearProductoViewModel.categories.collectAsState()
-                val marginRules by crearProductoViewModel.marginRules.collectAsState()
-                val isSavingSupplier by crearProductoViewModel.isSavingSupplier.collectAsState()
-                val supplierSaveSuccess by crearProductoViewModel.supplierSaveSuccess.collectAsState()
-
-                LaunchedEffect(suppliers) {
-                    createProductUiState = createProductUiState.copy(suppliers = suppliers)
-                }
-
-                LaunchedEffect(categories) {
-                    createProductCategoryOptions.clear()
-                    createProductCategoryOptions.addAll(categories)
-                }
-
-                LaunchedEffect(marginRules) {
-                    createProductUiState = createProductUiState.copy(marginRules = marginRules)
-                }
-
-                // Dentro de setContent -> MaterialTheme en CrearProducto.kt
-
-                LaunchedEffect(isSavingSupplier, supplierSaveSuccess, createProductUiState.isSupplierHighlighting) {
-                    // 1. Sincronización inteligente de estados de carga
-                    if (createProductUiState.isSavingSupplier != isSavingSupplier ||
-                        createProductUiState.supplierSaveSuccess != supplierSaveSuccess) {
-                        createProductUiState = createProductUiState.copy(
-                            isSavingSupplier = isSavingSupplier,
-                            supplierSaveSuccess = supplierSaveSuccess
-                        )
-                    }
-
-                    // 2. Lógica de Autoselección al tener éxito
-                    if (supplierSaveSuccess && !createProductUiState.isSupplierHighlighting) {
-                        val listaActual = crearProductoViewModel.suppliers.value
-                        listaActual.lastOrNull()?.let { ultimo ->
-                            // V3.2: Solo auto-seleccionamos si el proveedor actual es distinto o está vacío
-                            // Esto evita bucles si el ViewModel tarda en resetear supplierSaveSuccess
-                            if (createProductUiState.supplierId != ultimo.id) {
+                            is SaveResult.Conflict -> {
+                                createProductLoading = false
                                 createProductUiState = createProductUiState.copy(
-                                    supplierId = ultimo.id,
-                                    supplierName = ultimo.nombre,
-                                    showAddSupplierDialog = false,
-                                    isSupplierHighlighting = true // Dispara el flash verde
+                                    currentStep = CreateProductStep.PRODUCTO,
+                                    errors = createProductUiState.errors + ("name" to status.message)
                                 )
+                                triggerErrorAnimation()
+                                crearProductoViewModel.resetStatus()
                             }
+
+                            is SaveResult.Error -> {
+                                createProductLoading = false
+                                Toast.makeText(
+                                    this@CrearProducto,
+                                    status.message,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                triggerErrorAnimation()
+                                crearProductoViewModel.resetStatus()
+                            }
+
+                            else -> Unit
                         }
                     }
 
-                    // 3. Temporizador de limpieza del flash (3 segundos)
-                    if (createProductUiState.isSupplierHighlighting) {
-                        delay(3000)
-                        createProductUiState = createProductUiState.copy(isSupplierHighlighting = false)
-                    }
-
-                    if (createProductUiState.isInvoiceHighlighting) {
-                        delay(3000)
-                        createProductUiState = createProductUiState.copy(isInvoiceHighlighting = false)
-                    }
-                }
-
-                LaunchedEffect(saveStatus) {
-                    when (val status = saveStatus) {
-                        is SaveResult.Success -> {
-                            createProductLoading = false
-                            triggerSuccessAnimation()
-                            val prod = ultimoProductoCreadoCompose
-                            if (prod != null) {
-                                createProductSuccessSummary = ProductCreatedSummary(
-                                    indice = prod.indice,
-                                    name = prod.nombre,
-                                    category = prod.categoria,
-                                    mainPrice = MonedaHelper.formatear(prod.presentaciones.firstOrNull()?.precioventa ?: 0.0),
-                                    stockAvailable = com.app.administradorfarmadon.ActivityInventario.ui.buildStockAvailableSummary(createProductUiState),
-                                    lotNumber = createProductUiState.lotNumber,
-                                    expirationDate = createProductUiState.expirationDate
-                                )
-                            }
-                            crearProductoViewModel.resetStatus()
-                        }
-                        is SaveResult.Conflict -> {
-                            createProductLoading = false
-                            createProductUiState = createProductUiState.copy(
-                                currentStep = CreateProductStep.PRODUCTO,
-                                errors = createProductUiState.errors + ("name" to status.message)
-                            )
-                            triggerErrorAnimation()
-                            crearProductoViewModel.resetStatus()
-                        }
-                        is SaveResult.Error -> {
-                            createProductLoading = false
-                            Toast.makeText(this@CrearProducto, status.message, Toast.LENGTH_LONG).show()
-                            triggerErrorAnimation()
-                            crearProductoViewModel.resetStatus()
-                        }
-                        else -> Unit
-                    }
-                }
-
-                Box(modifier = Modifier.fillMaxSize()) {
-                    CreateProductScreen(
-                        state = createProductUiState,
-                        categoryOptions = createProductCategoryOptions.toList(),
-                        smartHint = null,
-                        // Fix (F1): el botón "Siguiente"/"Guardar" antes solo se
-                        // desactivaba si había error en `name`. Ahora refleja la
-                        // validez completa del paso actual mediante un chequeo
-                        // puro (sin mutar el estado), de modo que el usuario ve
-                        // visualmente cuándo puede avanzar.
-                        nextEnabled = !createProductLoading &&
-                                puedeAvanzarPasoCreateProduct(
-                                    createProductUiState
-                                ),
-                        aiInventoryEnabled = aiInventoryEnabled,
-                        categorySuggestionState = categorySuggestionState,
-                        onSwitchToManualCategory = ::cambiarACategoriaManual,
-                        onBackToAiCategory = ::volverASugerenciaIaCategoria,
-                        onSearchIA = { inmediato: Boolean -> buscarConIACompose(inmediato) },
-                        onApplyNameCorrection = ::aplicarCorreccionNombreIA,
-                        onDismissNameCorrection = ::descartarCorreccionNombreIA,
-                        onAsistManualName = { name: String ->
-                            categorySuggestionViewModel.asistirManualConNombre(name, com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion)
-                        },
-                        onAsistManualCategory = { texto: String ->
-                            categorySuggestionViewModel.asistirManualConTextoCategoria(
-                                texto = texto,
-                                productName = createProductUiState.name,
-                                mercadoActivo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion
-                            )
-                        },
-                        onClearAsistManual = {
-                            categorySuggestionViewModel.limpiarAsistenciaManual()
-                        },
-                        labelScannerState = labelScannerState,
-                        onRequestLabelScan = {
-                            val granted = androidx.core.content.ContextCompat
-                                .checkSelfPermission(this@CrearProducto, android.Manifest.permission.CAMERA) ==
-                                android.content.pm.PackageManager.PERMISSION_GRANTED
-                            if (granted) actualizarCreateProductState(createProductUiState.copy(isLabelScanning = true))
-                            else {
-                                pendingCameraAction = "LABEL"
-                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
-                            }
-                        },
-                        onConsumeLabelScan = { labelScannerViewModel.reset() },
-                        loading = createProductLoading,
-                        successSummary = createProductSuccessSummary,
-                        onBack = ::manejarAtrasFlujoComposeCrearProducto,
-                        onStateChange = ::actualizarCreateProductState,
-                        onNext = ::avanzarPasoCreateProduct,
-                        onPrevious = ::retrocederPasoCreateProduct,
-                        onSave = ::guardarProductoDesdeCompose,
-                        onCreateAnother = ::reiniciarFlujoComposeCrearProducto,
-                        onViewProduct = ::abrirProductoRecienCreado,
-                        onViewSpecificProduct = { indice -> abrirEditorProducto(indice) },
-                        onSavePresentation = ::guardarPresentacionEnDb,
-                        onAddStockToExistingProduct = ::abrirIngresoStockProductoExistente,
-                        // V17.45: Pasamos estados de validación remota de lote
-                        isCheckingLotRemote = isCheckingLotRemote,
-                        isCheckingBarcodeRemote = isCheckingBarcodeRemote,
-                        lotConflictInfo = lotConflictInfo,
-                        lotConflictColor = androidx.compose.ui.graphics.Color(lotConflictColor),
-                        lotConflictSeverity = lotConflictSeverity,
-                        onRequestBarcodeScan = {
-                            val granted = androidx.core.content.ContextCompat
-                                .checkSelfPermission(this@CrearProducto, android.Manifest.permission.CAMERA) ==
-                                android.content.pm.PackageManager.PERMISSION_GRANTED
-                            if (granted) actualizarCreateProductState(createProductUiState.copy(isBarcodeScanning = true))
-                            else {
-                                pendingCameraAction = "BARCODE"
-                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
-                            }
-                        },
-                        onIdentificarBarcode = { barcode: String, image: String? ->
-                            val imageForAi = image ?: pendingBarcodeImageBase64
-
-                            categorySuggestionViewModel.identificarBarcode(
-                                barcode,
-                                imageForAi,
-                                createProductCategoryOptions.toList()
-                            )
-                        },
-                        onCheckBarcodeIntegrity = { barcode: String, nombre: String ->
-                            categorySuggestionViewModel.verificarIntegridadBarcode(barcode, nombre)
-                        },
-                        onClearBarcodeIntegrityConflict = {
-                            categorySuggestionViewModel.limpiarConflictoBarcode()
-                        },
-                        onSaveSupplier = { nombre, idFiscal ->
-                            crearProductoViewModel.guardarProveedor(nombre, idFiscal) { mensajeError ->
-                                // Si hay duplicado, mostramos un Toast rápido
-                                Toast.makeText(this@CrearProducto, mensajeError, Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        showNoBarcodeConfirmDialog = showNoBarcodeConfirmDialog,
-                        onDismissNoBarcodeConfirm = {
-                            showNoBarcodeConfirmDialog = false
-                        },
-                        onConfirmNoBarcodeContinue = {
-                            showNoBarcodeConfirmDialog = false
-                            createProductUiState = createProductUiState.copy(
-                                currentStep = CreateProductStep.LOTE_INICIAL,
-                                barcode = "",
-                                productoSinCodigoBarra = true,
-                                barcodeAiResult = null,
-                                barcodeAiApplied = false,
-                                errors = createProductUiState.errors - "barcode"
-                            )
-                        }
-                    )
-
-                    if (createProductUiState.isBarcodeScanning) {
-                        @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-                        com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay(
-                            onBarcodeDetected = { result ->
-                                actualizarCreateProductState(
-                                    createProductUiState.copy(
-                                        barcode = result.code,
-                                        isBarcodeScanning = false,
-                                        isBarcodeManualMode = false
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CreateProductScreen(
+                            state = createProductUiState,
+                            categoryOptions = createProductCategoryOptions.toList(),
+                            smartHint = null,
+                            // Fix (F1): el botón "Siguiente"/"Guardar" antes solo se
+                            // desactivaba si había error en `name`. Ahora refleja la
+                            // validez completa del paso actual mediante un chequeo
+                            // puro (sin mutar el estado), de modo que el usuario ve
+                            // visualmente cuándo puede avanzar.
+                            nextEnabled = !createProductLoading &&
+                                    puedeAvanzarPasoCreateProduct(
+                                        createProductUiState
                                     ),
-                                    imageBase64 = result.imageBase64
+                            aiInventoryEnabled = aiInventoryEnabled,
+                            categorySuggestionState = categorySuggestionState,
+                            onSwitchToManualCategory = ::cambiarACategoriaManual,
+                            onBackToAiCategory = ::volverASugerenciaIaCategoria,
+                            onSearchIA = { inmediato: Boolean -> buscarConIACompose(inmediato) },
+                            onApplyNameCorrection = ::aplicarCorreccionNombreIA,
+                            onDismissNameCorrection = ::descartarCorreccionNombreIA,
+                            onAsistManualName = { name: String ->
+                                categorySuggestionViewModel.asistirManualConNombre(
+                                    name,
+                                    com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion
                                 )
                             },
-                            onImageFallbackDetected = { imageBase64 ->
-                                actualizarCreateProductState(
+                            onAsistManualCategory = { texto: String ->
+                                categorySuggestionViewModel.asistirManualConTextoCategoria(
+                                    texto = texto,
+                                    productName = createProductUiState.name,
+                                    mercadoActivo = com.app.administradorfarmadon.ClasesDatabase.SessionManager.paisOperacion
+                                )
+                            },
+                            onClearAsistManual = {
+                                categorySuggestionViewModel.limpiarAsistenciaManual()
+                            },
+                            labelScannerState = labelScannerState,
+                            onRequestLabelScan = {
+                                val granted = androidx.core.content.ContextCompat
+                                    .checkSelfPermission(
+                                        this@CrearProducto,
+                                        android.Manifest.permission.CAMERA
+                                    ) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (granted) actualizarCreateProductState(
                                     createProductUiState.copy(
-                                        barcode = "",
-                                        productoSinCodigoBarra = true,
-                                        isBarcodeScanning = false,
-                                        isBarcodeManualMode = false,
-                                        scannedImageBase64 = imageBase64,
-                                        barcodeAiResult = null,
-                                        barcodeAiApplied = false,
-                                        barcodeAiError = null,
-                                        forceManualProductEntry = false,
-                                        isIdentifyingBarcode = true,
-                                        errors = createProductUiState.errors - "barcode"
+                                        isLabelScanning = true
                                     )
                                 )
-
-                                categorySuggestionViewModel.identificarProductoPorImagen(
-                                    imageBase64 = imageBase64,
-                                    categoriasExistentes = createProductCategoryOptions.toList()
-                                )
+                                else {
+                                    pendingCameraAction = "LABEL"
+                                    permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                }
                             },
-                            onDismiss = {
-                                actualizarCreateProductState(
-                                    createProductUiState.copy(isBarcodeScanning = false)
-                                )
-                            }
-                        )
-                    }
-
-                    if (createProductUiState.isLabelScanning) {
-                        @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-                        LiveOcrScannerOverlay(
-                            onResultDetected = { lote, venc ->
-                                feedbackController.ventaExitosa(null)
-                                actualizarCreateProductState(
+                            onConsumeLabelScan = { labelScannerViewModel.reset() },
+                            loading = createProductLoading,
+                            successSummary = createProductSuccessSummary,
+                            onBack = ::manejarAtrasFlujoComposeCrearProducto,
+                            onStateChange = ::actualizarCreateProductState,
+                            onNext = ::avanzarPasoCreateProduct,
+                            onPrevious = ::retrocederPasoCreateProduct,
+                            onSave = ::guardarProductoDesdeCompose,
+                            onCreateAnother = ::reiniciarFlujoComposeCrearProducto,
+                            onViewProduct = ::abrirProductoRecienCreado,
+                            onViewSpecificProduct = { indice -> abrirEditorProducto(indice) },
+                            onSavePresentation = ::guardarPresentacionEnDb,
+                            onAddStockToExistingProduct = ::abrirIngresoStockProductoExistente,
+                            // V17.45: Pasamos estados de validación remota de lote
+                            isCheckingLotRemote = isCheckingLotRemote,
+                            isCheckingBarcodeRemote = isCheckingBarcodeRemote,
+                            lotConflictInfo = lotConflictInfo,
+                            lotConflictColor = androidx.compose.ui.graphics.Color(lotConflictColor),
+                            lotConflictSeverity = lotConflictSeverity,
+                            onRequestBarcodeScan = {
+                                val granted = androidx.core.content.ContextCompat
+                                    .checkSelfPermission(
+                                        this@CrearProducto,
+                                        android.Manifest.permission.CAMERA
+                                    ) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (granted) actualizarCreateProductState(
                                     createProductUiState.copy(
-                                        lotNumber = lote ?: createProductUiState.lotNumber,
-                                        expirationDate = venc ?: createProductUiState.expirationDate,
-                                        lotScanned = true,
-                                        isLabelScanning = false
+                                        isBarcodeScanning = true
                                     )
                                 )
+                                else {
+                                    pendingCameraAction = "BARCODE"
+                                    permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                }
                             },
-                            onDismiss = {
-                                actualizarCreateProductState(createProductUiState.copy(isLabelScanning = false))
+                            onIdentificarBarcode = { barcode: String, image: String? ->
+                                val imageForAi = image ?: pendingBarcodeImageBase64
+
+                                categorySuggestionViewModel.identificarBarcode(
+                                    barcode,
+                                    imageForAi,
+                                    createProductCategoryOptions.toList()
+                                )
+                            },
+                            onCheckBarcodeIntegrity = { barcode: String, nombre: String ->
+                                categorySuggestionViewModel.verificarIntegridadBarcode(
+                                    barcode,
+                                    nombre
+                                )
+                            },
+                            onClearBarcodeIntegrityConflict = {
+                                categorySuggestionViewModel.limpiarConflictoBarcode()
+                            },
+                            onSaveSupplier = { nombre, idFiscal ->
+                                crearProductoViewModel.guardarProveedor(
+                                    nombre,
+                                    idFiscal
+                                ) { mensajeError ->
+                                    // Si hay duplicado, mostramos un Toast rápido
+                                    Toast.makeText(
+                                        this@CrearProducto,
+                                        mensajeError,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            showNoBarcodeConfirmDialog = showNoBarcodeConfirmDialog,
+                            onDismissNoBarcodeConfirm = {
+                                showNoBarcodeConfirmDialog = false
+                            },
+                            onConfirmNoBarcodeContinue = {
+                                showNoBarcodeConfirmDialog = false
+                                createProductUiState = createProductUiState.copy(
+                                    currentStep = CreateProductStep.LOTE_INICIAL,
+                                    barcode = "",
+                                    productoSinCodigoBarra = true,
+
+                                    barcodeAiResult = null,
+                                    barcodeAiApplied = false,
+                                    barcodeAiError = null,
+                                    scannedImageBase64 = null,
+
+                                    defaultSalePresentationName = "",
+                                    defaultSalePresentationFromAi = false,
+                                    saleByFractionSuggested = null,
+                                    defaultSalePresentationConfidence = 0,
+                                    defaultSalePresentationReason = "",
+
+                                    mismatchJustified = false,
+                                    mismatchReason = null,
+
+                                    errors = createProductUiState.errors - "barcode"
+                                )
                             }
                         )
+
+                        if (showCameraPermissionDialog) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    showCameraPermissionDialog = false
+                                },
+                                title = {
+                                    Text("Permiso de cámara necesario")
+                                },
+                                text = {
+                                    Text(
+                                        "Para escanear códigos, etiquetas o facturas necesitas activar el permiso de cámara en la configuración de la app."
+                                    )
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showCameraPermissionDialog = false
+                                            abrirPermisosDeLaApp()
+                                        }
+                                    ) {
+                                        Text("Abrir permisos")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = {
+                                            showCameraPermissionDialog = false
+                                        }
+                                    ) {
+                                        Text("Cancelar")
+                                    }
+                                }
+                            )
+                        }
+
+                        if (createProductUiState.isBarcodeScanning) {
+                            @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+                            com.app.administradorfarmadon.ActivityInventario.ui.BarcodeScannerOverlay(
+                                onBarcodeDetected = { result ->
+                                    actualizarCreateProductState(
+                                        createProductUiState.copy(
+                                            barcode = result.code,
+                                            isBarcodeScanning = false,
+                                            isBarcodeManualMode = false
+                                        ),
+                                        imageBase64 = result.imageBase64
+                                    )
+                                },
+                                onImageFallbackDetected = { imageBase64 ->
+                                    actualizarCreateProductState(
+                                        createProductUiState.copy(
+                                            barcode = "",
+                                            productoSinCodigoBarra = true,
+                                            isBarcodeScanning = false,
+                                            isBarcodeManualMode = false,
+                                            scannedImageBase64 = imageBase64,
+                                            barcodeAiResult = null,
+                                            barcodeAiApplied = false,
+                                            barcodeAiError = null,
+                                            forceManualProductEntry = false,
+                                            isIdentifyingBarcode = true,
+                                            errors = createProductUiState.errors - "barcode"
+                                        )
+                                    )
+
+                                    categorySuggestionViewModel.identificarProductoPorImagen(
+                                        imageBase64 = imageBase64,
+                                        categoriasExistentes = createProductCategoryOptions.toList()
+                                    )
+                                },
+                                onDismiss = {
+                                    actualizarCreateProductState(
+                                        createProductUiState.copy(isBarcodeScanning = false)
+                                    )
+                                }
+                            )
+                        }
+
+                        if (createProductUiState.isLabelScanning) {
+                            @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+                            LiveOcrScannerOverlay(
+                                onResultDetected = { lote, venc ->
+                                    feedbackController.ventaExitosa(null)
+                                    actualizarCreateProductState(
+                                        createProductUiState.copy(
+                                            lotNumber = lote ?: createProductUiState.lotNumber,
+                                            expirationDate = venc
+                                                ?: createProductUiState.expirationDate,
+                                            lotScanned = true,
+                                            isLabelScanning = false
+                                        )
+                                    )
+                                },
+                                onDismiss = {
+                                    actualizarCreateProductState(
+                                        createProductUiState.copy(
+                                            isLabelScanning = false
+                                        )
+                                    )
+                                }
+                            )
+                        }
+
+                        if (isSuccessAnimVisible) {
+                            RealisticFluidSuccessAnimation(
+                                onFinished = {
+                                    isSuccessAnimVisible = false
+                                    reiniciarFlujoComposeCrearProducto()
+                                }
+                            )
+                        }
+                        if (isErrorAnimVisible) {
+                            ErrorAnimationOverlay()
+                        }
                     }
 
-                    if (isSuccessAnimVisible) {
-                        RealisticFluidSuccessAnimation(
-                            onFinished = {
-                                isSuccessAnimVisible = false
-                                reiniciarFlujoComposeCrearProducto()
-                            }
-                        )
-                    }
-                    if (isErrorAnimVisible) {
-                        ErrorAnimationOverlay()
-                    }
-                }
-
-                LaunchedEffect(isSuccessAnimVisible, isErrorAnimVisible) {
-                    if (isSuccessAnimVisible) {
-                        updateBarsForAnimation(android.graphics.Color.TRANSPARENT, false)
-                    } else if (isErrorAnimVisible) {
-                        updateBarsForAnimation(android.graphics.Color.parseColor("#C62828"), false)
-                    } else {
-                        restaurarStatusBarOriginal()
+                    LaunchedEffect(isSuccessAnimVisible, isErrorAnimVisible) {
+                        if (isSuccessAnimVisible) {
+                            updateBarsForAnimation(android.graphics.Color.TRANSPARENT, false)
+                        } else if (isErrorAnimVisible) {
+                            updateBarsForAnimation(
+                                android.graphics.Color.parseColor("#C62828"),
+                                false
+                            )
+                        } else {
+                            restaurarStatusBarOriginal()
+                        }
                     }
                 }
-            }
             }
 
             // Solo lo esencial para el Paso 1 (Ligero)
@@ -673,14 +796,16 @@ class CrearProducto : AppCompatActivity() {
         }
 
         root.addView(progress)
-        root.addView(title, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 20 })
-        root.addView(subtitle, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 8 })
+        root.addView(
+            title, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 20 })
+        root.addView(
+            subtitle, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 8 })
 
         setContentView(root)
     }
@@ -702,20 +827,24 @@ class CrearProducto : AppCompatActivity() {
     }
 
     private fun guardarPresentacionEnDb(saved: com.app.administradorfarmadon.ActivityInventario.ui.SavedPresentation) {
-        com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.guardarPresentacion(saved)
+        com.app.administradorfarmadon.ClasesDatabase.PresentacionesTiendaConfigManager.guardarPresentacion(
+            saved
+        )
     }
 
     override fun onStart() {
         super.onStart()
         // Actualizar preferencia cada vez que la pantalla vuelve al frente
-        aiInventoryEnabled = com.app.administradorfarmadon.ClasesDatabase.PreferenciasFeedbackCaja.estaIaInventarioActiva(this)
+        aiInventoryEnabled =
+            com.app.administradorfarmadon.ClasesDatabase.PreferenciasFeedbackCaja.estaIaInventarioActiva(
+                this
+            )
     }
 
     override fun onDestroy() {
         restaurarStatusBarOriginal()
         super.onDestroy()
     }
-
 
 
     /**
@@ -729,11 +858,31 @@ class CrearProducto : AppCompatActivity() {
         return CreateProductState()
     }
 
+
+    private fun abrirPermisosDeLaApp() {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null)
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        startActivity(intent)
+    }
+
+
     private fun limpiarDependenciasPorCambioTipoControl(
         estado: CreateProductState,
         tipoAnterior: CreateProductControlType?
     ): CreateProductState {
         if (estado.controlType == tipoAnterior) return estado
+
+        // V31.2: Blindaje para IA. Si el tipo cambió pero fue por aplicación de código de barras
+        // y ya traemos pre-llenado de contenido (como los 380g de una cocoa), NO reseteamos el inventario.
+        // Solo blindamos si el usuario NO ha interactuado manualmente con el tipo todavía.
+        if (estado.barcodeAiApplied && estado.unitsPerItemText.isNotBlank() && !estado.typeSelectedManually) {
+            return estado
+        }
 
         return estado.copy(
             presentations = emptyList(),
@@ -786,7 +935,10 @@ class CrearProducto : AppCompatActivity() {
         finish()
     }
 
-    private fun actualizarCreateProductState(nuevoEstado: CreateProductState, imageBase64: String? = null) {
+    private fun actualizarCreateProductState(
+        nuevoEstado: CreateProductState,
+        imageBase64: String? = null
+    ) {
         val estadoAnterior = createProductUiState
 
         // V19.0: OPTIMIZACIÓN - Solo recalculamos presentaciones si el controlType cambió REALMENTE
@@ -796,18 +948,19 @@ class CrearProducto : AppCompatActivity() {
         )
 
         // V19.0: OPTIMIZACIÓN - Solo normalizamos el mainPresentationId si la lista de presentaciones cambió
-        val finalEstado = if (estadoConPresentaciones.presentations != estadoAnterior.presentations || estadoConPresentaciones.mainPresentationId != estadoAnterior.mainPresentationId) {
-            val list = estadoConPresentaciones.presentations
-            val currentMainId = estadoConPresentaciones.mainPresentationId
-            val nextMainId = when {
-                list.isEmpty() -> ""
-                list.any { it.id == currentMainId } -> currentMainId
-                else -> list.first().id
+        val finalEstado =
+            if (estadoConPresentaciones.presentations != estadoAnterior.presentations || estadoConPresentaciones.mainPresentationId != estadoAnterior.mainPresentationId) {
+                val list = estadoConPresentaciones.presentations
+                val currentMainId = estadoConPresentaciones.mainPresentationId
+                val nextMainId = when {
+                    list.isEmpty() -> ""
+                    list.any { it.id == currentMainId } -> currentMainId
+                    else -> list.first().id
+                }
+                estadoConPresentaciones.copy(mainPresentationId = nextMainId)
+            } else {
+                estadoConPresentaciones
             }
-            estadoConPresentaciones.copy(mainPresentationId = nextMainId)
-        } else {
-            estadoConPresentaciones
-        }
 
         createProductUiState = finalEstado
 
@@ -846,10 +999,13 @@ class CrearProducto : AppCompatActivity() {
             categorySuggestionViewModel.actualizarInterpretacionLocal(createProductUiState.name)
 
             programarValidacionNombreCompose(createProductUiState.name)
-            
+
             // V20.0: Si ya pasamos el paso 1, re-evaluar info de uso al cambiar nombre
             if (createProductUiState.currentStep.number >= CreateProductStep.PRESENTACIONES.number) {
-                categorySuggestionViewModel.buscarInfoUsoProducto(createProductUiState.name)
+                categorySuggestionViewModel.buscarInfoUsoProducto(
+                    createProductUiState.name, 
+                    createProductUiState.category
+                )
             }
             // Sugerencia IA: re-evaluar la categoría cuando cambia el nombre.
             // Sincronización V5.4: Ya no llamamos a categorySuggestionViewModel.onNombreCambio aquí
@@ -863,7 +1019,8 @@ class CrearProducto : AppCompatActivity() {
 
         // V17.84: Solución al "Empleado Celoso" (IA ya no es ciega al teclado manual)
         if (createProductUiState.currentStep == CreateProductStep.PRODUCTO &&
-            (estadoAnterior.category != createProductUiState.category || estadoAnterior.name != createProductUiState.name)) {
+            (estadoAnterior.category != createProductUiState.category || estadoAnterior.name != createProductUiState.name)
+        ) {
 
             // Si la categoría tiene texto, el asistente analiza el producto SIEMPRE, sin importar el origen.
             if (createProductUiState.category.isNotBlank() && createProductUiState.name.isNotBlank()) {
@@ -912,7 +1069,10 @@ class CrearProducto : AppCompatActivity() {
         val currentName = createProductUiState.name
         val normalized = normalizeProductName(currentName)
 
-        android.util.Log.d("CategoryAI", "buscarConIACompose: '$currentName', inmediato: $inmediato")
+        android.util.Log.d(
+            "CategoryAI",
+            "buscarConIACompose: '$currentName', inmediato: $inmediato"
+        )
 
         // V17.6: El Modo Manual Silencioso NO se bloquea por la preferencia global,
         // ya que es una ayuda ligera no invasiva.
@@ -992,9 +1152,6 @@ class CrearProducto : AppCompatActivity() {
         // Sincronizar con el ViewModel para que no vuelva a sugerirlo en la burbuja
         categorySuggestionViewModel.descartarCorreccion(original, corregido)
     }
-
-
-
 
 
     private fun normalizeProductName(name: String): String {
@@ -1102,10 +1259,12 @@ class CrearProducto : AppCompatActivity() {
     private fun buscarProductoPorIdYMostrarDuplicado(productId: String) {
         crearProductoViewModel.buscarProductoPorId(productId) { productoExistente ->
             if (productoExistente != null) {
-                actualizarCreateProductState(createProductUiState.copy(
-                    duplicateProductFound = productoExistente,
-                    errors = createProductUiState.errors + ("barcode" to "Este código ya pertenece a otro producto.")
-                ))
+                actualizarCreateProductState(
+                    createProductUiState.copy(
+                        duplicateProductFound = productoExistente,
+                        errors = createProductUiState.errors + ("barcode" to "Este código ya pertenece a otro producto.")
+                    )
+                )
             }
         }
     }
@@ -1152,18 +1311,22 @@ class CrearProducto : AppCompatActivity() {
                     onExiste = { productoExistente ->
                         // Solo actualizamos si el nombre sigue siendo el mismo después de la red
                         if (normalizeProductName(createProductUiState.name) == normalized) {
-                            actualizarCreateProductState(createProductUiState.copy(
-                                duplicateProductFound = productoExistente,
-                                isAnalyzingKeywords = false
-                            ))
+                            actualizarCreateProductState(
+                                createProductUiState.copy(
+                                    duplicateProductFound = productoExistente,
+                                    isAnalyzingKeywords = false
+                                )
+                            )
                         }
                     },
                     onContinuar = {
                         if (normalizeProductName(createProductUiState.name) == normalized) {
-                            actualizarCreateProductState(createProductUiState.copy(
-                                isAnalyzingKeywords = false,
-                                isValidatingNameRemote = false
-                            ))
+                            actualizarCreateProductState(
+                                createProductUiState.copy(
+                                    isAnalyzingKeywords = false,
+                                    isValidatingNameRemote = false
+                                )
+                            )
                         }
                     },
                     alEscribir = true
@@ -1190,22 +1353,27 @@ class CrearProducto : AppCompatActivity() {
                 },
                 onContinuar = {
                     if (!esDuplicadoEnFirebase && normalizeProductName(createProductUiState.name) == normalized) {
-                        createProductUiState = createProductUiState.copy(isValidatingNameRemote = false)
+                        createProductUiState =
+                            createProductUiState.copy(isValidatingNameRemote = false)
 
                         val numWords = normalized.split(" ").filter { it.isNotBlank() }.size
                         val isStable = normalized.length >= 10 || numWords >= 2
 
                         if (isStable && !createProductUiState.name.endsWith(" ")) {
-                            actualizarCreateProductState(createProductUiState.copy(
-                                isAnalyzingKeywords = false,
-                                duplicateProductFound = null
-                            ))
+                            actualizarCreateProductState(
+                                createProductUiState.copy(
+                                    isAnalyzingKeywords = false,
+                                    duplicateProductFound = null
+                                )
+                            )
                         } else {
-                            actualizarCreateProductState(createProductUiState.copy(
-                                isAnalyzingKeywords = false,
-                                duplicateProductFound = null,
-                                isValidatingNameRemote = false
-                            ))
+                            actualizarCreateProductState(
+                                createProductUiState.copy(
+                                    isAnalyzingKeywords = false,
+                                    duplicateProductFound = null,
+                                    isValidatingNameRemote = false
+                                )
+                            )
                         }
                     }
                 },
@@ -1272,7 +1440,6 @@ class CrearProducto : AppCompatActivity() {
             }
         }
     }
-
 
 
     private fun validarLoteRemotoCompose(numeroLote: String) {
@@ -1375,7 +1542,8 @@ class CrearProducto : AppCompatActivity() {
                                 }
                             }
                         } else {
-                            lotConflictInfo = "¡Cuidado! Lote asignado a: ${loteIndexado.productoNombre}"
+                            lotConflictInfo =
+                                "¡Cuidado! Lote asignado a: ${loteIndexado.productoNombre}"
                             lotConflictColor = android.graphics.Color.parseColor("#EF4444")
                             lotConflictSeverity = 2
 
@@ -1451,12 +1619,17 @@ class CrearProducto : AppCompatActivity() {
                     "unitsPerPackage",
                     "minimumStock"
                 )
+
                 CreateProductStep.PRESENTACIONES -> setOf("presentations", "presentations_total")
                 CreateProductStep.RESUMEN -> emptySet()
             }
 
             val firstRelevantError = createProductUiState.errors
-                .filter { it.key in relevantKeys || it.key.startsWith("price_") || it.key.startsWith("equivalence_") }
+                .filter {
+                    it.key in relevantKeys || it.key.startsWith("price_") || it.key.startsWith(
+                        "equivalence_"
+                    )
+                }
                 .values.firstOrNull()
 
             if (!firstRelevantError.isNullOrBlank()) {
@@ -1487,9 +1660,9 @@ class CrearProducto : AppCompatActivity() {
                         presentations = listOf(autoPresentation),
                         mainPresentationId = autoPresentation.id,
                         errors = estadoActual.errors -
-                            "presentations" -
-                            "mainPresentation" -
-                            "presentations_total"
+                                "presentations" -
+                                "mainPresentation" -
+                                "presentations_total"
                     )
                 } else {
                     estadoActual
@@ -1504,7 +1677,7 @@ class CrearProducto : AppCompatActivity() {
 
         if (siguientePaso == CreateProductStep.PRESENTACIONES) {
             asegurarPresentacionesGuardadasCargadas()
-            categorySuggestionViewModel.buscarInfoUsoProducto(estadoActual.name)
+            categorySuggestionViewModel.buscarInfoUsoProducto(estadoActual.name, estadoActual.category)
         }
 
         if (siguientePaso == CreateProductStep.RESUMEN) {
@@ -1561,9 +1734,6 @@ class CrearProducto : AppCompatActivity() {
     }
 
 
-
-
-
     private fun actualizarCategoriasComposeDesdeLista() {
         val nuevasCategorias = listaCategoria.map { it.nombre.trim() }
             .filter { it.isNotBlank() }
@@ -1573,12 +1743,6 @@ class CrearProducto : AppCompatActivity() {
         createProductCategoryOptions.clear()
         createProductCategoryOptions.addAll(nuevasCategorias)
     }
-
-
-
-
-
-
 
 
     // Fix (M2): se eliminaron `inferirPresentacionLiquida`,
@@ -1596,9 +1760,6 @@ class CrearProducto : AppCompatActivity() {
     // `state.receivedPresentation`, un campo del flujo viejo que nunca se
     // setea en el flujo Compose, así que su llamado siempre devolvía la
     // lista sin cambios.
-
-
-
 
 
     /**
@@ -1625,8 +1786,8 @@ class CrearProducto : AppCompatActivity() {
             CreateProductStep.PRESENTACIONES -> puedeAvanzarPasoPresentaciones(estado)
             CreateProductStep.RESUMEN ->
                 puedeAvanzarPasoProducto(estado) &&
-                puedeAvanzarPasoLote(estado) &&
-                puedeAvanzarPasoPresentaciones(estado)
+                        puedeAvanzarPasoLote(estado) &&
+                        puedeAvanzarPasoPresentaciones(estado)
         }
     }
 
@@ -1696,7 +1857,11 @@ class CrearProducto : AppCompatActivity() {
         // al guardar, aquí solo validamos que la opción elegida sea positiva.
 
         val costo = estado.purchaseCost
-            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+            .replace(
+                com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                "",
+                ignoreCase = true
+            )
             .trim()
             .replace(",", ".")
             .toDoubleOrNull()
@@ -1712,36 +1877,58 @@ class CrearProducto : AppCompatActivity() {
         return true
     }
 
-    private fun puedeAvanzarPasoPresentaciones(estado: CreateProductState): Boolean {
+    private fun puedeAvanzarPasoPresentaciones(
+        estado: CreateProductState
+    ): Boolean {
         if (estado.presentations.isEmpty()) return false
-        val recibidoBase = calculateTotalBaseStock(estado)
-        var totalAsignado = 0.0
 
         estado.presentations.forEach { presentation ->
-            val equivRaw = presentation.equivalenceText.trim().replace(",", ".")
-            val equivDouble = equivRaw.toDoubleOrNull() ?: 0.0
-
-            // Requerimos que la equivalencia sea un entero positivo.
-            // Evita que el UI acepte decimales que luego se truncarían al guardar
-            // (presentacion.cantidad es Int). Si viene como decimal, lo marcamos
-            // inválido para prevenir inconsistencias.
-            if (equivDouble <= 0.0 || equivDouble % 1.0 != 0.0) return false
-
-            val equivalencia = equivDouble.toInt()
-
-            val precio = presentation.salePriceText
-                .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+            val equiv = presentation.equivalenceText
                 .trim()
                 .replace(",", ".")
                 .toDoubleOrNull() ?: 0.0
 
-            if (precio <= 0.0) return false
-            totalAsignado += equivalencia
+            val equivalenceIsValid = when (estado.controlType) {
+                CreateProductControlType.UNIDAD -> {
+                    equiv > 0.0 && equiv % 1.0 == 0.0
+                }
+
+                CreateProductControlType.LIQUIDO,
+                CreateProductControlType.PESO -> {
+                    equiv > 0.0
+                }
+
+                null -> false
+            }
+
+            if (!equivalenceIsValid) return false
+
+            val price = presentation.salePriceText
+                .replace(
+                    com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                    "",
+                    ignoreCase = true
+                )
+                .trim()
+                .replace(",", ".")
+                .toDoubleOrNull() ?: 0.0
+
+            if (price <= 0.0) return false
         }
 
-        // V17.65: Regla de oro - La suma de presentaciones no puede superar el stock recibido
-        if (totalAsignado > recibidoBase) return false
+        if (
+            estado.presentations.size > 1 &&
+            estado.mainPresentationId.isBlank()
+        ) {
+            return false
+        }
 
+        if (
+            estado.mainPresentationId.isNotBlank() &&
+            estado.presentations.none { it.id == estado.mainPresentationId }
+        ) {
+            return false
+        }
 
         return true
     }
@@ -1779,7 +1966,8 @@ class CrearProducto : AppCompatActivity() {
                 }
 
                 if (estado.barcodeMismatchDetected) {
-                    errors["barcode"] = "El código de barras no coincide con el nombre del producto."
+                    errors["barcode"] =
+                        "El código de barras no coincide con el nombre del producto."
                 } else if (estado.errors["barcode"].isNullOrBlank()) {
                     errors.remove("barcode")
                 }
@@ -1826,8 +2014,13 @@ class CrearProducto : AppCompatActivity() {
 
                 if (estado.stockEntryMode == null || !estado.stockEntryConfigured) {
                     errors["stockEntryMode"] = "Selecciona como recibiste el producto"
-                } else if (!isStockEntryModeValidForControlType(estado.controlType, estado.stockEntryMode)) {
-                    errors["stockEntryMode"] = "Selecciona una presentación válida para este tipo de producto"
+                } else if (!isStockEntryModeValidForControlType(
+                        estado.controlType,
+                        estado.stockEntryMode
+                    )
+                ) {
+                    errors["stockEntryMode"] =
+                        "Selecciona una presentación válida para este tipo de producto"
                 } else {
                     errors.remove("stockEntryMode")
                 }
@@ -1837,8 +2030,9 @@ class CrearProducto : AppCompatActivity() {
                     CreateProductStockEntryMode.UNIDAD -> {
                         val quantity = parseComposeNumber(estado.receivedUnitsText)
                         val content = parseComposeNumber(estado.unitsPerItemText)
-                        val requiereContenido = estado.controlType != CreateProductControlType.UNIDAD ||
-                                estado.stockControlMode == StockControlMode.DIVISIBLE
+                        val requiereContenido =
+                            estado.controlType != CreateProductControlType.UNIDAD ||
+                                    estado.stockControlMode == StockControlMode.DIVISIBLE
 
                         if (quantity <= 0.0) {
                             errors["receivedUnits"] = "Ingresa la cantidad recibida"
@@ -1870,8 +2064,9 @@ class CrearProducto : AppCompatActivity() {
                         val boxes = parseComposeNumber(estado.boxesReceivedText)
                         val unitsPerBox = parseComposeNumber(estado.unitsPerBoxText)
                         val content = parseComposeNumber(estado.unitsPerItemText)
-                        val requiereContenido = estado.controlType != CreateProductControlType.UNIDAD ||
-                                estado.stockControlMode == StockControlMode.DIVISIBLE
+                        val requiereContenido =
+                            estado.controlType != CreateProductControlType.UNIDAD ||
+                                    estado.stockControlMode == StockControlMode.DIVISIBLE
 
                         if (boxes <= 0.0) {
                             errors["boxesReceived"] = "Ingresa cuántas cajas recibiste"
@@ -1936,7 +2131,10 @@ class CrearProducto : AppCompatActivity() {
                 // V17.61: Uso de la Calculadora Oficial
                 val recibidoEnBase = calculateTotalBaseStock(estado)
                 val minimumMode = resolveMinimumStockControlMode(estado)
-                val recibidoFisico = com.app.administradorfarmadon.ActivityInventario.ui.calculateTotalPhysicalUnits(estado)
+                val recibidoFisico =
+                    com.app.administradorfarmadon.ActivityInventario.ui.calculateTotalPhysicalUnits(
+                        estado
+                    )
 
                 // La validación ahora usa minimumStockUnits en lugar del campo de texto antiguo.
                 if (minimumStockBase <= 0.0) {
@@ -1945,7 +2143,8 @@ class CrearProducto : AppCompatActivity() {
                     minimumMode == StockControlMode.INDIVISIBLE &&
                     estado.minimumStockUnits > recibidoFisico
                 ) {
-                    errors["minimumStock"] = "La alerta no puede superar la cantidad de productos completos"
+                    errors["minimumStock"] =
+                        "La alerta no puede superar la cantidad de productos completos"
                 } else if (
                     minimumMode == StockControlMode.DIVISIBLE &&
                     estado.stockEntryMode != null &&
@@ -1959,7 +2158,11 @@ class CrearProducto : AppCompatActivity() {
                 }
 
                 val purchaseCost = estado.purchaseCost
-                    .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+                    .replace(
+                        com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                        "",
+                        ignoreCase = true
+                    )
                     .trim()
                     .replace(",", ".")
                     .toDoubleOrNull()
@@ -1993,44 +2196,47 @@ class CrearProducto : AppCompatActivity() {
                     errors.remove("presentations")
                 }
 
-                val recibidoBase = calculateTotalBaseStock(estado)
-                var totalAsignado = 0.0
-
                 estado.presentations.forEach { presentation ->
                     val equivRaw = presentation.equivalenceText.trim().replace(",", ".")
                     val equivDouble = equivRaw.toDoubleOrNull() ?: 0.0
 
-                    // Validamos que la equivalencia sea un entero positivo
-                    if (equivDouble <= 0.0 || equivDouble % 1.0 != 0.0) {
-                        errors["equivalence_${presentation.id}"] = "Equivalencia inválida (debe ser entero positivo)"
+// La equivalencia interna puede ser decimal para líquidos/peso.
+// Ejemplo: 6 envases x 354.88 mL = 2129.28 mL.
+// Para UNIDAD sí conviene mantener entero.
+                    val equivalenceIsValid = when (estado.controlType) {
+                        CreateProductControlType.UNIDAD -> {
+                            equivDouble > 0.0 && equivDouble % 1.0 == 0.0
+                        }
+
+                        CreateProductControlType.LIQUIDO,
+                        CreateProductControlType.PESO -> {
+                            equivDouble > 0.0
+                        }
+
+                        null -> false
+                    }
+
+                    if (!equivalenceIsValid) {
+                        errors["equivalence_${presentation.id}"] =
+                            when (estado.controlType) {
+                                CreateProductControlType.UNIDAD ->
+                                    "Equivalencia inválida (debe ser entero positivo)"
+
+                                CreateProductControlType.LIQUIDO,
+                                CreateProductControlType.PESO ->
+                                    "Equivalencia inválida"
+
+                                null ->
+                                    "Equivalencia inválida"
+                            }
                     } else {
                         errors.remove("equivalence_${presentation.id}")
                     }
-
-                    val price = presentation.salePriceText
-                        .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
-                        .trim()
-                        .replace(",", ".")
-                        .toDoubleOrNull() ?: 0.0
-
-                    if (price <= 0.0) {
-                        errors["price_${presentation.id}"] = "Precio requerido"
-                    } else {
-                        errors.remove("price_${presentation.id}")
-                    }
-
-                    // Sumar la equivalencia como entero para validaciones coherentes con el guardado
-                    if (equivDouble > 0.0 && equivDouble % 1.0 == 0.0) {
-                        totalAsignado += equivDouble.toInt()
-                    }
                 }
 
-                // V17.65: Error general si la suma supera la capacidad del lote
-                if (totalAsignado > recibidoBase) {
-                    errors["presentations_total"] = "Las presentaciones superan el stock recibido (${formatCreateProductNumber(recibidoBase)})"
-                } else {
-                    errors.remove("presentations_total")
-                }
+// Las presentaciones son formas alternativas de venta.
+// No se suman contra el stock recibido, porque no consumen ni separan stock al configurarlas.
+                errors.remove("presentations_total")
 
 
             }
@@ -2090,7 +2296,7 @@ class CrearProducto : AppCompatActivity() {
         val month = parts.getOrNull(0)?.toIntOrNull() ?: return false
         val year = parts.getOrNull(1)?.toIntOrNull() ?: return false
         val fullYear = 2000 + year
-        
+
         return try {
             val expiryYearMonth = YearMonth.of(fullYear, month)
             val currentYearMonth = YearMonth.now()
@@ -2170,8 +2376,8 @@ class CrearProducto : AppCompatActivity() {
                 createProductUiState = createProductUiState.copy(
                     currentStep = CreateProductStep.PRODUCTO,
                     errors = createProductUiState.errors + (
-                        "name" to "Ya existe un producto con este nombre."
-                    )
+                            "name" to "Ya existe un producto con este nombre."
+                            )
                 )
             },
             onContinuar = {
@@ -2300,31 +2506,41 @@ class CrearProducto : AppCompatActivity() {
         val presentacionesPath = "${DbPaths.INVENTARIO_PRODUCTO_PRESENTACIONES}/${producto.indice}"
         val lotesPath = "${DbPaths.INVENTARIO_PRODUCTO_LOTES}/${producto.indice}"
         val fichaPath = "${DbPaths.INVENTARIO_FICHA_TECNICA}/${producto.indice}"
-        
+
         updates[presentacionesPath] = relacionesPresentacionesParaFirebase(producto)
         updates[lotesPath] = relacionesLotesParaFirebase(producto)
         updates[fichaPath] = fichaTecnicaParaFirebase(producto)
 
         // V22.0: Generar Índices de Búsqueda Inversa (ElasticSearch style)
-        val searchIndices = com.app.administradorfarmadon.ActivityFragmentos.Fragmentos.logicainventario.BuscadorIndicesManager.prepararIndicesParaFirebase(producto)
+        val searchIndices =
+            com.app.administradorfarmadon.ActivityFragmentos.Fragmentos.logicainventario.BuscadorIndicesManager.prepararIndicesParaFirebase(
+                producto
+            )
         updates.putAll(searchIndices)
 
         // V23.0: Actualización de Contadores de Resumen (Atómica)
-        val estadoVencimiento = com.app.administradorfarmadon.ActivityInventario.ProductUtils.obtenerEstadoVencimiento(producto)
+        val estadoVencimiento =
+            com.app.administradorfarmadon.ActivityInventario.ProductUtils.obtenerEstadoVencimiento(
+                producto
+            )
         if (estadoVencimiento == "VENCIDO") {
-            updates["Inventario/Resumen/conteoVencidos"] = com.google.firebase.database.ServerValue.increment(1)
+            updates["Inventario/Resumen/conteoVencidos"] =
+                com.google.firebase.database.ServerValue.increment(1)
         } else if (estadoVencimiento == "POR_VENCER") {
-            updates["Inventario/Resumen/conteoPorVencer"] = com.google.firebase.database.ServerValue.increment(1)
+            updates["Inventario/Resumen/conteoPorVencer"] =
+                com.google.firebase.database.ServerValue.increment(1)
         }
 
         val current = producto.stockFisicoBase()
         val min = producto.stockMinimoBase()
         if (current < min && min > 0) {
-            updates["Inventario/Resumen/conteoStockBajo"] = com.google.firebase.database.ServerValue.increment(1)
+            updates["Inventario/Resumen/conteoStockBajo"] =
+                com.google.firebase.database.ServerValue.increment(1)
         }
 
         if (!producto.tieneCodigoBarra && producto.codigo.isBlank()) {
-            updates["Inventario/Resumen/conteoSinCodigo"] = com.google.firebase.database.ServerValue.increment(1)
+            updates["Inventario/Resumen/conteoSinCodigo"] =
+                com.google.firebase.database.ServerValue.increment(1)
         }
 
         // Indexar categoría si es nueva
@@ -2358,21 +2574,26 @@ class CrearProducto : AppCompatActivity() {
 
                 // V26.1: Generar el primer registro del Kardex (Entrada Inicial)
                 val movId = UUID.randomUUID().toString()
-                val primerMovimiento = com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario(
-                    id = movId,
-                    productoId = producto.indice,
-                    loteId = loteId,
-                    numeroLote = numLote,
-                    tipo = "COMPRA",
-                    cantidad = lote.cantidad,
-                    stockAnterior = 0.0,
-                    stockResultante = lote.cantidad,
-                    referencia = if (producto.proveedorNombre.isNotBlank()) "Compra - ${producto.proveedorNombre}" else "Registro Inicial / Compra",
-                    fecha = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(java.util.Date()),
-                    usuarioNombre = com.app.administradorfarmadon.ClasesDatabase.SessionManager.nombreCajera,
-                    unidadVisual = producto.unidadVisualInventario
-                )
-                updates["${DbPaths.INVENTARIO_MOVIMIENTOS}/${producto.indice}/$movId"] = primerMovimiento
+                val primerMovimiento =
+                    com.app.administradorfarmadon.ActivityInventario.ClasesProductos.MovimientoInventario(
+                        id = movId,
+                        productoId = producto.indice,
+                        loteId = loteId,
+                        numeroLote = numLote,
+                        tipo = "COMPRA",
+                        cantidad = lote.cantidad,
+                        stockAnterior = 0.0,
+                        stockResultante = lote.cantidad,
+                        referencia = if (producto.proveedorNombre.isNotBlank()) "Compra - ${producto.proveedorNombre}" else "Registro Inicial / Compra",
+                        fecha = java.text.SimpleDateFormat(
+                            "yyyy-MM-dd HH:mm:ss",
+                            Locale.getDefault()
+                        ).format(java.util.Date()),
+                        usuarioNombre = com.app.administradorfarmadon.ClasesDatabase.SessionManager.nombreCajera,
+                        unidadVisual = producto.unidadVisualInventario
+                    )
+                updates["${DbPaths.INVENTARIO_MOVIMIENTOS}/${producto.indice}/$movId"] =
+                    primerMovimiento
 
                 // V27.1: Registro del Movimiento Financiero (Crédito o Contado)
                 val ctaId = UUID.randomUUID().toString()
@@ -2384,7 +2605,8 @@ class CrearProducto : AppCompatActivity() {
                     "totalAPagar" to (producto.preciodecompra.toDoubleOrNull() ?: 0.0),
                     "condicion" to lote.condicionPago,
                     "estadoPago" to if (lote.condicionPago == "CREDITO") "PENDIENTE" else "PAGADO",
-                    "fechaCompra" to java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(java.util.Date()),
+                    "fechaCompra" to java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        .format(java.util.Date()),
                     "fechaVencimientoPago" to (if (lote.condicionPago == "CREDITO") lote.fechaVencimientoPago else lote.fecha),
                     "productoId" to producto.indice,
                     "productoNombre" to producto.nombre,
@@ -2392,12 +2614,12 @@ class CrearProducto : AppCompatActivity() {
                     "unidadVisual" to producto.unidadVisualInventario,
                     "fotoFactura" to createProductUiState.invoiceImageBase64
                 )
-                
+
                 // Si es crédito, va a CuentasPorPagar para seguimiento de deuda
                 if (lote.condicionPago == "CREDITO") {
                     updates["${DbPaths.INVENTARIO_CUENTAS_POR_PAGAR}/$ctaId"] = datosPago
                 }
-                
+
                 // Siempre va al historial general de pagos a proveedores (Tener esa info siempre)
                 updates["${DbPaths.INVENTARIO_PAGOS_PROVEEDORES}/$ctaId"] = datosPago
             }
@@ -2459,7 +2681,11 @@ class CrearProducto : AppCompatActivity() {
     private fun parseComposeNumber(value: String): Double {
         return value
             .trim()
-            .replace(com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo, "", ignoreCase = true)
+            .replace(
+                com.app.administradorfarmadon.ClasesDatabase.SessionManager.monedaSimbolo,
+                "",
+                ignoreCase = true
+            )
             .replace(",", ".")
             .toDoubleOrNull()
             ?: 0.0
@@ -2669,6 +2895,91 @@ class CrearProducto : AppCompatActivity() {
             "PAGADO"
         }
 
+        // V31.97: Cálculo de auditoría con filtro anti-dosis farmacológica.
+        // Nunca auditar mg/mcg/UI/% como contenido físico inventariable.
+        val aiResult = state.barcodeAiResult
+
+        val safeAiValue =
+            com.app.administradorfarmadon.ActivityInventario.ui.safeInventoryContentValue(
+                productName = state.name,
+                controlType = controlType,
+                value = aiResult?.sugerenciaContenidoValor,
+                unit = aiResult?.sugerenciaContenidoUnidad
+            )
+
+        val safeAiUnit =
+            com.app.administradorfarmadon.ActivityInventario.ui.safeInventoryContentUnit(
+                productName = state.name,
+                controlType = controlType,
+                value = aiResult?.sugerenciaContenidoValor,
+                unit = aiResult?.sugerenciaContenidoUnidad
+            )
+
+        val shouldUseAiInventoryContent =
+            state.barcodeAiApplied &&
+                    safeAiValue.isNotBlank() &&
+                    safeAiUnit.isNotBlank()
+
+        val iaMultiplier =
+            if (shouldUseAiInventoryContent) {
+                com.app.administradorfarmadon.ActivityInventario.ui.parseAiMultiplier(
+                    aiResult?.sugerenciaMultiplicador
+                )
+            } else {
+                1.0
+            }
+
+        val iaContent =
+            if (shouldUseAiInventoryContent) {
+                com.app.administradorfarmadon.ActivityInventario.ui.parseAiContent(
+                    safeAiValue
+                )
+            } else {
+                0.0
+            }
+
+        val iaUnitClean =
+            if (shouldUseAiInventoryContent) {
+                safeAiUnit.trim()
+                    .lowercase(Locale.getDefault())
+                    .replace(".", "")
+            } else {
+                ""
+            }
+
+        val iaContentBase = when {
+            controlType == CreateProductControlType.PESO &&
+                    iaUnitClean in setOf("kg", "kilo", "kilos", "kilogramo", "kilogramos") -> {
+                iaContent * 1000.0
+            }
+
+            controlType == CreateProductControlType.LIQUIDO &&
+                    iaUnitClean in setOf("l", "lt", "lts", "litro", "litros") -> {
+                iaContent * 1000.0
+            }
+
+            else -> iaContent
+        }
+
+        val iaTotalExpected = iaMultiplier * iaContentBase
+        val currentTotal = stockDisponibleBase
+
+        val remainder = if (iaTotalExpected > 0) currentTotal % iaTotalExpected else 0.0
+
+        val isExactMultiple =
+            iaTotalExpected > 0 &&
+                    currentTotal > 0 &&
+                    (
+                            kotlin.math.abs(remainder) <= 0.1 ||
+                                    kotlin.math.abs(remainder - iaTotalExpected) <= 0.1
+                            )
+
+        val hasMismatch =
+            shouldUseAiInventoryContent &&
+                    iaTotalExpected > 0 &&
+                    currentTotal > 0 &&
+                    !isExactMultiple
+
         val primerLote = LoteProducto(
             numero = numeroLote,
             vencimiento = state.expirationDate.trim(),
@@ -2681,7 +2992,14 @@ class CrearProducto : AppCompatActivity() {
             nroFactura = facturaGuardar,
             condicionPago = condicionPagoGuardar,
             fechaVencimientoPago = fechaPagoGuardar,
-            estadoPago = estadoPagoGuardar
+            estadoPago = estadoPagoGuardar,
+
+            // Auditoría
+            reconciliationSource = if (shouldUseAiInventoryContent) "BARCODE_AI" else "",
+            reconciliationExpectedTotal = iaTotalExpected,
+            reconciliationEnteredTotal = currentTotal,
+            reconciliationHasMismatch = hasMismatch,
+            reconciliationReason = if (hasMismatch) state.mismatchReason else null
         )
 
         val codigoBarra = state.barcode.trim()
@@ -2776,20 +3094,30 @@ class CrearProducto : AppCompatActivity() {
 
     private fun fichaTecnicaParaFirebase(producto: MoldeProductos): Map<String, Any?> {
         val data = linkedMapOf<String, Any?>()
-        
-        if (producto.referenceUseCases.isNotEmpty()) data["referenceUseCases"] = producto.referenceUseCases
-        if (producto.referenceHowToUse.isNotBlank()) data["referenceHowToUse"] = producto.referenceHowToUse
-        if (producto.referenceWarnings.isNotEmpty()) data["referenceWarnings"] = producto.referenceWarnings
-        
-        if (producto.referenceCommonUse.isNotBlank()) data["referenceCommonUse"] = producto.referenceCommonUse
-        if (producto.referenceNotRecommendedFor.isNotEmpty()) data["referenceNotRecommendedFor"] = producto.referenceNotRecommendedFor
-        if (producto.referenceKeywords.isNotEmpty()) data["referenceKeywords"] = producto.referenceKeywords
-        
-        if (producto.referenceSourceName.isNotBlank()) data["referenceSourceName"] = producto.referenceSourceName
-        if (producto.referenceSourceUrl.isNotBlank()) data["referenceSourceUrl"] = producto.referenceSourceUrl
-        
-        if (producto.referenceConfidence > 0.0) data["referenceConfidence"] = producto.referenceConfidence
-        if (producto.referenceLanguage.isNotBlank()) data["referenceLanguage"] = producto.referenceLanguage
+
+        if (producto.referenceUseCases.isNotEmpty()) data["referenceUseCases"] =
+            producto.referenceUseCases
+        if (producto.referenceHowToUse.isNotBlank()) data["referenceHowToUse"] =
+            producto.referenceHowToUse
+        if (producto.referenceWarnings.isNotEmpty()) data["referenceWarnings"] =
+            producto.referenceWarnings
+
+        if (producto.referenceCommonUse.isNotBlank()) data["referenceCommonUse"] =
+            producto.referenceCommonUse
+        if (producto.referenceNotRecommendedFor.isNotEmpty()) data["referenceNotRecommendedFor"] =
+            producto.referenceNotRecommendedFor
+        if (producto.referenceKeywords.isNotEmpty()) data["referenceKeywords"] =
+            producto.referenceKeywords
+
+        if (producto.referenceSourceName.isNotBlank()) data["referenceSourceName"] =
+            producto.referenceSourceName
+        if (producto.referenceSourceUrl.isNotBlank()) data["referenceSourceUrl"] =
+            producto.referenceSourceUrl
+
+        if (producto.referenceConfidence > 0.0) data["referenceConfidence"] =
+            producto.referenceConfidence
+        if (producto.referenceLanguage.isNotBlank()) data["referenceLanguage"] =
+            producto.referenceLanguage
 
         return data
     }
@@ -2853,6 +3181,13 @@ class CrearProducto : AppCompatActivity() {
         putText("fechaVencimientoPago", lote.fechaVencimientoPago)
         putText("estadoPago", lote.estadoPago)
 
+        // V31.9: Auditoría de Conciliación
+        putText("reconciliationSource", lote.reconciliationSource)
+        putNumber("reconciliationExpectedTotal", lote.reconciliationExpectedTotal)
+        putNumber("reconciliationEnteredTotal", lote.reconciliationEnteredTotal)
+        data["reconciliationHasMismatch"] = lote.reconciliationHasMismatch
+        putText("reconciliationReason", lote.reconciliationReason.orEmpty())
+
         return data
     }
 
@@ -2885,6 +3220,7 @@ class CrearProducto : AppCompatActivity() {
         val rawBase = when (state.stockEntryMode) {
             CreateProductStockEntryMode.UNIDAD,
             CreateProductStockEntryMode.CAJA -> parseComposeNumber(state.unitsPerItemText)
+
             CreateProductStockEntryMode.CAJA_CON_PAQUETES -> parseComposeNumber(state.unitsPerPackageText)
             null -> 0.0
         }
@@ -2948,12 +3284,14 @@ class CrearProducto : AppCompatActivity() {
         val precioPrincipal = producto.presentaciones.firstOrNull { presentacion ->
             presentacion.nombre.equals(producto.presentacionprincipal, ignoreCase = true)
         }?.precioventa ?: producto.presentaciones.firstOrNull()?.precioventa ?: 0.0
-        
+
         // V21.9: Resumen de stock escalado profesional (kg/L)
-        val factor = if (producto.unidadVisualInventario == "kg" || producto.unidadVisualInventario == "L") 1000.0 else 1.0
+        val factor =
+            if (producto.unidadVisualInventario == "kg" || producto.unidadVisualInventario == "L") 1000.0 else 1.0
         val baseCant = producto.cantidadinicial.toDoubleOrNull() ?: 0.0
         val visualCant = baseCant / factor
-        val stockTexto = "${formatearCantidadCompose(visualCant)} ${producto.unidadVisualInventario}"
+        val stockTexto =
+            "${formatearCantidadCompose(visualCant)} ${producto.unidadVisualInventario}"
 
         val loteInicial = producto.lotes.values.firstOrNull()
 
@@ -2993,9 +3331,9 @@ class CrearProducto : AppCompatActivity() {
         if (indice.isBlank()) return
 
         startActivity(
-            android.content.Intent(this, EditarProductodelInventario::class.java).apply {
+            android.content.Intent(this, com.app.administradorfarmadon.ActivityInventario.agregarstock.AgregarStockProductoActivity::class.java).apply {
                 putExtra("indice", indice)
-                putExtra("auto_ingreso_stock", true)
+                putExtra("origen", "CREATE_PRODUCT_DUPLICATE")
             }
         )
     }
@@ -3038,8 +3376,6 @@ class CrearProducto : AppCompatActivity() {
     }
 
 
-
-
     private fun obtenerCategoriasDeProductos() {
         crearProductoViewModel.obtenerCategorias()
     }
@@ -3049,17 +3385,9 @@ class CrearProducto : AppCompatActivity() {
     }
 
 
-
-
-
     // ---------------------------------------------------------------------------------------------
     // SUGERENCIAS GLOBALES
     // ---------------------------------------------------------------------------------------------
-
-
-
-
-
 
 
     private fun aplicarDestelloRojoDesvanecido(view: View) {
@@ -3126,7 +3454,10 @@ class CrearProducto : AppCompatActivity() {
             // Ícono central con sutil pulso
             val scale by infiniteTransition.animateFloat(
                 initialValue = 1f, targetValue = 1.2f,
-                animationSpec = infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale"
+                animationSpec = infiniteRepeatable(
+                    tween(1000, easing = FastOutSlowInEasing),
+                    RepeatMode.Reverse
+                ), label = "scale"
             )
 
             Box(
@@ -3137,7 +3468,9 @@ class CrearProducto : AppCompatActivity() {
                     imageVector = Icons.Outlined.CheckCircle,
                     contentDescription = null,
                     tint = ComposeColor.White,
-                    modifier = Modifier.size(150.dp).graphicsLayer(scaleX = scale, scaleY = scale)
+                    modifier = Modifier
+                        .size(150.dp)
+                        .graphicsLayer(scaleX = scale, scaleY = scale)
                 )
             }
         }
@@ -3198,14 +3531,14 @@ class CrearProducto : AppCompatActivity() {
     }
 
 
-
-
-
-
-
 }
 
-data class CategoriaProductos(val id: String="",val nombre: String="",var indice: String? = null,var color: String? = null)
+data class CategoriaProductos(
+    val id: String = "",
+    val nombre: String = "",
+    var indice: String? = null,
+    var color: String? = null
+)
 
 data class NombreProductos(
     val id: String = "",

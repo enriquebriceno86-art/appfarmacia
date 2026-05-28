@@ -13,6 +13,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.text.Normalizer
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -500,6 +501,7 @@ IMPORTANTE:
             }
             parsed
         }.onFailure {
+            if (it is CancellationException) throw it
             Log.e("ImageAI", "Error identificando producto por imagen con Gemini Vision", it)
         }.getOrNull()
     }
@@ -542,17 +544,52 @@ IMPORTANTE:
 
         if (resultados.isEmpty()) return null
 
-        val result = interpretarResultadosDuckConGemini(
-            barcode = cleanBarcode,
-            resultados = resultados,
-            categoriasExistentes = categoriasExistentes
-        )
-
-        if (result != null) {
-            barcodeResultMemoryCache[cleanBarcode] = result
+        val resultFromAi = runCatching {
+            interpretarResultadosDuckConGemini(
+                barcode = cleanBarcode,
+                resultados = resultados,
+                categoriasExistentes = categoriasExistentes
+            )
+        }.getOrElse {
+            if (it is CancellationException) throw it
+            null
         }
 
-        return result
+        if (resultFromAi != null) {
+            barcodeResultMemoryCache[cleanBarcode] = resultFromAi
+            return resultFromAi
+        }
+
+        // V20.5: Si Gemini falla o no responde, devolvemos provisional pero NO guardamos en caché
+        // para permitir reintentos con IA en el futuro si la red mejora.
+        return generarResultadoProvisional(cleanBarcode, resultados)
+    }
+
+    private fun generarResultadoProvisional(
+        barcode: String,
+        resultados: List<DuckBarcodeSearchItem>
+    ): BarcodeAiResult {
+        val primerResultado = resultados.firstOrNull()
+        val nombreLimpio = primerResultado?.title?.substringBefore("|")?.trim() ?: "Producto Desconocido"
+
+        return BarcodeAiResult(
+            estado = "IDENTIFICADO",
+            codigo = barcode,
+            nombre = nombreLimpio,
+            categoria = "Por confirmar",
+            tipoControl = "DESCONOCIDO",
+            requiereReceta = false,
+            razon = "Resultado provisional basado en coincidencias web. Revisa y confirma antes de aplicar.",
+            presentacionVentaDefault = "Envase",
+            ventaFraccionadaPermitida = false,
+            confianzaPresentacion = 0,
+            razonPresentacion = "Extraído directamente del primer resultado web sin procesar por IA.",
+            presentacionesVentaSugeridasTexto = "Envase=1 unidades(0)",
+            confianzaPresentacionesVenta = 0,
+            razonPresentacionesVenta = "",
+            sugerenciaContenidoValor = null,
+            sugerenciaContenidoUnidad = null
+        )
     }
 
     private data class BarcodeWebCompactResult(
@@ -562,7 +599,10 @@ IMPORTANTE:
         val tipoControl: String = "DESCONOCIDO",
         val empaque: String = "",
         val contenidoNeto: String = "",
-        val presentacionVenta: String = ""
+        val presentacionVenta: String = "",
+        val valorIndividual: Double? = null,
+        val unidadMedida: String? = null,
+        val multiplicador: Int? = null
     )
 
     private suspend fun interpretarResultadosDuckConGemini(
@@ -587,23 +627,19 @@ IMPORTANTE:
         }
 
         val prompt = """
-            Ordena estos resultados web en un producto de inventario.
-
-            Código: "$barcode"
+            Actúa como un experto en inventario de Retail y Farmacia. 
+            Analiza estos resultados web para el código: "$barcode"
 
             Resultados:
             $resultadosTexto
 
-            Reglas:
-            - No inventes datos.
-            - Usa el nombre con mayor consenso.
-            - Corrige errores ortográficos evidentes usando los otros resultados.
-            - No agregues palabras que solo aparezcan en una fuente.
-            - Si no hay producto claro, estado = "NO_IDENTIFICADO".
-            - contenidoNeto es peso/volumen si aparece: ejemplo "380 g", "500 mL".
-            - empaque es solo tipo de envase. Si no está claro, usa "Envase".
-            - presentacionVenta debe ser: empaque=contenidoNeto. Ejemplo: "Envase=380 g".
-            - Si no hay contenido neto, usa: "Envase=1 unidades".
+            REGLAS CRÍTICAS PARA PRECISIÓN DEL 90%:
+            1. IDENTIDAD: Usa el nombre con mayor consenso. Corrige errores ortográficos.
+            2. TALLAS (MINIMARKET): "G", "S", "M" solas son tallas de pañales/ropa. IGNÓRALAS para peso. Solo acepta "g" o "gr" si hay un número pegado.
+            3. FARMACIA: En concentraciones tipo "250mg/5ml", el contenido es el VOLUMEN TOTAL del frasco (ej: 60ml, 120ml). Los "mg" son concentración, NO contenido de inventario. Si no ves el volumen total, deja valorIndividual en null.
+            4. PACKS: En "Pack 2 x 500ml", multiplicador=2, valorIndividual=500, unidadMedida=mL. Siempre busca el contenido de UNA sola unidad.
+            5. PRECIOS: Ignora números que parezcan precios (ej. 45.00, 12.50) o que tengan símbolos de moneda.
+            6. NORMALIZACIÓN: Unidades permitidas: [g, kg, mL, L, unidades].
 
             Categorías sugeridas:
             $categoriasTexto
@@ -614,9 +650,12 @@ IMPORTANTE:
               "nombre": "",
               "categoria": "",
               "tipoControl": "UNIDAD" | "PESO" | "LIQUIDO" | "DESCONOCIDO",
-              "empaque": "",
-              "contenidoNeto": "",
-              "presentacionVenta": ""
+              "empaque": "Envase|Frasco|Caja...",
+              "contenidoNeto": "ej: 500 mL",
+              "presentacionVenta": "empaque=contenidoNeto",
+              "valorIndividual": 500.0,
+              "unidadMedida": "g|kg|mL|L|unidades",
+              "multiplicador": 1
             }
         """.trimIndent()
 
@@ -648,34 +687,28 @@ IMPORTANTE:
                 ?.firstOrNull()
                 ?.text
                 ?.extractJsonObject()
-                ?: return null
+                ?: return@runCatching null
 
             Log.d("BarcodeDuckSearch", "Gemini interpreted Duck results: $content")
 
             val compact = moshi.adapter(BarcodeWebCompactResult::class.java)
                 .lenient()
                 .fromJson(content)
-                ?: return null
+                ?: return@runCatching null
 
             if (compact.estado != "IDENTIFICADO" || compact.nombre.isBlank()) {
-                return null
+                return@runCatching null
             }
 
-            // V31.0: Extracción de valor y unidad para el Paso 2
-            // Buscamos un patrón de número seguido de unidad (g, kg, mL, L, unidades)
-            val regex = Regex("""(\d+[.,]?\d*)\s*([a-zA-ZáéíóúÁÉÍÓÚ]+)""")
-            val match = regex.find(compact.contenidoNeto)
-            val suggestedValue = match?.groupValues?.get(1)?.replace(",", ".")
-            val rawUnit = match?.groupValues?.get(2)?.lowercase()
-            val suggestedUnit = when {
-                rawUnit == null -> null
-                rawUnit.contains("unid") -> "unidades"
-                rawUnit == "gr" || rawUnit == "grs" || rawUnit == "g" -> "g"
-                rawUnit == "kg" || rawUnit == "kilos" -> "kg"
-                rawUnit == "ml" || rawUnit == "mililitros" -> "mL"
-                rawUnit == "l" || rawUnit == "litros" -> "L"
-                else -> rawUnit
+            // V31.8: Extracción con Heurística de Retail Blindada (90% Precisión)
+            // Ya no usamos Regex ciegas en Kotlin. Confiamos en la interpretación semántica de Gemini
+            // que ahora separa Valor, Unidad y Multiplicador basándose en las Reglas de Oro de Retail.
+            
+            val suggestedValue = compact.valorIndividual?.let {
+                if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
             }
+            val suggestedUnit = compact.unidadMedida
+            val suggestedMultiplier = compact.multiplicador?.toString()
 
             BarcodeAiResult(
                 estado = "IDENTIFICADO",
@@ -699,9 +732,11 @@ IMPORTANTE:
                 confianzaPresentacionesVenta = 100,
                 razonPresentacionesVenta = "",
                 sugerenciaContenidoValor = suggestedValue,
-                sugerenciaContenidoUnidad = suggestedUnit
+                sugerenciaContenidoUnidad = suggestedUnit,
+                sugerenciaMultiplicador = suggestedMultiplier
             )
         }.onFailure {
+            if (it is CancellationException) throw it
             Log.e("BarcodeDuckSearch", "Error interpretando resultados DuckDuckGo con Gemini", it)
         }.getOrNull()
     }

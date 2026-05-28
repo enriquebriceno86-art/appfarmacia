@@ -56,6 +56,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.animation)
+    implementation(libs.androidx.material3)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Importa el BoM primero (esto es obligatorio)
     implementation(platform(libs.firebase.bom))

@@ -132,6 +132,12 @@ data class MoldeProductos(
     var lotes: Map<String, LoteProducto> = emptyMap()
 )
 
+val MoldeProductos.precioDeCompraDouble: Double
+    get() = preciodecompra.toDoubleOrNull() ?: 0.0
+
+val MoldeProductos.stockMinimoDouble: Double
+    get() = stockminimo.toDoubleOrNull() ?: 0.0
+
 fun MoldeProductos.stockFisicoBase(): Double {
     if (lotes.isEmpty()) {
         return cantidadinicial.toDoubleOrNull() ?: 0.0

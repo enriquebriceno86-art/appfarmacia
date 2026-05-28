@@ -25,7 +25,8 @@ data class BarcodeAiResult(
 
     // V31.0: Mapeo de contenido para el Paso 2
     val sugerenciaContenidoValor: String? = null,
-    val sugerenciaContenidoUnidad: String? = null
+    val sugerenciaContenidoUnidad: String? = null,
+    val sugerenciaMultiplicador: String? = null // V31.8: Detecta packs/unidades (ej: Pack de 6 -> "6")
 )
 
 /**
@@ -268,6 +269,7 @@ data class CategorySuggestionUiState(
     // V18.8: Validación de Integridad
     val barcodeMismatchDetected: Boolean = false,
     val barcodeMismatchOriginalName: String? = null,
+    val barcodeAiAppliedState: Boolean = true, // V31.5: Controla el blindaje de IA ante cambios drásticos de nombre
 
     // V20.0: Información útil del producto
     val infoUsoProducto: UsageInfoAiResult? = null,

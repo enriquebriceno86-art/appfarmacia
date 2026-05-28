@@ -639,7 +639,7 @@ class CategorySuggestionViewModel : ViewModel() {
             latestBarcodeKey == normalizedBarcode &&
             (
                     current.estaIdentificandoBarcode ||
-                            current.barcodeAiResult?.codigo == normalizedBarcode
+                            (current.barcodeAiResult?.codigo == normalizedBarcode && current.barcodeAiResult.estado != "NO_IDENTIFICADO")
                     )
         ) {
             return
@@ -820,44 +820,91 @@ class CategorySuggestionViewModel : ViewModel() {
             return
         }
 
+        // V31.5: Si el nombre cambió drásticamente y no hay match, desactivamos 'barcodeAiAppliedState'.
+        // Esto rompe el "blindaje" en CrearProducto.kt y permite que el inventario se limpie
+        // si el usuario decide cambiar el tipo de control del nuevo producto manual.
         _state.value = _state.value.copy(
             barcodeMismatchDetected = true,
-            barcodeMismatchOriginalName = resultIA.nombre
+            barcodeMismatchOriginalName = resultIA.nombre,
+            barcodeAiAppliedState = false
         )
     }
 
     fun limpiarConflictoBarcode() {
         val current = _state.value
-        if (!current.barcodeMismatchDetected && current.barcodeMismatchOriginalName == null) return
+        if (!current.barcodeMismatchDetected && current.barcodeMismatchOriginalName == null && current.barcodeAiAppliedState) return
 
         _state.value = current.copy(
             barcodeMismatchDetected = false,
-            barcodeMismatchOriginalName = null
+            barcodeMismatchOriginalName = null,
+            barcodeAiAppliedState = true
         )
     }
 
     /**
      * V20.0: Busca información de uso del producto.
      */
-    fun buscarInfoUsoProducto(nombre: String) {
-        val key = nombre.trim().lowercase()
+    fun buscarInfoUsoProducto(nombre: String, categoria: String = "") {
+        val key = "${nombre.trim().lowercase()}|${categoria.trim().lowercase()}"
         if (key == latestUsageInfoKey || nombre.isBlank()) return
-        
+
         jobUsageInfo?.cancel()
         latestUsageInfoKey = key
-        
+
+        val catClean = categoria.trim().lowercase()
+        val nonMedicalCategories = listOf(
+            "bebida", "bebidas",
+            "snack", "snacks",
+            "golosina", "golosinas",
+            "alimento", "alimentos",
+            "limpieza",
+            "aseo",
+            "higiene",
+            "refresco", "refrescos",
+            "gaseosa", "gaseosas",
+            "galleta", "galletas",
+            "helado", "helados",
+            "cuidado personal",
+            "cosmetico", "cosmético",
+            "maquillaje",
+            "accesorio",
+            "despensa",
+            "licor",
+            "cerveza",
+            "jugo", "jugos",
+            "agua",
+            "papeleria", "papelería"
+        )
+
+        if (nonMedicalCategories.any { catClean.contains(it) }) {
+            _state.update {
+                it.copy(
+                    estaCargandoInfoUso = false,
+                    infoUsoProducto = null
+                )
+            }
+            return
+        }
+
         jobUsageInfo = viewModelScope.launch(Dispatchers.IO) {
             try {
                 _state.update { it.copy(estaCargandoInfoUso = true) }
+
                 val result = CategorySuggestionRepository.obtenerInformacionUsoProducto(nombre)
-                _state.update { 
+
+                _state.update {
                     it.copy(
                         estaCargandoInfoUso = false,
                         infoUsoProducto = result
-                    ) 
+                    )
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(estaCargandoInfoUso = false) }
+                _state.update {
+                    it.copy(
+                        estaCargandoInfoUso = false,
+                        infoUsoProducto = null
+                    )
+                }
             }
         }
     }
